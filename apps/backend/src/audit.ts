@@ -33,6 +33,10 @@ const ACTION_EMOJI: Record<AdminAction, string> = {
   GRANT_BADGE: '🎖️',
   REMOVE_BADGE: '🚫',
   RESET_OPS_COOLDOWN: '⏱️',
+  SET_SF_ADMIN: '🎮',
+  OPEN_SF_SESSION: '▶️',
+  CLOSE_SF_SESSION: '⏹️',
+  CANCEL_SF_SESSION: '🗑️',
 };
 
 function extractIp(c: Context): string | null {
@@ -89,6 +93,34 @@ export async function notifyClientError(text: string): Promise<void> {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+  });
+}
+
+/**
+ * Notifie Discord qu'une contestation (litige) vient d'être ouverte, en
+ * fire-and-forget. Réutilise le webhook d'audit. Ignoré en staging (canal réel)
+ * et si pas de webhook. RGPD : AUCUNE donnée personnelle (pas de login) — juste
+ * la discipline, le type de contestation et un lien vers la file d'arbitrage.
+ * `kind` distingue une contestation classique (`pending`, match jamais compté)
+ * d'une contestation a posteriori (`auto_validated`, match déjà compté).
+ */
+export async function notifyDiscordDispute(params: {
+  game: string;
+  kind: 'pending' | 'auto_validated';
+  reason?: string;
+}): Promise<void> {
+  if (process.env.APP_ENV === 'staging') return;
+  const url = process.env.DISCORD_AUDIT_WEBHOOK_URL;
+  if (!url) return;
+  const where = params.kind === 'auto_validated' ? ' (match auto-validé)' : '';
+  const reason = params.reason ? ` — motif : ${params.reason}` : '';
+  const content =
+    `⚖️ **Nouvelle contestation** — ${params.game}${where}${reason}. ` +
+    `Litige à arbitrer dans /GOD.`;
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ content: content.slice(0, 1800), allowed_mentions: { parse: [] } }),
   });
 }
 

@@ -8,6 +8,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAuth } from './hooks/useAuth';
 import { LeagueDataProvider, useLeagueData } from './hooks/useLeagueData';
 import { AvatarRingProvider } from './hooks/useAvatarRing';
+import { ProfileFxProvider } from './hooks/useProfileFx';
 import { MatchmakingProvider } from './hooks/useMatchmaking';
 import { LoginPage } from './pages/LoginPage';
 import { AuthReturnPage } from './pages/AuthReturnPage';
@@ -87,6 +88,9 @@ const ShopPage = lazy(() =>
 const ShopGODPage = lazy(() =>
   import('./pages/ShopGODPage').then((m) => ({ default: m.ShopGODPage })),
 );
+const PassePage = lazy(() =>
+  import('./pages/passe').then((m) => ({ default: m.PassePage })),
+);
 const ShopGODUserPage = lazy(() =>
   import('./pages/ShopGODUserPage').then((m) => ({ default: m.ShopGODUserPage })),
 );
@@ -106,6 +110,9 @@ const AboutPage = lazy(() =>
 // Écran TV live (plein écran, hors AppShell : ni nav ni scroll).
 const LiveTournamentPage = lazy(() =>
   import('./pages/LiveTournamentPage').then((m) => ({ default: m.LiveTournamentPage })),
+);
+const SfSessionPage = lazy(() =>
+  import('./pages/SfSessionPage').then((m) => ({ default: m.SfSessionPage })),
 );
 
 export function App() {
@@ -155,6 +162,15 @@ export function App() {
             />
           )}
           <Route path="/login" element={authenticated ? <Navigate to="/challenges" replace /> : <LoginPage />} />
+          {/* Page session SF — plein écran, publique (pas d'auth requise). */}
+          <Route
+            path="/sf-session"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <SfSessionPage />
+              </Suspense>
+            }
+          />
           {/* Écran TV live — plein écran, hors AppShell. Authentifié (la TV est connectée). */}
           <Route
             path="/live-tournament/:id?"
@@ -230,6 +246,7 @@ function AuthenticatedShell({ onReady }: { onReady?: () => void }) {
 
   return (
     <AvatarRingProvider>
+    <ProfileFxProvider>
     <MatchmakingProvider>
       <AnalyticsTracker />
       <AppShell>
@@ -259,6 +276,7 @@ function AuthenticatedShell({ onReady }: { onReady?: () => void }) {
               <Route path="/teams" element={<TeamsPage />} />
                 <Route path="/h2h" element={<H2HPage />} />
                 <Route path="/shop" element={<ShopPage />} />
+                <Route path="/passe" element={<PassePage />} />
                 <Route path="/shop-god" element={<ShopGODPage />} />
                 <Route path="/shop-god/players" element={<ShopGODPlayersPage />} />
                 <Route path="/shop-god/u/:login" element={<ShopGODUserPage />} />
@@ -277,6 +295,7 @@ function AuthenticatedShell({ onReady }: { onReady?: () => void }) {
         <Toast />
       </AppShell>
     </MatchmakingProvider>
+    </ProfileFxProvider>
     </AvatarRingProvider>
   );
 }

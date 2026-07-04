@@ -1,28 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AbacusSlider } from '../../../components/AbacusSlider';
 import { OutcomeButton } from '../../../components/OutcomeButton';
 import { Button } from '../../../components/Button';
-import { SmashCharIcon } from '../../../components/SmashCharIcon';
-import { SfCharIcon } from '../../../components/SfCharIcon';
 import { api, type LeaderboardEntry, type Game } from '../../../lib/api';
 import { trackEvent } from '../../../lib/analytics';
 import { useFlash } from '../../../hooks/useFlash';
 import { useGameMode } from '../../../hooks/useGameMode';
 import { useLeagueData } from '../../../hooks/useLeagueData';
 import { useT } from '../../../lib/i18n';
-import { SMASH_ROSTER } from '../../../lib/smash';
-import { SF_ROSTER } from '../../../lib/sf';
 import { haptic } from '../../../mobile/feedback/useHaptic';
 import { PlayerSearch } from './PlayerSearch';
-import { mostPlayedChars } from '../../../lib/chars';
-import { CharPicker, PerGameCharsEditor, type PerGameChars } from './CharPicker';
+import { SmashSetEditor, type SmashSetValue } from './SmashSetEditor';
 
 export const WINNING_SCORE = 10;
 export const LOSER_SCORE_MIN = -10;
 export const LOSER_SCORE_MAX = WINNING_SCORE - 1;
-
-const smashTargetOf = (bestOf: number) => Math.ceil(bestOf / 2);
 
 const SEND_AWAY_ANIM_MS = 140;
 
@@ -62,7 +55,7 @@ export function DeclareGameFlow({
 }: DeclareGameFlowProps) {
   const flash = useFlash();
   const t = useT();
-  const { me, matches } = useLeagueData();
+  const { me } = useLeagueData();
   const { game: globalGame } = useGameMode();
   const game = gameOverride ?? globalGame;
   const isSmash = game === 'smash';
@@ -73,8 +66,6 @@ export function DeclareGameFlow({
   const myFavorites = favOf(me?.user);
   // Street Fighter == Smash pour la saisie (set Bo3/Bo5 + 2 persos), mais sans stocks.
   const isSetGame = isSmash || isSf;
-  const charRoster = isSf ? SF_ROSTER : SMASH_ROSTER;
-  const CharIcon = isSf ? SfCharIcon : SmashCharIcon;
   const isChess = game === 'chess';
   const [opponent, setOpponent] = useState<LeaderboardEntry | null>(null);
   // Issue déclarée : victoire / défaite / nulle (la nulle n'existe qu'aux échecs).
@@ -101,65 +92,34 @@ export function DeclareGameFlow({
   const [loserScore, setLoserScore] = useState(0);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
-  // Smash : format + games du perdant + persos + vies restantes du gagnant.
-  const [bestOf, setBestOf] = useState<3 | 5>(3);
-  const [loserGames, setLoserGames] = useState(0);
-  const [charSelf, setCharSelf] = useState<string | null>(null);
-  const [charOpp, setCharOpp] = useState<string | null>(null);
-  // Persos les plus joués (moi / adversaire) dans ce jeu de combat — remontés en
-  // tête de la grille, en plus des favoris épinglés.
-  const myMostPlayed = useMemo(
-    () => (isSetGame ? mostPlayedChars(matches, myLogin, isSf ? 'streetfighter' : 'smash') : []),
-    [isSetGame, matches, myLogin, isSf],
-  );
-  const oppMostPlayed = useMemo(
-    () => (isSetGame ? mostPlayedChars(matches, opponent?.login, isSf ? 'streetfighter' : 'smash') : []),
-    [isSetGame, matches, opponent?.login, isSf],
-  );
-  const [winnerStocks, setWinnerStocks] = useState(3);
-  // Persos par manche (optionnel) : null = un seul perso pour tout le set.
-  const [perGameChars, setPerGameChars] = useState<PerGameChars | null>(null);
-
-  const target = smashTargetOf(bestOf);
-  // Nombre de manches réellement jouées dans le set (gagnant + perdant).
-  const totalGames = target + loserGames;
+  // Résultat du set Smash / Street Fighter (format + score + persos optionnels),
+  // remonté par SmashSetEditor. `null` tant que le bloc n'est pas monté.
+  const [setValue, setSetValue] = useState<SmashSetValue | null>(null);
 
   const handleOutcome = (o: 'win' | 'loss' | 'draw') => {
     haptic(o === 'win' ? 'success' : o === 'draw' ? 'medium' : 'warning');
     setOutcome(o);
     setLoserScore(0);
-    setLoserGames(0);
   };
-
-  const smashReady = !isSetGame || (!!charSelf && !!charOpp);
 
   const handleSubmit = useCallback(async () => {
     if (!opponent || !hasOutcome) return;
     setBusy(true);
     try {
       if (isSetGame) {
-        if (!charSelf || !charOpp) {
-          flash.show(t('defis.chooseBothChars'), 'error');
+        if (!setValue) {
           setBusy(false);
           setSending(false);
           return;
         }
-        const myGames = iWon ? target : loserGames;
-        const oppGames = iWon ? loserGames : target;
-        // Persos : par défaut un seul perso pour tout le set ; si « par manche » est
-        // actif, on envoie la liste encodée (mario>luigi>…) dans le même champ.
-        const finalSelf = perGameChars ? perGameChars.self || charSelf : charSelf;
-        const finalOpp = perGameChars ? perGameChars.opp || charOpp : charOpp;
         await api.declareMatch({
           opponentLogin: opponent.login,
-          scoreSelf: myGames,
-          scoreOpponent: oppGames,
+          scoreSelf: setValue.scoreSelf,
+          scoreOpponent: setValue.scoreOpponent,
           game: isSf ? 'streetfighter' : 'smash',
-          bestOf,
-          charSelf: finalSelf,
-          charOpponent: finalOpp,
-          // Les stocks (vies) sont spécifiques au Smash ; SF n'en a pas.
-          ...(isSmash ? { stocks: winnerStocks } : {}),
+          bestOf: setValue.bestOf,
+          charSelf: setValue.charSelf,
+          charOpponent: setValue.charOpponent,
         });
       } else if (isChess) {
         // Échecs : victoire 1-0, défaite 0-1, ou nulle 0-0.
@@ -185,7 +145,7 @@ export function DeclareGameFlow({
       setBusy(false);
       setSending(false);
     }
-  }, [opponent, hasOutcome, iWon, isDraw, loserScore, isSetGame, isSmash, isSf, isChess, charSelf, charOpp, perGameChars, target, loserGames, bestOf, winnerStocks, flash, onSubmitted, t]);
+  }, [opponent, hasOutcome, iWon, isDraw, loserScore, isSetGame, isSmash, isSf, isChess, setValue, flash, onSubmitted, t]);
 
   const triggerSend = () => {
     setSending(true);
@@ -363,131 +323,22 @@ export function DeclareGameFlow({
         </div>
       )}
 
-      {/* ─── Variante SET (Smash / Street Fighter) : format, games, persos ──── */}
+      {/* ─── Variante SET (Smash / Street Fighter) : score d'abord, persos optionnels ── */}
       {opponent && hasOutcome && isSetGame && (
         <div className="relative mt-6 animate-slide-down space-y-5">
-          {/* Format */}
-          <div>
-            <label className="block text-[10px] uppercase tracking-wider text-muted font-bold mb-2">{t('defis.format')}</label>
-            <div className="grid grid-cols-2 gap-2">
-              {([3, 5] as const).map((bo) => (
-                <button
-                  key={bo}
-                  type="button"
-                  onClick={() => {
-                    setBestOf(bo);
-                    setLoserGames((g) => Math.min(g, smashTargetOf(bo) - 1));
-                  }}
-                  className={`py-2.5 rounded-xl border-2 text-sm font-extrabold uppercase tracking-wide transition-all ${
-                    bestOf === bo
-                      ? 'border-[#c97bff] bg-[#c97bff]/10 text-[#c97bff]'
-                      : 'border-border bg-bg-2/40 text-muted-2'
-                  }`}
-                >
-                  Bo{bo}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Games du perdant (le gagnant atteint la cible) */}
-          <div>
-            <label className="block text-[10px] uppercase tracking-wider text-muted font-bold mb-2">
-              {t('defis.gamesOf')} {iWon ? opponent.login : (myLogin ?? t('defis.me'))} {t('defis.loserSuffix')} · {t('defis.winnerTarget')} {target}
-            </label>
-            <div className="flex gap-2">
-              {Array.from({ length: target }, (_, g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setLoserGames(g)}
-                  className={`flex-1 py-2 rounded-lg border font-mono font-extrabold tabular-nums transition-all ${
-                    loserGames === g
-                      ? 'border-[#c97bff] bg-[#c97bff]/10 text-[#c97bff]'
-                      : 'border-border bg-bg-2/40 text-muted-2'
-                  }`}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Vies (stocks) restantes du gagnant au game décisif — Smash uniquement */}
-          {isSmash && (
-            <div>
-              <label className="block text-[10px] uppercase tracking-wider text-muted font-bold mb-2">
-                {t('defis.winnerStocks')}
-              </label>
-              <div className="flex gap-2">
-                {[1, 2, 3].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setWinnerStocks(s)}
-                    className={`flex-1 py-2 rounded-lg border font-mono font-extrabold tabular-nums transition-all ${
-                      winnerStocks === s
-                        ? 'border-[#c97bff] bg-[#c97bff]/10 text-[#c97bff]'
-                        : 'border-border bg-bg-2/40 text-muted-2'
-                    }`}
-                  >
-                    {'❤'.repeat(s)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Persos */}
-          <CharPicker
-            label={t('defis.yourChar')}
-            value={charSelf}
-            onChange={setCharSelf}
-            roster={charRoster}
-            Icon={CharIcon}
-            favorites={myFavorites}
-            favoritesLabel={t('favorites.label')}
-            mostPlayed={myMostPlayed}
-          />
-          <CharPicker
-            label={`${t('defis.charOf')} ${opponent.login}`}
-            value={charOpp}
-            onChange={setCharOpp}
-            roster={charRoster}
-            Icon={CharIcon}
-            favorites={favOf(opponent)}
-            favoritesLabel={t('favorites.label')}
-            mostPlayed={oppMostPlayed}
-          />
-
-          {/* Persos par manche (optionnel) — un seul perso par défaut. */}
-          <PerGameCharsEditor
-            totalGames={totalGames}
-            defaultSelf={charSelf}
-            defaultOpp={charOpp}
-            roster={charRoster}
-            Icon={CharIcon}
+          <SmashSetEditor
+            game={isSf ? 'streetfighter' : 'smash'}
+            iWon={iWon}
+            myLogin={myLogin}
+            oppLogin={opponent.login}
             myFavorites={myFavorites}
             oppFavorites={favOf(opponent)}
-            myMostPlayed={myMostPlayed}
-            oppMostPlayed={oppMostPlayed}
-            oppLabel={opponent.login}
-            onChange={setPerGameChars}
+            onChange={setSetValue}
           />
-
-          <div className="px-4 py-3 rounded-xl bg-bg-1/80 border border-border text-center text-sm text-muted-2 leading-relaxed shadow-inner">
-            <span className={`font-extrabold ${iWon ? 'text-teal' : 'text-text-strong'}`}>{winnerLogin}</span>
-            {' '}{t('defis.winsTheSet')}{' '}
-            <span className="font-extrabold text-text-strong font-mono tabular-nums">{target}</span>
-            <span className="text-muted mx-1.5 opacity-50">-</span>
-            <span className="font-extrabold text-text-strong font-mono tabular-nums">{loserGames}</span>
-            {' (Bo'}{bestOf}{')'}
-          </div>
 
           <Button
             size="md"
             loading={busy}
-            disabled={!smashReady}
             onClick={triggerSend}
             className="w-full py-3.5 text-sm font-bold shadow-lg"
           >

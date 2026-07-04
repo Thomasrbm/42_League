@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { Flame, MapPin, Trophy, Zap, Cog } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Flame, MapPin, Trophy, Zap } from 'lucide-react';
 import { Avatar } from '../../../components/Avatar';
+import { HeroCardFrame } from '../../../components/HeroCardFrame';
+import { useProfileFx } from '../../../hooks/useProfileFx';
 import { AnimatedCounter } from '../../../mobile/primitives/AnimatedCounter';
 import { useLeagueData } from '../../../hooks/useLeagueData';
 import { useGameMode } from '../../../hooks/useGameMode';
 import { pickRating } from '../../../lib/gameStats';
+import { StatPlate, type StatPlateTone } from '../../../components/stats/StatPlate';
 import { useT } from '../../../lib/i18n';
 
 /**
@@ -27,7 +30,9 @@ export function HeroPlayerCard() {
   const { game } = useGameMode();
   const user = me?.user;
   const myLogin = me?.login;
-  const reducedMotion = useReducedMotion();
+  // Effet cosmétique du joueur (boost ELO « EN FEU » / Apôtre de Sheldon) — la
+  // carte héro Défis hérite du même habillage que la carte profil.
+  const fx = useProfileFx({ title: user?.title, eloMultUntil: user?.eloMultUntil });
 
   // Toutes les stats sont CLOISONNÉES par discipline :
   // l'ELO affiché, le rang, les victoires et la série correspondent
@@ -75,76 +80,21 @@ export function HeroPlayerCard() {
     : 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      // Sans `gpu` : même raison que ProfileHeroCard — une couche compositeur
-      // permanente sur une carte interactive décale le hit-testing des taps sous
-      // Firefox Android (APZ). Le contenu reste cliquable partout.
-      className="relative overflow-hidden rounded-3xl no-select"
-      style={{
-        background:
-          'linear-gradient(180deg, #2a241c 0%, #1d1914 18%, #15120e 50%, #1d1914 82%, #2a241c 100%)',
-        border: '1px solid rgba(255, 201, 74, 0.4)',
-        boxShadow:
-          'inset 0 1px 0 rgba(255, 215, 120, 0.18), inset 0 -1px 0 rgba(0,0,0,0.5), 0 12px 36px -8px rgba(255, 201, 74, 0.22), 0 0 0 1px rgba(0,0,0,0.5)',
-      }}
+    <HeroCardFrame
+      fx={fx}
+      radius="rounded-3xl"
+      // Sans `gpu` géré par le frame ; ici on garde `no-select` propre à la carte.
+      className="no-select"
+      animateIn
+      // Conic Défis : 40 s, opacité 0.25, flou 50 px, couche compositeur (`gpu`).
+      conic={{ duration: 40 }}
+      // Fin liseré sombre `0 0 0 1px` propre à cette carte (sur l'ombre, effet ou repli).
+      boxShadowSuffix=", 0 0 0 1px rgba(0,0,0,0.5)"
+      // Habillage spécifique Défis : shimmer doré, silhouettes, rouage tournant.
+      shimmer
+      silhouettes
+      cog
     >
-      {/* Couche 0 : tuyaux en laiton en haut et en bas du cartouche */}
-      <div className="absolute top-0 left-3 right-3 h-[2px] brass-pipe rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 left-3 right-3 h-[2px] brass-pipe rounded-full pointer-events-none" />
-
-      {/* Couche 1 : conic gradient lent (effet RPG) */}
-      {!reducedMotion && (
-        <motion.div
-          aria-hidden
-          className="absolute inset-0 opacity-25 pointer-events-none gpu"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 40, ease: 'linear', repeat: Infinity }}
-          style={{
-            background:
-              'conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(255,201,74,0.35) 60deg, transparent 120deg, rgba(192,138,74,0.25) 200deg, transparent 260deg, rgba(255,201,74,0.25) 340deg, transparent 360deg)',
-            filter: 'blur(50px)',
-            willChange: 'transform',
-          }}
-        />
-      )}
-
-      {/* Couche 2 : shimmer doré */}
-      <div aria-hidden className="absolute inset-0 opacity-25 pointer-events-none shimmer" />
-
-      {/* Couche 3 : grille HUD très subtile */}
-      <div aria-hidden className="absolute inset-0 hud-grid opacity-50 pointer-events-none" />
-
-      {/* Couche 4 : silhouettes de personnages décoratives (gauche/droite, très estompées) */}
-      <div aria-hidden className="absolute inset-y-4 left-2 w-20 opacity-[0.06] pointer-events-none flex items-center">
-        <svg viewBox="0 0 80 100" className="w-full h-full text-gold">
-          <ellipse cx="40" cy="22" rx="14" ry="16" fill="currentColor" />
-          <path
-            d="M40 38 C 20 38 14 60 14 78 L 14 98 L 66 98 L 66 78 C 66 60 60 38 40 38 Z"
-            fill="currentColor"
-          />
-        </svg>
-      </div>
-      <div aria-hidden className="absolute inset-y-4 right-2 w-20 opacity-[0.06] pointer-events-none flex items-center">
-        <svg viewBox="0 0 80 100" className="w-full h-full text-gold">
-          <ellipse cx="40" cy="22" rx="14" ry="16" fill="currentColor" />
-          <path
-            d="M40 38 C 20 38 14 60 14 78 L 14 98 L 66 98 L 66 78 C 66 60 60 38 40 38 Z"
-            fill="currentColor"
-          />
-        </svg>
-      </div>
-
-      {/* Cog décoratif en haut à droite */}
-      {!reducedMotion && (
-        <Cog
-          className="absolute top-3 right-3 w-5 h-5 text-gold/45 animate-gear-spin pointer-events-none"
-          strokeWidth={2}
-        />
-      )}
-
       {/* Rank badge en haut à gauche (à l'opposé du cog). Enfant direct de la
           carte — comme le cog — pour que `top/left` soit ancré au coin de la
           carte et non à l'intérieur du conteneur de contenu centré (sinon le
@@ -189,6 +139,8 @@ export function HeroPlayerCard() {
             imageUrl={user.imageUrl}
             size="xl"
             className="relative"
+            // La carte porte déjà l'aura complète → pas de double effet sur la PP.
+            fx={false}
           />
         </div>
 
@@ -259,48 +211,28 @@ export function HeroPlayerCard() {
           </div>
         )}
       </div>
-    </motion.div>
+    </HeroCardFrame>
   );
 }
 
 interface StatBlockProps {
   label: string;
   value: number | string;
-  tone: 'gold' | 'red' | 'fire' | 'muted';
+  tone: Extract<StatPlateTone, 'gold' | 'red' | 'fire' | 'muted'>;
   icon?: React.ReactNode;
 }
 
-const TONE: Record<StatBlockProps['tone'], string> = {
-  gold: 'text-gold',
-  red: 'text-red',
-  fire: 'text-gold animate-ember',
-  muted: 'text-muted-2',
-};
-
 /**
  * Plaque d'acier brossé pour une stat — réplique exacte des plaques du screenshot
- * (W/L/WR%/STREAK).
+ * (W/L/WR%/STREAK). Surcouche de `StatPlate` qui dérive le halo par ton :
+ * rouge atténué pour les défaites, aucun glow pour `muted`, doré sinon.
  */
 function StatBlock({ label, value, tone, icon }: StatBlockProps) {
-  return (
-    <div className="relative metal-plate rounded-lg px-1 py-2 flex flex-col items-center gap-0.5">
-      <div
-        className={`relative z-10 font-display text-base font-black tabular-nums leading-none flex items-center gap-1 ${TONE[tone]}`}
-        style={{
-          textShadow:
-            tone === 'red'
-              ? '0 1px 0 rgba(0,0,0,0.6), 0 0 10px rgba(255,83,102,0.4)'
-              : tone === 'muted'
-                ? '0 1px 0 rgba(0,0,0,0.6)'
-                : '0 1px 0 rgba(0,0,0,0.6), 0 0 10px rgba(255,201,74,0.4)',
-        }}
-      >
-        {icon}
-        <span>{value}</span>
-      </div>
-      <div className="relative z-10 text-[9px] text-muted-2 uppercase tracking-[0.16em] font-extrabold leading-none">
-        {label}
-      </div>
-    </div>
-  );
+  const textShadow =
+    tone === 'red'
+      ? '0 1px 0 rgba(0,0,0,0.6), 0 0 10px rgba(255,83,102,0.4)'
+      : tone === 'muted'
+        ? '0 1px 0 rgba(0,0,0,0.6)'
+        : '0 1px 0 rgba(0,0,0,0.6), 0 0 10px rgba(255,201,74,0.4)';
+  return <StatPlate label={label} value={value} tone={tone} icon={icon} textShadow={textShadow} />;
 }

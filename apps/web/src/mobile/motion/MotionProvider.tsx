@@ -1,5 +1,6 @@
 import { MotionConfig } from 'framer-motion';
 import type { ReactNode } from 'react';
+import { usePerfTier } from '../../hooks/usePerf';
 
 interface MotionProviderProps {
   children: ReactNode;
@@ -19,7 +20,14 @@ const PREVIEW_STATIC =
   typeof window !== 'undefined' && window.localStorage?.getItem('__previewStatic') === '1';
 
 export function MotionProvider({ children }: MotionProviderProps) {
+  // Palier 'lite' (machine faible / FPS bas / réglage Performance) → on force
+  // reducedMotion='always' : framer-motion saute les anims de transform/layout ET
+  // tous les `useReducedMotion()` déjà disséminés (auras, particules, boucles
+  // infinies) renvoient true → coût continu effondré sans toucher aux 100+ sites.
+  const lite = usePerfTier() === 'lite';
   return (
-    <MotionConfig reducedMotion={PREVIEW_STATIC ? 'always' : 'user'}>{children}</MotionConfig>
+    <MotionConfig reducedMotion={PREVIEW_STATIC || lite ? 'always' : 'user'}>
+      {children}
+    </MotionConfig>
   );
 }

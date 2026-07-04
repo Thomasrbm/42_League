@@ -53,7 +53,7 @@ export function CharPicker({
       title={c.name}
       className={`rounded-lg transition-all ${
         value === c.id
-          ? 'ring-2 ring-[#c97bff] scale-105'
+          ? 'ring-2 ring-gold scale-105'
           : 'opacity-75 hover:opacity-100 ring-1 ring-transparent'
       }`}
     >
@@ -69,10 +69,10 @@ export function CharPicker({
       <label className="block text-[10px] uppercase tracking-wider text-muted font-bold mb-2">{label}</label>
       {favCells.length > 0 && (
         <div className="mb-2">
-          <div className="text-[9px] uppercase tracking-wider text-[#c97bff] font-bold mb-1">
+          <div className="text-[9px] uppercase tracking-wider text-gold font-bold mb-1">
             {favoritesLabel ?? 'Favoris'}
           </div>
-          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 p-1 rounded-lg bg-[#c97bff]/[0.06] border border-[#c97bff]/25">
+          <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 p-1 rounded-lg bg-gold/[0.06] border border-gold/25">
             {favCells.map(cell)}
           </div>
         </div>
@@ -84,7 +84,7 @@ export function CharPicker({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('favorites.search')}
-          className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg bg-bg-1/60 border border-border/60 focus:border-[#c97bff] outline-none transition-colors"
+          className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg bg-bg-1/60 border border-border/60 focus:border-gold outline-none transition-colors"
         />
         {query && (
           <button type="button" onClick={() => setQuery('')} aria-label="×"
@@ -122,8 +122,8 @@ function SlotTile({
       onClick={onClick}
       className={`rounded-lg p-0.5 border transition-all ${
         active
-          ? 'border-[#c97bff] ring-1 ring-[#c97bff] scale-105'
-          : 'border-border/60 hover:border-[#c97bff]/50'
+          ? 'border-gold ring-1 ring-gold scale-105'
+          : 'border-border/60 hover:border-gold/50'
       }`}
     >
       {char ? (
@@ -210,7 +210,7 @@ export function PerGameCharsEditor({
         <span className="text-[11px] font-extrabold text-text-strong">🎭 Persos différents selon la manche ?</span>
         <span
           className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-            perGame ? 'border-[#c97bff]/50 bg-[#c97bff]/10 text-[#c97bff]' : 'border-border bg-bg-2/40 text-muted-2'
+            perGame ? 'border-gold/50 bg-gold/10 text-gold' : 'border-border bg-bg-2/40 text-muted-2'
           }`}
         >
           {perGame ? 'Activé' : 'Même perso partout'}

@@ -30,6 +30,10 @@ export interface LeaderboardEntry {
   /** Couleur du titre équipé (item boutique). Le titre se rend dans CETTE couleur,
    *  indépendamment du mode de jeu (qui remappe `--accent-gold`). Repli : doré fixe. */
   titleColor?: string | null;
+  /** Fin de la fenêtre de boost ELO ×2 « EN FEU » (ISO) — null/passé = pas boosté.
+   *  Déjà exposé publiquement par le backend (cf. toPublicUser) : alimente l'anneau
+   *  cosmétique des avatars dans le classement et partout ailleurs. */
+  eloMultUntil?: string | null;
   dodgeCount?: number;
   tournamentsWon?: number;
   /** Codes de badges de catalogue (cf. lib/badges.ts) — dont 'goat' pour le #1
@@ -69,7 +73,7 @@ export interface Challenge {
   id: string;
   challengerLogin: string;
   opponentLogin: string;
-  status: 'pending' | 'accepted' | 'declined' | 'recorded' | 'cancelled';
+  status: 'pending' | 'accepted' | 'declined' | 'recorded' | 'cancelled' | 'expired';
   scheduledAt: string;
   createdAt: string;
   decidedAt: string | null;
@@ -124,6 +128,12 @@ export interface PlayedMatch {
   teamAId?: string | null;
   /** Équipe B (2v2). */
   teamBId?: string | null;
+  /** Daté = match AUTO-VALIDÉ après 48h sans réponse de l'adversaire (contestable a posteriori). */
+  autoConfirmedAt?: string | null;
+  /** Login du déclarant au moment de l'auto-validation (perspective déclarant/adversaire). */
+  autoConfirmDeclarerLogin?: string | null;
+  /** Daté quand un litige a déjà été ouvert sur ce match auto-validé. */
+  contestedAt?: string | null;
 }
 
 // ─── Smash FFA (Free-For-All) ─────────────────────────────────────────────────
@@ -194,6 +204,9 @@ export interface BabyfootTeamEntry extends BabyfootTeam {
   /** Avatar du joueur 1 (dénormalisé depuis users pour affichage). */
   player1ImageUrl?: string | null;
   player2ImageUrl?: string | null;
+  /** Campus des deux joueurs — cloisonnement du classement d'équipes par campus. */
+  player1Campus?: string | null;
+  player2Campus?: string | null;
 }
 
 export interface Declare2v2Response {
@@ -395,12 +408,46 @@ export interface InventoryEntry {
   item: ShopItemData;
   equipped: boolean;
   acquiredAt: string;
+  userPayload?: Record<string, unknown> | null;
 }
 
 export interface ShopResponse {
   coins: number;
   items: ShopItemData[];
   owned: string[];
+}
+
+// ─── Passe de combat (XP) ──────────────────────────────────────────────────────
+
+/** Un palier du passe vu par le joueur (cf. GET /me/battlepass). */
+export interface BattlePassTierView {
+  tier: number;
+  /** XP cumulée requise pour atteindre ce palier (cumulativeXpForTier). */
+  xpRequired: number;
+  rewardKind: 'item' | 'coins' | 'consumable' | 'none';
+  /** Présent si rewardKind==='item'. */
+  item?: ShopItemData | null;
+  coins?: number | null;
+  consumableKind?: string | null;
+  /** True si level >= tier. */
+  unlocked: boolean;
+  /** Date d'octroi (BattlePassClaim.grantedAt) si la récompense a été accordée. */
+  claimedAt?: string | null;
+}
+export interface BattlePassResponse {
+  totalXp: number;
+  level: number;
+  xpIntoLevel: number;
+  xpForNextLevel: number;
+  tiers: BattlePassTierView[];
+}
+/** Palier du passe côté admin (édition de la récompense, cf. /admin/battlepass/tiers). */
+export interface BattlePassTierAdmin {
+  tier: number;
+  rewardKind: 'item' | 'coins' | 'consumable' | 'none';
+  itemId?: string | null;
+  coins?: number | null;
+  consumableKind?: string | null;
 }
 
 /** Titre cosmétique possédé par un joueur (dérivé des accomplissements). */
@@ -462,6 +509,13 @@ export interface MeResponse {
   moderatorPermissions?: Partial<Record<ModeratorPermissionKey, boolean>> | null;
   /** Solde de League Coins de l'utilisateur (défaut 0). */
   coins?: number;
+  /** Passe de combat (XP cumulative à vie) — niveau & progression au niveau racine. */
+  xp?: number;
+  level?: number;
+  xpIntoLevel?: number;
+  xpForNextLevel?: number;
+  /** Palier de passe atteint (== level). */
+  tier?: number;
   /** Réputation litiges : nb de litiges perdus (marque visible sur le profil). */
   disputesLost?: number;
   /** Fin du cooldown de sanction de litige (ISO) — déclaration & paris bloqués tant qu'elle est future. Null si aucune. */
@@ -472,6 +526,7 @@ export interface MeResponse {
   consentRequired?: boolean;
   /** True si le login est autorisé sur l'env staging (cf. STAGING_ALLOWED backend). */
   stagingAllowed?: boolean;
+  sfAdmin?: boolean;
   /** Version de la politique de confidentialité en vigueur côté serveur. */
   termsVersion?: string;
   /** Codes de badges (cf. catalogue front lib/badges.ts). */
@@ -807,6 +862,8 @@ export interface SeasonStanding {
   elo: number;
   wins: number;
   losses: number;
+  /** Campus figé au snapshot. Null sur les anciens snapshots → restent globaux. */
+  campus?: string | null;
 }
 
 export interface PalmaresEntry {
@@ -957,6 +1014,30 @@ export interface AllHistoryEvent {
   expiresAt?: string;
 }
 
+// ── SF Club Sessions ──────────────────────────────────────────────────────
+
+export interface SfSession {
+  id: string;
+  startTime: string;
+  endTime: string | null;
+  organizerLogin: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  organizer: {
+    login: string;
+    firstName: string | null;
+    lastName: string | null;
+    imageUrl: string | null;
+  };
+}
+
+export interface SfSessionCurrent {
+  session: SfSession | null;
+  status: 'active' | 'upcoming' | 'none';
+}
+
 export class AuthError extends Error {}
 
 async function request<T>(
@@ -975,7 +1056,10 @@ async function request<T>(
   }
   const res = await fetch(`${getApiBase()}${path}`, { ...init, headers });
   if (res.status === 401) {
-    clearToken();
+    // On ne purge la session QUE si la requête était authentifiée. Un 401 sur un
+    // endpoint public (auth:false) — p.ex. /sf-session/current bloqué par la
+    // staging-gate — ne doit JAMAIS déconnecter un utilisateur déjà valide.
+    if (options.auth !== false) clearToken();
     throw new AuthError('session expired');
   }
   if (!res.ok) {
@@ -1318,6 +1402,23 @@ export const api = {
       `/matches/${encodeURIComponent(id)}/cancel`,
       { method: 'POST' },
     ),
+
+  // ── Contestation a posteriori d'un match AUTO-VALIDÉ (48h sans réponse) ──
+  /** Matchs auto-validés que je peux encore contester (camp adverse, non contestés). */
+  contestableMatches: () => request<PlayedMatch[]>('/matches/contestable'),
+  /** Ouvre un litige sur un match auto-validé déjà compté (pas d'annulation d'ELO automatique). */
+  contestPlayedMatch: (
+    id: string,
+    contestReason: 'never_played' | 'wrong_score',
+    contestMessage: string,
+  ) =>
+    request<{ id: string; status: 'contested' }>(
+      `/matches/played/${encodeURIComponent(id)}/contest`,
+      { method: 'POST', body: JSON.stringify({ contestReason, contestMessage }) },
+    ).then((r) => {
+      fireContestRage('sender');
+      return r;
+    }),
 
   // ── Smash FFA (Free-For-All) ──
   pendingFfas: () => request<PendingFfa[]>('/matches/ffa/pending'),
@@ -1940,6 +2041,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ equipped }),
     }),
+  uploadCustomBannerImage: (id: string, image: string) =>
+    request<{ ok: true }>(`/me/inventory/${encodeURIComponent(id)}/banner-image`, {
+      method: 'POST',
+      body: JSON.stringify({ image }),
+    }),
   // ── Consommables ───────────────────────────────────────────────────────────
   consumables: () => request<ConsumablesResponse>('/me/consumables'),
   useConsumable: (
@@ -1987,6 +2093,18 @@ export const api = {
     request<{ ok: true; login: string; coins: number }>('/admin/shop/grant', {
       method: 'POST',
       body: JSON.stringify({ login, amount }),
+    }),
+  // ── Passe de combat (XP) ────────────────────────────────────────────────────
+  battlePass: () => request<BattlePassResponse>('/me/battlepass'),
+  adminBattlePassTiers: () => request<BattlePassTierAdmin[]>('/admin/battlepass/tiers'),
+  adminSetBattlePassTier: (tier: number, input: Omit<BattlePassTierAdmin, 'tier'>) =>
+    request<BattlePassTierAdmin>(`/admin/battlepass/tiers/${tier}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  adminDeleteBattlePassTier: (tier: number) =>
+    request<{ ok: true }>(`/admin/battlepass/tiers/${tier}`, {
+      method: 'DELETE',
     }),
   // ── Suivi des coins (Shop GOD) ────────────────────────────────────────────
   /** Annuaire des joueurs avec leur solde (tri solde décroissant, recherche optionnelle). */
@@ -2068,6 +2186,43 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+
+  // ── SF Club Sessions ──────────────────────────────────────────────────────
+
+  getSfSessionCurrent: (): Promise<SfSessionCurrent> =>
+    request<SfSessionCurrent>('/sf-session/current', {}, { auth: false }),
+
+  adminListSfSessions: (): Promise<SfSession[]> =>
+    request<SfSession[]>('/admin/sf-sessions'),
+
+  adminCreateSfSession: (data: {
+    startTime: string;
+    endTime?: string;
+    durationHours?: number;
+    description?: string;
+  }): Promise<SfSession> =>
+    request<SfSession>('/admin/sf-sessions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  adminUpdateSfSession: (
+    id: string,
+    data: { endTime?: string | null; isActive?: boolean; description?: string },
+  ): Promise<SfSession> =>
+    request<SfSession>(`/admin/sf-sessions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  adminDeleteSfSession: (id: string): Promise<{ ok: boolean }> =>
+    request<{ ok: boolean }>(`/admin/sf-sessions/${id}`, { method: 'DELETE' }),
+
+  adminSetSfAdmin: (login: string, sfAdmin: boolean): Promise<{ ok: boolean; sfAdmin: boolean }> =>
+    request<{ ok: boolean; sfAdmin: boolean }>(
+      `/admin/users/${login}/sf-admin`,
+      { method: 'POST', body: JSON.stringify({ sfAdmin }) },
+    ),
 
   // ── Analytics : ingestion d'usage (best-effort) + vue d'ensemble GOD ────────
   /** Envoie un lot d'événements d'usage. Best-effort : on ignore les erreurs. */

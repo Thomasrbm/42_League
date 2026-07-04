@@ -17,6 +17,7 @@ import { dict as profilDict } from './locales/profil';
 import { dict as pagesDict } from './locales/pages';
 import { dict as histteamDict } from './locales/histteam';
 import { dict as economyDict } from './locales/economy';
+import { dict as battlepassDict } from './locales/battlepass';
 
 export type Lang = 'fr' | 'en' | 'es';
 
@@ -24,13 +25,14 @@ type Dict = Record<string, string>;
 
 const fr: Dict = {
   // Topbar / nav
-  'app.console': 'One League',
+  'app.console': '42 League',
   'nav.defis': 'Défis',
   'nav.tournois': 'Tournois',
   'nav.leaderboard': 'Classement',
   'nav.trophees': 'Trophées',
   'nav.teams': '2v2',
   'nav.profil': 'Profil',
+  'nav.passe': 'Passe',
   'nav.shop': 'Boutique',
   'nav.shopgod': 'Shop GOD',
   'nav.historique': 'Historique',
@@ -162,7 +164,7 @@ const fr: Dict = {
   'profil.notEnoughMatches': 'Pas encore assez de matches',
   'profil.eloEmptySeason': 'Aucun match pour le moment pour cette saison',
   'profil.notRegistered': "n'est pas inscrit dans la league.",
-  'profil.subtitle': 'Profil One League',
+  'profil.subtitle': 'Profil 42 League',
 
   'panel.history.title': 'Historique',
   'panel.history.sub': '50 derniers matchs',
@@ -238,13 +240,14 @@ const fr: Dict = {
 };
 
 const en: Dict = {
-  'app.console': 'One League',
+  'app.console': '42 League',
   'nav.defis': 'Challenges',
   'nav.tournois': 'Tournaments',
   'nav.leaderboard': 'Leaderboard',
   'nav.trophees': 'Hall of Fame',
   'nav.teams': '2v2',
   'nav.profil': 'Profile',
+  'nav.passe': 'Pass',
   'nav.shop': 'Shop',
   'nav.shopgod': 'Shop GOD',
   'nav.historique': 'History',
@@ -376,7 +379,7 @@ const en: Dict = {
   'profil.notEnoughMatches': 'Not enough matches yet',
   'profil.eloEmptySeason': 'No match yet this season',
   'profil.notRegistered': 'is not registered in the league.',
-  'profil.subtitle': 'One League profile',
+  'profil.subtitle': '42 League profile',
 
   'panel.history.title': 'History',
   'panel.history.sub': 'Last 50 matches',
@@ -452,13 +455,14 @@ const en: Dict = {
 };
 
 const es: Dict = {
-  'app.console': 'One League',
+  'app.console': '42 League',
   'nav.defis': 'Desafíos',
   'nav.tournois': 'Torneos',
   'nav.leaderboard': 'Clasificación',
   'nav.trophees': 'Salón de la fama',
   'nav.teams': '2v2',
   'nav.profil': 'Perfil',
+  'nav.passe': 'Pase',
   'nav.shop': 'Tienda',
   'nav.shopgod': 'Shop GOD',
   'nav.historique': 'Historial',
@@ -586,7 +590,7 @@ const es: Dict = {
   'profil.notEnoughMatches': 'Aún no hay suficientes partidas',
   'profil.eloEmptySeason': 'Aún no hay partidas esta temporada',
   'profil.notRegistered': 'no está inscrito en la liga.',
-  'profil.subtitle': 'Perfil One League',
+  'profil.subtitle': 'Perfil 42 League',
 
   'panel.history.title': 'Historial',
   'panel.history.sub': 'Últimos 50 partidos',
@@ -674,6 +678,7 @@ const DOMAIN_DICTS = [
   pagesDict,
   histteamDict,
   economyDict,
+  battlepassDict,
 ];
 
 const DICTS: Record<Lang, Dict> = {

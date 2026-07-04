@@ -38,6 +38,8 @@ import {
   type AnnouncementKind,
   type AdminUserItems,
   type ConsumableKind,
+  type ShopItemData,
+  type BattlePassTierAdmin,
 } from '../lib/api';
 import { BADGE_ICONS } from '../lib/badgeIcons';
 import { ANNOUNCEMENT_KINDS, announcementKindMeta } from '../lib/announcements';
@@ -58,7 +60,7 @@ import { PlayerReactionOverlay } from '../components/PlayerReactionOverlay';
 import { MysteryRevealModal } from '../components/shop/MysteryRevealModal';
 import type { MysteryReward } from '../lib/api';
 
-type Tab = 'users' | 'moderation' | 'rejets' | 'matches' | 'pending' | 'ideas' | 'bugs' | 'alertes' | 'audit' | 'history' | 'seasons' | 'tournaments' | 'stats' | 'animations' | 'announcements' | 'items';
+type Tab = 'stats' | 'players' | 'activity' | 'safety' | 'history' | 'tournaments' | 'feedback' | 'content' | 'system' | 'sf-club';
 type Role = 'MODERATOR' | 'ADMIN' | 'SUPERADMIN';
 
 // Temps réel : événements SSE qui doivent rafraîchir le panel.
@@ -195,6 +197,35 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
         {title}
       </div>
       {children}
+    </div>
+  );
+}
+
+function SubTabBar<T extends string>({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: { id: T; label: string }[];
+  active: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0 border-b border-zinc-800 mb-4">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => onChange(t.id)}
+          className={`px-4 py-2 text-xs font-mono tracking-widest transition-colors cursor-pointer border-b-2 -mb-[1px] whitespace-nowrap ${
+            active === t.id
+              ? 'text-zinc-100 border-zinc-400'
+              : 'text-zinc-500 border-transparent hover:text-zinc-300'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -640,10 +671,28 @@ function ResetDatabaseModal({ onClose, onDone }: { onClose: () => void; onDone: 
 
 // ── Éditeur de permissions modérateur ─────────────────────────────────────
 
+type PermsWithGames = Partial<Record<ModeratorPermissionKey, boolean>> & { managedGames?: string[] };
+
+const MANAGED_GAME_OPTIONS = [
+  { id: 'babyfoot', label: 'Baby', color: '#ffc94a' },
+  { id: 'smash', label: 'Smash', color: '#ff3d50' },
+  { id: 'chess', label: 'Échecs', color: '#56c46e' },
+  { id: 'streetfighter', label: 'SF', color: '#ff7a18' },
+  { id: 'flechettes', label: 'Fléch.', color: '#14b8a6' },
+] as const;
+
+const GAME_ABBREV: Record<string, string> = {
+  babyfoot: 'B',
+  smash: 'S',
+  chess: 'É',
+  streetfighter: 'SF',
+  flechettes: 'F',
+};
+
 function ModeratorPermissionsButton({ user, onSaved }: { user: AdminUser; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
-  const [perms, setPerms] = useState<Partial<Record<ModeratorPermissionKey, boolean>>>(
-    (user.moderatorPermissions as Partial<Record<ModeratorPermissionKey, boolean>>) ?? {},
+  const [perms, setPerms] = useState<PermsWithGames>(
+    (user.moderatorPermissions as PermsWithGames) ?? {},
   );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -651,6 +700,16 @@ function ModeratorPermissionsButton({ user, onSaved }: { user: AdminUser; onSave
 
   function toggle(k: ModeratorPermissionKey) {
     setPerms((p) => ({ ...p, [k]: !p[k] }));
+  }
+
+  function toggleGame(gameId: string) {
+    setPerms((p) => {
+      const current = p.managedGames ?? [];
+      const next = current.includes(gameId)
+        ? current.filter((g) => g !== gameId)
+        : [...current, gameId];
+      return { ...p, managedGames: next };
+    });
   }
 
   async function save() {
@@ -668,21 +727,52 @@ function ModeratorPermissionsButton({ user, onSaved }: { user: AdminUser; onSave
   }
 
   const activeCount = MODERATOR_PERMISSION_KEYS.filter((k) => !!perms[k]).length;
+  const managedGames = (user.moderatorPermissions as PermsWithGames)?.managedGames ?? [];
 
   return (
     <>
       <Btn
-        onClick={() => { setPerms((user.moderatorPermissions as Partial<Record<ModeratorPermissionKey, boolean>>) ?? {}); setOpen(true); }}
+        onClick={() => { setPerms((user.moderatorPermissions as PermsWithGames) ?? {}); setOpen(true); }}
         variant="ghost"
         className="border border-violet-500/30 text-violet-400"
       >
         🔑 {activeCount}/{MODERATOR_PERMISSION_KEYS.length}
+        {managedGames.length > 0 && (
+          <span className="ml-1.5 text-[10px] opacity-70">
+            {managedGames.map((g) => GAME_ABBREV[g] ?? g).join('+')}
+          </span>
+        )}
       </Btn>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-80 shadow-2xl">
             <div className="text-sm font-mono text-zinc-100 font-bold mb-1">Permissions de @{user.login}</div>
             <div className="text-xs text-zinc-500 font-mono mb-3">MODO — cocher = accès accordé</div>
+            {/* Jeux gérés */}
+            <div className="mb-4">
+              <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Jeux gérés</div>
+              <div className="flex flex-wrap gap-2">
+                {MANAGED_GAME_OPTIONS.map(({ id, label, color }) => {
+                  const active = (perms.managedGames ?? []).includes(id);
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => toggleGame(id)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer border"
+                      style={{
+                        background: active ? `${color}22` : 'rgba(255,255,255,0.03)',
+                        borderColor: active ? color : 'rgba(255,255,255,0.1)',
+                        color: active ? color : 'rgba(255,255,255,0.35)',
+                        boxShadow: active ? `0 0 12px -4px ${color}` : 'none',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="space-y-1.5 mb-4">
               {MODERATOR_PERMISSION_KEYS.map((k) => (
                 <label key={k} className="flex items-center gap-2 cursor-pointer group">
@@ -736,6 +826,208 @@ const USER_GAME_STATS: Record<Game, {
   flechettes: { elo: (u) => u.eloFlechettes ?? 1000, matches: (u) => u.matchesPlayedFlechettes ?? 0, trophies: (u) => u.tournamentsWonFlechettes ?? 0 },
 };
 
+function UserDetailPanel({
+  user,
+  myRole,
+  myLogin,
+  pending,
+  onAction,
+  onClose,
+  onEditStats,
+  onReload,
+}: {
+  user: AdminUser;
+  myRole: Role;
+  myLogin: string;
+  pending: string | null;
+  onAction: (fn: () => Promise<unknown>) => Promise<void>;
+  onClose: () => void;
+  onEditStats: () => void;
+  onReload: () => void;
+}) {
+  const isSelf = user.login === myLogin;
+  const isHardcoded = HARDCODED_SUPERADMINS.has(user.login.toLowerCase());
+  const isLocked = isSelf || isHardcoded;
+  const isBusy = pending === user.login;
+  const isStagingAllowed = !!user.stagingAllowed;
+  const sfAdmin = !!(user as AdminUser & { sfAdmin?: boolean }).sfAdmin;
+  const t = useT();
+  const { requestConfirm, confirmNode } = useConfirmDialog();
+
+  return (
+    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-zinc-800/50">
+      {confirmNode}
+
+      {/* Col 1: Rôle */}
+      <div className="space-y-3">
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Rôle</div>
+        {isLocked ? (
+          <div className="flex items-center gap-2">
+            <RoleBadge role={user.role} />
+            <span className="text-zinc-600 text-xs font-mono">{t('god.users.permanent')}</span>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {(['USER', 'MODERATOR', 'ADMIN'] as const).map((role) => {
+              const isActive = user.role === role;
+              if (myRole !== 'SUPERADMIN' && role === 'ADMIN') return null;
+              if (myRole !== 'SUPERADMIN' && user.role === 'SUPERADMIN') return null;
+              return (
+                <button
+                  key={role}
+                  type="button"
+                  disabled={isActive || isBusy}
+                  onClick={() => onAction(() => api.setUserRole(user.login, role))}
+                  className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all cursor-pointer border disabled:cursor-default ${
+                    isActive
+                      ? role === 'ADMIN'
+                        ? 'bg-blue-400/15 border-blue-400/40 text-blue-400'
+                        : role === 'MODERATOR'
+                        ? 'bg-violet-400/15 border-violet-400/40 text-violet-400'
+                        : 'bg-zinc-700/60 border-zinc-600 text-zinc-300'
+                      : 'bg-transparent border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {role}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Flags */}
+        {!isLocked && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {/* SF Admin */}
+            {(myRole === 'ADMIN' || myRole === 'SUPERADMIN') && (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={() =>
+                  onAction(() =>
+                    (api as unknown as { adminSetSfAdmin: (l: string, v: boolean) => Promise<unknown> }).adminSetSfAdmin(
+                      user.login,
+                      !sfAdmin
+                    )
+                  )
+                }
+                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all cursor-pointer border ${
+                  sfAdmin
+                    ? 'bg-orange-400/15 border-orange-400/40 text-orange-400'
+                    : 'bg-transparent border-zinc-700 text-zinc-500 hover:border-orange-400/40 hover:text-orange-400'
+                }`}
+              >
+                SF Admin {sfAdmin ? '✓' : '○'}
+              </button>
+            )}
+            {/* Staging (SUPERADMIN) */}
+            {myRole === 'SUPERADMIN' && (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={async () => {
+                  const grant = !isStagingAllowed;
+                  const msg = grant
+                    ? t('god.users.staging.grant').replace('{login}', user.login)
+                    : t('god.users.staging.revoke').replace('{login}', user.login);
+                  const ok = await requestConfirm(msg, {
+                    danger: !grant,
+                    confirmLabel: grant ? t('god.users.staging.grantLabel') : t('god.users.staging.revokeLabel'),
+                  });
+                  if (ok) onAction(() => api.setStagingAccess(user.login, grant));
+                }}
+                className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all cursor-pointer border ${
+                  isStagingAllowed
+                    ? 'bg-teal-400/15 border-teal-400/40 text-teal-400'
+                    : 'bg-transparent border-zinc-700 text-zinc-500 hover:border-teal-400/40 hover:text-teal-400'
+                }`}
+              >
+                β Staging {isStagingAllowed ? '✓' : '○'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Col 2: Permissions (only for MODERATOR) */}
+      <div className="space-y-3">
+        {user.role === 'MODERATOR' && (myRole === 'ADMIN' || myRole === 'SUPERADMIN') ? (
+          <>
+            <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Permissions</div>
+            <ModeratorPermissionsButton user={user} onSaved={onReload} />
+            <div className="text-[10px] text-zinc-600 font-mono">
+              {MODERATOR_PERMISSION_KEYS.filter((k) =>
+                !!(user.moderatorPermissions as Partial<Record<ModeratorPermissionKey, boolean>> | null)?.[k]
+              ).length}/{MODERATOR_PERMISSION_KEYS.length} permissions actives
+            </div>
+          </>
+        ) : (
+          <div className="text-[10px] font-mono text-zinc-700 uppercase tracking-widest">
+            {user.role === 'MODERATOR' ? 'Permissions' : 'Permissions (n/a — non MODO)'}
+          </div>
+        )}
+      </div>
+
+      {/* Col 3: Actions */}
+      <div className="space-y-3">
+        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Actions</div>
+        <div className="flex flex-wrap gap-1.5">
+          <Btn onClick={onEditStats} variant="ghost">{t('god.users.statsBtn')}</Btn>
+          <Btn
+            onClick={() => onAction(() => api.adminResetOpsCooldown(user.login))}
+            disabled={isBusy}
+            variant="ghost"
+            className="border border-red-500/30 text-red-400"
+          >
+            {t('god.users.resetCooldown')}
+          </Btn>
+          {!isLocked && (
+            user.bannedAt ? (
+              <Btn
+                onClick={() => onAction(() => api.adminUnbanUser(user.login))}
+                disabled={isBusy}
+                variant="success"
+              >
+                {t('god.users.unban')}
+              </Btn>
+            ) : (
+              <Btn
+                onClick={async () => {
+                  const ok = await requestConfirm(
+                    t('god.users.confirmBan').replace('{login}', user.login),
+                    { danger: true, confirmLabel: t('god.users.confirmBanLabel') }
+                  );
+                  if (ok) onAction(() => api.adminBanUser(user.login));
+                }}
+                disabled={isBusy}
+                variant="danger"
+              >
+                {t('god.users.ban')}
+              </Btn>
+            )
+          )}
+          {myRole === 'SUPERADMIN' && (IS_STAGING || user.ftId === null) && !isLocked && (
+            <Btn
+              onClick={async () => {
+                const ok = await requestConfirm(
+                  t('god.users.confirmDeleteFake').replace('{login}', user.login),
+                  { danger: true, confirmLabel: t('god.delete') }
+                );
+                if (ok) { onAction(() => api.adminDeleteUser(user.login)); onClose(); }
+              }}
+              disabled={isBusy}
+              variant="danger"
+              className="border border-red-500/40"
+            >
+              {t('god.users.deleteBtn')}
+            </Btn>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function UsersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -745,6 +1037,7 @@ function UsersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
   const [pending, setPending] = useState<string | null>(null);
   const [editingStats, setEditingStats] = useState<AdminUser | null>(null);
   const [showReset, setShowReset] = useState(false);
+  const [selectedLogin, setSelectedLogin] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [sudo, setSudo] = useState(false);
   const { requestConfirm, confirmNode } = useConfirmDialog();
@@ -789,14 +1082,6 @@ function UsersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
     },
     (a, b) => a.login.localeCompare(b.login),
   );
-
-  async function withPending(login: string, fn: () => Promise<unknown>) {
-    setPending(login);
-    setError('');
-    try { await fn(); load(); }
-    catch (e) { setError(e instanceof Error ? e.message : t('god.error')); }
-    finally { setPending(null); }
-  }
 
   async function createUser() {
     const login = newLogin.trim();
@@ -843,22 +1128,6 @@ function UsersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
           .map((u) => u.login)
       : [];
 
-  async function deleteFakeUser(login: string) {
-    if (!(await confirmOrSudo(t('god.users.confirmDeleteFake').replace('{login}', login))))
-      return;
-    await withPending(login, () => api.adminDeleteUser(login));
-  }
-
-  async function banUser(login: string) {
-    if (!(await confirmOrSudo(t('god.users.confirmBan').replace('{login}', login), t('god.users.confirmBanLabel')))) return;
-    await withPending(login, () => api.adminBanUser(login));
-  }
-
-  async function resetOpsCooldown(login: string) {
-    if (!(await confirmOrSudo(t('god.users.confirmResetCooldown').replace('{login}', login), t('god.users.confirmResetCooldownLabel')))) return;
-    await withPending(login, () => api.adminResetOpsCooldown(login));
-  }
-
   async function bulkDelete() {
     const ids = [...selected].filter((l) => deletableLogins.includes(l));
     if (ids.length === 0) return;
@@ -866,16 +1135,6 @@ function UsersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
     setError('');
     for (const l of ids) await api.adminDeleteUser(l).catch((e) => setError(String(e)));
     clear();
-    load();
-  }
-
-  async function toggleStaging(login: string, currentStaging: boolean) {
-    const grant = !currentStaging;
-    const msg = grant
-      ? t('god.users.staging.grant').replace('{login}', login)
-      : t('god.users.staging.revoke').replace('{login}', login);
-    if (!(await requestConfirm(msg, { danger: !grant, confirmLabel: grant ? t('god.users.staging.grantLabel') : t('god.users.staging.revokeLabel') }))) return;
-    await withPending(login, () => api.setStagingAccess(login, grant));
     load();
   }
 
@@ -987,91 +1246,71 @@ function UsersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
             </thead>
             <tbody>
               {sorted.map((u) => {
-                const isSelf = u.login === myLogin;
-                const isHardcoded = HARDCODED_SUPERADMINS.has(u.login.toLowerCase());
-                // Hardcodés + soi-même : on ne touche pas au rôle ni au ban.
-                const isLocked = isSelf || isHardcoded;
                 const isDeletable = deletableLogins.includes(u.login);
                 const isStagingAllowed = !!u.stagingAllowed;
+                const isExpanded = selectedLogin === u.login;
                 return (
-                  <tr key={u.login} className={`border-b border-zinc-800/40 hover:bg-zinc-900/60 transition-colors ${selected.has(u.login) ? 'bg-red-500/5' : ''}`}>
-                    <td className="py-2 px-3">
-                      {isDeletable && <Check checked={selected.has(u.login)} onChange={() => toggle(u.login)} />}
-                    </td>
-                    <td className="py-2 px-3 text-zinc-100">{u.login}</td>
-                    <td className="py-2 px-3">
-                      <div className="flex items-center gap-1">
-                        <RoleBadge role={u.role} />
-                        {isStagingAllowed && !isHardcoded && (
-                          <span className="px-1 py-0.5 text-[10px] bg-teal-400/10 text-teal-400 rounded font-mono" title="Accès staging accordé">β</span>
+                  <Fragment key={u.login}>
+                    <tr
+                      onClick={() => setSelectedLogin(isExpanded ? null : u.login)}
+                      className={`border-b border-zinc-800/40 cursor-pointer transition-colors ${
+                        isExpanded ? 'bg-zinc-800/60' : 'hover:bg-zinc-900/60'
+                      } ${selected.has(u.login) ? 'bg-red-500/5' : ''}`}
+                    >
+                      <td className="py-2 px-3">
+                        {isDeletable && (
+                          <Check
+                            checked={selected.has(u.login)}
+                            onChange={() => toggle(u.login)}
+                          />
                         )}
-                      </div>
-                    </td>
-                    <td className="py-2 px-3"><GameModeBadges user={u} /></td>
-                    <td className="py-2 px-3 text-right tabular-nums text-zinc-100">{USER_GAME_STATS[statGame].elo(u)}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{USER_GAME_STATS[statGame].matches(u)}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{u.dodgeCount}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{USER_GAME_STATS[statGame].trophies(u)}</td>
-                    <td className="py-2 px-3"><StatusBadge banned={!!u.bannedAt} /></td>
-                    <td className="py-2 px-3 text-zinc-500 text-xs">{u.campus ?? '—'}</td>
-                    <td className="py-2 px-3">
-                      {isLocked ? (
-                        // Rôle/ban verrouillés pour les superadmins hardcodés et soi-même,
-                        // MAIS le reset de cooldown d'ops (inoffensif) reste accessible —
-                        // sinon un superadmin ne peut jamais reset son propre cooldown.
-                        <div className="flex items-center gap-1.5 justify-end flex-wrap">
-                          <span className="text-zinc-600 text-xs font-mono">{t('god.users.permanent')}</span>
-                          {/* Un SUPERADMIN peut éditer l'ELO/les stats d'un autre superadmin (et les siennes) — le rôle et le ban restent verrouillés. */}
-                          {myRole === 'SUPERADMIN' && (
-                            <Btn onClick={() => setEditingStats(u)} variant="ghost">{t('god.users.statsBtn')}</Btn>
+                      </td>
+                      <td className="py-2 px-3 text-zinc-100 font-mono">{u.login}</td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center gap-1">
+                          <RoleBadge role={u.role} />
+                          {isStagingAllowed && !HARDCODED_SUPERADMINS.has(u.login.toLowerCase()) && (
+                            <span className="px-1 py-0.5 text-[10px] bg-teal-400/10 text-teal-400 rounded font-mono" title="Accès staging">β</span>
                           )}
-                          <Btn onClick={() => resetOpsCooldown(u.login)} disabled={pending === u.login} variant="ghost" className="border border-red-500/40 text-red-400">{t('god.users.resetCooldown')}</Btn>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 justify-end flex-wrap">
-                          {/* Promotion / rétrogradation de rôle (SUPERADMIN uniquement) */}
-                          {myRole === 'SUPERADMIN' && u.role !== 'SUPERADMIN' && (
-                            <>
-                              {u.role === 'USER' && (
-                                <Btn onClick={() => withPending(u.login, () => api.setUserRole(u.login, 'MODERATOR'))} disabled={pending === u.login} variant="ghost" className="border border-violet-500/40 text-violet-400">→ MODO</Btn>
-                              )}
-                              {u.role === 'MODERATOR' && (
-                                <>
-                                  <Btn onClick={() => withPending(u.login, () => api.setUserRole(u.login, 'USER'))} disabled={pending === u.login} variant="ghost">→ USER</Btn>
-                                  <Btn onClick={() => withPending(u.login, () => api.setUserRole(u.login, 'ADMIN'))} disabled={pending === u.login} variant="default">→ ADMIN</Btn>
-                                </>
-                              )}
-                              {u.role === 'ADMIN' && (
-                                <>
-                                  <Btn onClick={() => withPending(u.login, () => api.setUserRole(u.login, 'MODERATOR'))} disabled={pending === u.login} variant="ghost" className="border border-violet-500/40 text-violet-400">→ MODO</Btn>
-                                  <Btn onClick={() => withPending(u.login, () => api.setUserRole(u.login, 'USER'))} disabled={pending === u.login} variant="ghost">→ USER</Btn>
-                                </>
-                              )}
-                            </>
-                          )}
-                          {/* Permissions moderateur — bouton visible pour ADMIN/SUPERADMIN si le user est MODO */}
-                          {(myRole === 'ADMIN' || myRole === 'SUPERADMIN') && u.role === 'MODERATOR' && (
-                            <ModeratorPermissionsButton user={u} onSaved={load} />
-                          )}
-                          {/* Accès staging (flag indépendant du rôle) — SUPERADMIN seulement */}
-                          {myRole === 'SUPERADMIN' && (
-                            isStagingAllowed
-                              ? <Btn onClick={() => toggleStaging(u.login, true)} disabled={pending === u.login} variant="warn" className="border border-yellow-500/40">{t('god.users.removeStaging')}</Btn>
-                              : <Btn onClick={() => toggleStaging(u.login, false)} disabled={pending === u.login} variant="ghost" className="border border-teal-600/50 text-teal-500">{t('god.users.staging')}</Btn>
-                          )}
-                          {u.bannedAt
-                            ? <Btn onClick={() => withPending(u.login, () => api.adminUnbanUser(u.login))} disabled={pending === u.login} variant="success">{t('god.users.unban')}</Btn>
-                            : <Btn onClick={() => banUser(u.login)} disabled={pending === u.login} variant="danger">{t('god.users.ban')}</Btn>
-                          }
-                          <Btn onClick={() => setEditingStats(u)} variant="ghost">{t('god.users.statsBtn')}</Btn>
-                          <Btn onClick={() => resetOpsCooldown(u.login)} disabled={pending === u.login} variant="ghost" className="border border-red-500/40 text-red-400">{t('god.users.resetCooldown')}</Btn>
-                          {myRole === 'SUPERADMIN' && (IS_STAGING || u.ftId === null) && (
-                            <Btn onClick={() => deleteFakeUser(u.login)} disabled={pending === u.login} variant="danger" className="border border-red-500/40">{t('god.users.deleteBtn')}</Btn>
+                          {(u as AdminUser & { sfAdmin?: boolean }).sfAdmin && (
+                            <span className="px-1 py-0.5 text-[10px] bg-orange-400/10 text-orange-400 rounded font-mono" title="SF Admin">SF</span>
                           )}
                         </div>
-                      )}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="py-2 px-3"><GameModeBadges user={u} /></td>
+                      <td className="py-2 px-3 text-right tabular-nums text-zinc-100">{USER_GAME_STATS[statGame].elo(u)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{USER_GAME_STATS[statGame].matches(u)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{u.dodgeCount}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{USER_GAME_STATS[statGame].trophies(u)}</td>
+                      <td className="py-2 px-3"><StatusBadge banned={!!u.bannedAt} /></td>
+                      <td className="py-2 px-3 text-zinc-500 text-xs">{u.campus ?? '—'}</td>
+                      <td className="py-2 px-3 text-right">
+                        <span className={`text-zinc-500 transition-transform inline-block ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="bg-zinc-900/80 border-b border-zinc-700">
+                        <td colSpan={11} className="p-0">
+                          <UserDetailPanel
+                            user={u}
+                            myRole={myRole}
+                            myLogin={myLogin}
+                            pending={pending}
+                            onAction={async (fn) => {
+                              setPending(u.login);
+                              setError('');
+                              try { await fn(); load(); }
+                              catch (e) { setError(e instanceof Error ? e.message : t('god.error')); }
+                              finally { setPending(null); }
+                            }}
+                            onClose={() => setSelectedLogin(null)}
+                            onEditStats={() => setEditingStats(u)}
+                            onReload={load}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -1462,6 +1701,7 @@ function MatchesTab() {
   const [matches, setMatches] = useState<PlayedMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [gameFilter, setGameFilter] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [editPlayerA, setEditPlayerA] = useState('');
   const [editPlayerB, setEditPlayerB] = useState('');
@@ -1487,7 +1727,10 @@ function MatchesTab() {
 
   const { sort, toggleSort } = useTableSort<MatchesSortKey>({ key: 'date', dir: 'desc' });
   const filtered = sortRows(
-    matches.filter((m) => m.playerALogin.includes(filter) || m.playerBLogin.includes(filter)),
+    matches.filter((m) =>
+      (!gameFilter || (m.game ?? 'babyfoot') === gameFilter) &&
+      (m.playerALogin.includes(filter) || m.playerBLogin.includes(filter))
+    ),
     sort,
     (m, k) => {
       switch (k) {
@@ -1579,9 +1822,33 @@ function MatchesTab() {
   return (
     <div className="p-4">
       {confirmNode}
-      <div className="mb-3 flex items-center gap-3">
+      <div className="mb-3 flex items-center gap-3 flex-wrap">
         <Input value={filter} onChange={setFilter} placeholder={t('god.matches.filter')} className="w-64" />
         <span className="text-zinc-500 text-xs font-mono">{filtered.length} {t('god.matches.shown')} / {matches.length} {t('god.matches.total')}</span>
+      </div>
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        {[
+          { id: '', label: 'Tous' },
+          { id: 'babyfoot', label: 'Baby', color: '#ffc94a' },
+          { id: 'smash', label: 'Smash', color: '#ff3d50' },
+          { id: 'chess', label: 'Échecs', color: '#56c46e' },
+          { id: 'streetfighter', label: 'SF', color: '#ff7a18' },
+          { id: 'flechettes', label: 'Fléch.', color: '#14b8a6' },
+        ].map(({ id, label, color }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setGameFilter(id)}
+            className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer border"
+            style={{
+              background: gameFilter === id ? `${color ?? 'rgba(255,255,255,0.5)'}22` : 'rgba(255,255,255,0.03)',
+              borderColor: gameFilter === id ? (color ?? 'rgba(255,255,255,0.4)') : 'rgba(255,255,255,0.07)',
+              color: gameFilter === id ? (color ?? 'rgba(255,255,255,0.9)') : 'rgba(255,255,255,0.35)',
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       <SudoBar
         sudo={sudo}
@@ -2431,7 +2698,7 @@ function AllHistoryTab() {
   const [error, setError] = useState('');
   const [loginFilter, setLoginFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<AllHistoryEventType | 'all'>('all');
-  const [gameFilter, setGameFilter] = useState<'all' | 'babyfoot' | 'smash' | 'chess'>('all');
+  const [gameFilter, setGameFilter] = useState<'all' | 'babyfoot' | 'smash' | 'chess' | 'streetfighter' | 'flechettes'>('all');
   const [sudo, setSudo] = useState(false);
   const { requestConfirm, confirmNode } = useConfirmDialog();
   const { selected, toggle, toggleAll, clear } = useSelection();
@@ -2523,8 +2790,15 @@ function AllHistoryTab() {
             <option key={ty} value={ty}>{EVENT_TYPE_ICON[ty]} {t(`god.event.${ty}`)}</option>
           ))}
         </select>
-        <div className="flex gap-1">
-          {(['all', 'babyfoot', 'smash', 'chess'] as const).map((g) => (
+        <div className="flex gap-1 flex-wrap">
+          {([
+            { id: 'all', label: null },
+            { id: 'babyfoot', label: null },
+            { id: 'smash', label: null },
+            { id: 'chess', label: null },
+            { id: 'streetfighter', label: 'SF' },
+            { id: 'flechettes', label: 'Fléch.' },
+          ] as { id: 'all' | 'babyfoot' | 'smash' | 'chess' | 'streetfighter' | 'flechettes'; label: string | null }[]).map(({ id: g, label }) => (
             <button
               key={g}
               type="button"
@@ -2535,7 +2809,7 @@ function AllHistoryTab() {
                   : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              {g === 'all' ? t('god.hist.allGames') : t(`god.tourn.game.${g}`)}
+              {g === 'all' ? t('god.hist.allGames') : (label ?? t(`god.tourn.game.${g}`))}
             </button>
           ))}
         </div>
@@ -3534,7 +3808,7 @@ function TournamentsTab() {
   const [rows, setRows] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
-  const [gameFilter, setGameFilter] = useState<'all' | 'babyfoot' | 'smash' | 'chess'>('all');
+  const [gameFilter, setGameFilter] = useState<'all' | 'babyfoot' | 'smash' | 'chess' | 'streetfighter' | 'flechettes'>('all');
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   // Gestion « en attente » : un seul tournoi déplié à la fois.
@@ -3553,6 +3827,8 @@ function TournamentsTab() {
       api.tournaments('babyfoot'),
       api.tournaments('smash'),
       api.tournaments('chess'),
+      api.tournaments('streetfighter'),
+      api.tournaments('flechettes'),
     ])
       .then((lists) => setRows(lists.flat()))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
@@ -3701,7 +3977,7 @@ function TournamentsTab() {
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <Input value={filter} onChange={setFilter} placeholder={tr('god.tourn.filter')} className="w-72" />
         <div className="flex gap-1">
-          {(['all', 'babyfoot', 'smash', 'chess'] as const).map((g) => (
+          {(['all', 'babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes'] as const).map((g) => (
             <button
               key={g}
               type="button"
@@ -4482,22 +4758,652 @@ function ItemsAdminTab() {
   );
 }
 
-const TABS: { id: Tab; superAdminOnly?: boolean }[] = [
+// ── Passe de combat (XP) Tab ────────────────────────────────────────────────
+
+const BP_REWARD_KINDS: BattlePassTierAdmin['rewardKind'][] = ['none', 'item', 'coins', 'consumable'];
+const BP_CONSUMABLES: ConsumableKind[] = ['anti_ops', 'elo_mult', 'force_duel', 'mini_ops'];
+
+/** Ligne d'édition d'un palier du passe (récompense : rien / item / coins / consommable). */
+function BattlePassTierRow({
+  tier,
+  items,
+  onSaved,
+  onDeleted,
+}: {
+  tier: BattlePassTierAdmin;
+  items: ShopItemData[];
+  onSaved: (t: BattlePassTierAdmin) => void;
+  onDeleted: (tier: number) => void;
+}) {
+  const t = useT();
+  const [rewardKind, setRewardKind] = useState<BattlePassTierAdmin['rewardKind']>(tier.rewardKind);
+  const [itemId, setItemId] = useState(tier.itemId ?? '');
+  const [coins, setCoins] = useState(String(tier.coins ?? 0));
+  const [consumableKind, setConsumableKind] = useState<ConsumableKind>(
+    (tier.consumableKind as ConsumableKind) ?? 'elo_mult',
+  );
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const save = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const input: Omit<BattlePassTierAdmin, 'tier'> = {
+        rewardKind,
+        itemId: rewardKind === 'item' ? itemId || null : null,
+        coins: rewardKind === 'coins' ? Number(coins) || 0 : null,
+        consumableKind: rewardKind === 'consumable' ? consumableKind : null,
+      };
+      const res = await api.adminSetBattlePassTier(tier.tier, input);
+      onSaved(res);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const del = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.adminDeleteBattlePassTier(tier.tier);
+      onDeleted(tier.tier);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 bg-zinc-900/60 border border-zinc-800 rounded-lg px-3 py-2">
+      <span className="inline-flex items-center justify-center w-9 h-7 rounded bg-amber-400/15 text-amber-400 text-xs font-mono font-bold tabular-nums shrink-0">
+        {t('battlepass.admin.tier')} {tier.tier}
+      </span>
+
+      {/* Type de récompense */}
+      <select
+        value={rewardKind}
+        onChange={(e) => setRewardKind(e.target.value as BattlePassTierAdmin['rewardKind'])}
+        className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-500"
+      >
+        {BP_REWARD_KINDS.map((k) => (
+          <option key={k} value={k}>
+            {t(`battlepass.reward.${k}`)}
+          </option>
+        ))}
+      </select>
+
+      {/* Paramètre dépendant du type */}
+      {rewardKind === 'item' && (
+        <select
+          value={itemId}
+          onChange={(e) => setItemId(e.target.value)}
+          className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-500 max-w-[14rem]"
+        >
+          <option value="">— {t('battlepass.admin.item')} —</option>
+          {items.map((it) => (
+            <option key={it.id} value={it.id}>
+              {it.name} ({it.category})
+            </option>
+          ))}
+        </select>
+      )}
+
+      {rewardKind === 'coins' && (
+        <label className="flex items-center gap-1.5">
+          <img src="/42coin.webp" alt="" className="w-4 h-4" />
+          <Input type="number" value={coins} onChange={setCoins} className="w-24" />
+        </label>
+      )}
+
+      {rewardKind === 'consumable' && (
+        <select
+          value={consumableKind}
+          onChange={(e) => setConsumableKind(e.target.value as ConsumableKind)}
+          className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-500"
+        >
+          {BP_CONSUMABLES.map((k) => (
+            <option key={k} value={k}>
+              {CONSUMABLE_LABEL[k]}
+            </option>
+          ))}
+        </select>
+      )}
+
+      <div className="flex items-center gap-2 ml-auto">
+        {err && <span className="text-xs text-red-400 font-mono">{err}</span>}
+        {saved && <span className="text-xs text-emerald-400 font-mono">{t('battlepass.admin.saved')}</span>}
+        <Btn variant="success" onClick={save} disabled={busy}>
+          {t('battlepass.admin.save')}
+        </Btn>
+        <Btn variant="danger" onClick={del} disabled={busy}>
+          {t('battlepass.admin.delete')}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+/** Onglet GOD : configuration des récompenses du passe de combat. */
+function BattlePassAdminTab() {
+  const t = useT();
+  const [tiers, setTiers] = useState<BattlePassTierAdmin[]>([]);
+  const [items, setItems] = useState<ShopItemData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  // Ajout d'un nouveau palier.
+  const [newTier, setNewTier] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const [ts, its] = await Promise.all([
+        api.adminBattlePassTiers(),
+        api.adminShopItems().catch(() => [] as ShopItemData[]),
+      ]);
+      setTiers([...ts].sort((a, b) => a.tier - b.tier));
+      setItems(its);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const upsert = (saved: BattlePassTierAdmin) =>
+    setTiers((prev) =>
+      [...prev.filter((t) => t.tier !== saved.tier), saved].sort((a, b) => a.tier - b.tier),
+    );
+  const remove = (tier: number) => setTiers((prev) => prev.filter((t) => t.tier !== tier));
+
+  const addTier = async () => {
+    const n = Number(newTier);
+    if (!Number.isInteger(n) || n <= 0) return;
+    setErr(null);
+    try {
+      const res = await api.adminSetBattlePassTier(n, { rewardKind: 'none' });
+      upsert(res);
+      setNewTier('');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  return (
+    <div className="p-4">
+      <Section title={t('battlepass.admin.title')}>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">
+            {t('battlepass.admin.tier')}
+          </span>
+          <Input type="number" value={newTier} onChange={setNewTier} placeholder="ex. 5" className="w-24" />
+          <Btn variant="default" onClick={addTier} disabled={!Number(newTier)}>
+            + {t('battlepass.admin.save')}
+          </Btn>
+          {err && <span className="text-xs text-red-400 font-mono">{err}</span>}
+        </div>
+
+        {loading ? (
+          <div className="text-xs text-zinc-500 font-mono">…</div>
+        ) : tiers.length === 0 ? (
+          <div className="text-xs text-zinc-500 font-mono">{t('battlepass.empty')}</div>
+        ) : (
+          <div className="space-y-2">
+            {tiers.map((tier) => (
+              <BattlePassTierRow
+                key={tier.tier}
+                tier={tier}
+                items={items}
+                onSaved={upsert}
+                onDeleted={remove}
+              />
+            ))}
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+// ── SF Sessions Tab ────────────────────────────────────────────────────────
+
+interface LocalSfSession {
+  id: string;
+  startTime: string;
+  endTime: string | null;
+  organizerLogin: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  organizer: { login: string; firstName: string | null; lastName: string | null; imageUrl: string | null };
+}
+
+function SfSessionsTab({ myLogin }: { myLogin: string }) {
+  const [sessions, setSessions] = useState<LocalSfSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({
+    startNow: true,
+    startTime: '',
+    durationHours: '3',
+    useEndTime: false,
+    endTime: '',
+    description: '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  void myLogin;
+
+  const load = useCallback(async () => {
+    try {
+      const list = await (api as unknown as { adminListSfSessions: () => Promise<LocalSfSession[]> }).adminListSfSessions();
+      setSessions(list);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const now = new Date();
+  const activeSession = sessions.find(
+    (s) =>
+      s.isActive &&
+      new Date(s.startTime) <= now &&
+      (!s.endTime || new Date(s.endTime) > now)
+  );
+
+  const openSession = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const startTime = form.startNow
+        ? new Date().toISOString()
+        : form.startTime
+        ? new Date(form.startTime).toISOString()
+        : new Date().toISOString();
+      const data: Record<string, unknown> = {
+        startTime,
+        description: form.description || undefined,
+      };
+      if (form.useEndTime && form.endTime) {
+        data.endTime = new Date(form.endTime).toISOString();
+      } else if (!form.useEndTime && form.durationHours) {
+        data.durationHours = parseFloat(form.durationHours);
+      }
+      await (api as unknown as { adminCreateSfSession: (d: Record<string, unknown>) => Promise<LocalSfSession> }).adminCreateSfSession(data);
+      setMsg('Session ouverte !');
+      setCreating(false);
+      void load();
+    } catch {
+      setMsg("Erreur lors de l'ouverture");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeSession = async (id: string) => {
+    setBusy(true);
+    try {
+      await (api as unknown as { adminUpdateSfSession: (id: string, d: { isActive: boolean }) => Promise<LocalSfSession> }).adminUpdateSfSession(id, { isActive: false });
+      void load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelSession = async (id: string) => {
+    if (!confirm('Annuler cette session ?')) return;
+    setBusy(true);
+    try {
+      await (api as unknown as { adminDeleteSfSession: (id: string) => Promise<{ ok: boolean }> }).adminDeleteSfSession(id);
+      void load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const fmtDt = (iso: string) =>
+    new Date(iso).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  return (
+    <div className="space-y-6 p-4">
+      <Section title="État actuel">
+        {activeSession ? (
+          <div className="flex items-center justify-between bg-zinc-800/60 border border-zinc-700 rounded-lg px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <div>
+                <span className="text-green-400 font-mono text-xs font-bold uppercase tracking-wide">
+                  Session en cours
+                </span>
+                <p className="text-zinc-400 text-xs mt-0.5">
+                  Depuis {fmtDt(activeSession.startTime)}
+                  {activeSession.endTime
+                    ? ` · Fin prévue ${fmtDt(activeSession.endTime)}`
+                    : ' · Pas de fin planifiée'}
+                </p>
+              </div>
+            </div>
+            <Btn onClick={() => closeSession(activeSession.id)} variant="danger" disabled={busy}>
+              Clôturer
+            </Btn>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between bg-zinc-800/60 border border-zinc-800 rounded-lg px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-zinc-600" />
+              <span className="text-zinc-500 font-mono text-xs">Aucune session active</span>
+            </div>
+            <Btn
+              onClick={() => setCreating(!creating)}
+              variant="success"
+              disabled={busy}
+            >
+              {creating ? 'Annuler' : '+ Ouvrir une session'}
+            </Btn>
+          </div>
+        )}
+      </Section>
+
+      {creating && !activeSession && (
+        <Section title="Nouvelle session">
+          <div className="bg-zinc-800/40 border border-zinc-700 rounded-lg p-4 space-y-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.startNow}
+                  onChange={(e) => setForm((f) => ({ ...f, startNow: e.target.checked }))}
+                  className="rounded"
+                />
+                <span className="text-zinc-300 text-xs font-mono">Démarrer maintenant</span>
+              </label>
+              {!form.startNow && (
+                <Input
+                  type="datetime-local"
+                  value={form.startTime}
+                  onChange={(v) => setForm((f) => ({ ...f, startTime: v }))}
+                  className="text-xs"
+                />
+              )}
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.useEndTime}
+                  onChange={(e) => setForm((f) => ({ ...f, useEndTime: e.target.checked }))}
+                  className="rounded"
+                />
+                <span className="text-zinc-300 text-xs font-mono">Heure de fin fixe</span>
+              </label>
+              {form.useEndTime ? (
+                <Input
+                  type="datetime-local"
+                  value={form.endTime}
+                  onChange={(v) => setForm((f) => ({ ...f, endTime: v }))}
+                  className="text-xs"
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-500 text-xs">Durée :</span>
+                  <Input
+                    type="number"
+                    value={form.durationHours}
+                    onChange={(v) => setForm((f) => ({ ...f, durationHours: v }))}
+                    placeholder="3"
+                    className="w-16 text-xs"
+                  />
+                  <span className="text-zinc-500 text-xs">heures</span>
+                </div>
+              )}
+            </div>
+            <div>
+              <Input
+                value={form.description}
+                onChange={(v) => setForm((f) => ({ ...f, description: v }))}
+                placeholder="Description (optionnelle)"
+                className="w-full text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Btn onClick={openSession} variant="success" disabled={busy}>
+                {busy ? '…' : 'Ouvrir la session'}
+              </Btn>
+              {msg && <span className="text-xs font-mono text-zinc-400">{msg}</span>}
+            </div>
+          </div>
+        </Section>
+      )}
+
+      <Section title={`Historique (${sessions.length})`}>
+        {loading ? (
+          <span className="text-zinc-600 text-xs font-mono">Chargement…</span>
+        ) : sessions.length === 0 ? (
+          <span className="text-zinc-600 text-xs font-mono">Aucune session</span>
+        ) : (
+          <div className="space-y-1.5">
+            {sessions.map((s) => {
+              const sessionNow = new Date();
+              const isOn =
+                s.isActive &&
+                new Date(s.startTime) <= sessionNow &&
+                (!s.endTime || new Date(s.endTime) > sessionNow);
+              const isPending = s.isActive && new Date(s.startTime) > sessionNow;
+              const orgName =
+                [s.organizer.firstName, s.organizer.lastName]
+                  .filter(Boolean)
+                  .join(' ') || s.organizerLogin;
+              return (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between bg-zinc-800/40 border border-zinc-800 rounded px-3 py-2 gap-4"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                        isOn
+                          ? 'bg-green-400'
+                          : isPending
+                          ? 'bg-yellow-400'
+                          : 'bg-zinc-600'
+                      }`}
+                    />
+                    <span className="text-zinc-300 text-xs font-mono truncate">
+                      {fmtDt(s.startTime)}
+                    </span>
+                    {s.endTime && (
+                      <span className="text-zinc-600 text-xs">→ {fmtDt(s.endTime)}</span>
+                    )}
+                    <span className="text-zinc-500 text-xs">par {orgName}</span>
+                    {s.description && (
+                      <span className="text-zinc-600 text-xs truncate italic">
+                        &ldquo;{s.description}&rdquo;
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {isOn && (
+                      <Btn onClick={() => closeSession(s.id)} variant="danger" disabled={busy}>
+                        Clôturer
+                      </Btn>
+                    )}
+                    {isPending && (
+                      <Btn onClick={() => cancelSession(s.id)} variant="warn" disabled={busy}>
+                        Annuler
+                      </Btn>
+                    )}
+                    {!isOn && !isPending && (
+                      <span className="text-zinc-700 text-[10px] font-mono">terminée</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+// ── Onglets fusionnés ─────────────────────────────────────────────────────────
+
+function FeedbackTab() {
+  const [sub, setSub] = useState<'ideas' | 'bugs'>('ideas');
+  return (
+    <div>
+      <SubTabBar
+        tabs={[
+          { id: 'ideas', label: '💡 IDÉES' },
+          { id: 'bugs', label: '🐛 BUGS' },
+        ]}
+        active={sub}
+        onChange={setSub}
+      />
+      {sub === 'ideas' && <IdeasTab />}
+      {sub === 'bugs' && <BugsTab />}
+    </div>
+  );
+}
+
+function ContentTab() {
+  const [sub, setSub] = useState<'announcements' | 'items' | 'battlepass'>('announcements');
+  return (
+    <div>
+      <SubTabBar
+        tabs={[
+          { id: 'announcements', label: '📣 ANNONCES' },
+          { id: 'items', label: '🎨 INVENTAIRES' },
+          { id: 'battlepass', label: '🎖 PASSE DE COMBAT' },
+        ]}
+        active={sub}
+        onChange={setSub}
+      />
+      {sub === 'announcements' && <AnnouncementsTab />}
+      {sub === 'items' && <ItemsAdminTab />}
+      {sub === 'battlepass' && <BattlePassAdminTab />}
+    </div>
+  );
+}
+
+function ActivityTab({ myRole }: { myRole: Role }) {
+  const [sub, setSub] = useState<'matches' | 'pending'>('matches');
+  return (
+    <div>
+      <SubTabBar
+        tabs={[
+          { id: 'matches', label: '⚔️ JOUÉS' },
+          ...(myRole === 'SUPERADMIN' ? [{ id: 'pending' as const, label: '⏳ EN ATTENTE' }] : []),
+        ]}
+        active={sub}
+        onChange={setSub}
+      />
+      {sub === 'matches' && <MatchesTab />}
+      {sub === 'pending' && myRole === 'SUPERADMIN' && <PendingTab />}
+    </div>
+  );
+}
+
+function SafetyTab() {
+  const [sub, setSub] = useState<'rejets' | 'alertes'>('alertes');
+  return (
+    <div>
+      <SubTabBar
+        tabs={[
+          { id: 'alertes', label: '⚠️ ALERTES' },
+          { id: 'rejets', label: '❌ REJETS' },
+        ]}
+        active={sub}
+        onChange={setSub}
+      />
+      {sub === 'alertes' && <AlertesTab />}
+      {sub === 'rejets' && <RejetsTab />}
+    </div>
+  );
+}
+
+function SystemTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
+  type SystemSub = 'audit' | 'seasons' | 'animations';
+  const subTabs: { id: SystemSub; label: string }[] = [
+    { id: 'audit', label: '📋 AUDIT' },
+    ...(myRole === 'SUPERADMIN' ? [{ id: 'seasons' as SystemSub, label: '🏆 SAISONS' }] : []),
+    ...(myRole === 'ADMIN' || myRole === 'SUPERADMIN' ? [{ id: 'animations' as SystemSub, label: '🎬 ANIMATIONS' }] : []),
+  ];
+  const [sub, setSub] = useState<SystemSub>('audit');
+
+  return (
+    <div>
+      <SubTabBar tabs={subTabs} active={sub} onChange={setSub} />
+      {sub === 'audit' && <AuditTab />}
+      {sub === 'seasons' && myRole === 'SUPERADMIN' && <SeasonsTab />}
+      {sub === 'animations' && (myRole === 'ADMIN' || myRole === 'SUPERADMIN') && <AnimationsTab myLogin={myLogin} />}
+    </div>
+  );
+}
+
+function PlayersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
+  const [sub, setSub] = useState<'users' | 'moderation'>('users');
+  return (
+    <div>
+      <SubTabBar
+        tabs={[
+          { id: 'users', label: '👥 LISTE' },
+          { id: 'moderation', label: '🔍 INSPECTION' },
+        ]}
+        active={sub}
+        onChange={setSub}
+      />
+      {sub === 'users' && <UsersTab myRole={myRole} myLogin={myLogin} />}
+      {sub === 'moderation' && <ModerationTab />}
+    </div>
+  );
+}
+
+const TAB_ICONS: Partial<Record<Tab, string>> = {
+  stats: '📊',
+  players: '👥',
+  activity: '⚔️',
+  safety: '🛡',
+  history: '📜',
+  tournaments: '🎯',
+  feedback: '💬',
+  content: '📣',
+  system: '⚙️',
+  'sf-club': '🥊',
+};
+
+const TABS: { id: Tab; superAdminOnly?: boolean; sfAdminOnly?: boolean; adminOnly?: boolean }[] = [
   { id: 'stats' },
-  { id: 'users' },
-  { id: 'moderation' },
-  { id: 'rejets' },
-  { id: 'pending', superAdminOnly: true },
-  { id: 'ideas' },
-  { id: 'bugs' },
-  { id: 'alertes' },
-  { id: 'audit' },
+  { id: 'players' },
+  { id: 'activity' },
+  { id: 'safety' },
   { id: 'history' },
   { id: 'tournaments' },
-  { id: 'announcements' },
-  { id: 'items' },
-  { id: 'seasons', superAdminOnly: true },
-  { id: 'animations' },
+  { id: 'feedback', adminOnly: true },
+  { id: 'content', adminOnly: true },
+  { id: 'system' },
+  { id: 'sf-club', sfAdminOnly: true },
 ];
 
 // ── Panneau /moodo (modérateurs) ──────────────────────────────────────────────
@@ -4508,13 +5414,11 @@ const TABS: { id: Tab; superAdminOnly?: boolean }[] = [
 // La vraie barrière reste côté serveur (requirePerm sur chaque endpoint).
 const MODO_TAB_PERMS: Partial<Record<Tab, ModeratorPermissionKey[]>> = {
   stats: ['canViewStats'],
-  users: ['canBan', 'canEditStats'],
-  moderation: ['canBan'],
-  rejets: ['canDeleteRejectedMatches'],
-  alertes: ['canViewSuspicious'],
-  audit: ['canViewAuditLog'],
+  players: ['canBan', 'canEditStats'],
+  safety: ['canDeleteRejectedMatches', 'canViewSuspicious'],
   history: ['canViewHistory'],
   tournaments: ['canDeleteTournaments'],
+  system: ['canViewAuditLog'],
 };
 
 export function GODPage({ moodo = false }: { moodo?: boolean }) {
@@ -4523,8 +5427,9 @@ export function GODPage({ moodo = false }: { moodo?: boolean }) {
   const [myLogin, setMyLogin] = useState<string | null>(null);
   const [myRole, setMyRole] = useState<Role | null>(null);
   const [myPerms, setMyPerms] = useState<Partial<Record<ModeratorPermissionKey, boolean>>>({});
+  const [isSfAdmin, setIsSfAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>(moodo ? 'stats' : 'users');
+  const [activeTab, setActiveTab] = useState<Tab>(moodo ? 'stats' : 'players');
   // Sens de la dernière transition d'onglet (1 = suivant, -1 = précédent),
   // pour orienter la petite animation de glissement sur mobile.
   const [navDir, setNavDir] = useState(0);
@@ -4540,7 +5445,12 @@ export function GODPage({ moodo = false }: { moodo?: boolean }) {
         if (myRole === 'ADMIN' || myRole === 'SUPERADMIN') return true;
         return perms.some((p) => myPerms[p]);
       })
-    : TABS.filter((tab) => !tab.superAdminOnly || myRole === 'SUPERADMIN');
+    : TABS.filter((tab) => {
+        if (tab.superAdminOnly && myRole !== 'SUPERADMIN') return false;
+        if (tab.adminOnly && myRole !== 'ADMIN' && myRole !== 'SUPERADMIN') return false;
+        if (isSfAdmin && myRole === 'MODERATOR') return !!tab.sfAdminOnly;
+        return true;
+      });
 
   const goToTab = useCallback(
     (dir: 1 | -1) => {
@@ -4571,10 +5481,18 @@ export function GODPage({ moodo = false }: { moodo?: boolean }) {
     api.me()
       .then((data) => {
         const role = data.role;
-        // /GOD : admins uniquement. /moodo : modérateurs (+ admins en aperçu).
-        const allowed =
-          role === 'ADMIN' || role === 'SUPERADMIN' || (moodo && role === 'MODERATOR');
-        if (allowed) {
+        const hasSfAdmin = (data as { sfAdmin?: boolean }).sfAdmin === true;
+        if (role === 'ADMIN' || role === 'SUPERADMIN') {
+          setMyLogin(data.login);
+          setMyRole(role);
+          setMyPerms(data.moderatorPermissions ?? {});
+          setIsSfAdmin(hasSfAdmin);
+        } else if (hasSfAdmin && !moodo) {
+          setMyLogin(data.login);
+          setMyRole('MODERATOR' as Role);
+          setIsSfAdmin(true);
+          setActiveTab('sf-club');
+        } else if (moodo && role === 'MODERATOR') {
           setMyLogin(data.login);
           setMyRole(role);
           setMyPerms(data.moderatorPermissions ?? {});
@@ -4687,13 +5605,15 @@ export function GODPage({ moodo = false }: { moodo?: boolean }) {
                 setNavDir(to === from ? 0 : to > from ? 1 : -1);
                 setActiveTab(tab.id);
               }}
-              className={`px-4 py-3 text-xs tracking-widest transition-colors cursor-pointer border-b-2 whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-3 text-xs tracking-widest transition-colors cursor-pointer border-b-2 whitespace-nowrap shrink-0 ${
                 activeTab === tab.id
                   ? 'text-zinc-100 border-zinc-400'
                   : 'text-zinc-500 border-transparent hover:text-zinc-300 hover:border-zinc-700'
               }`}
             >
-              {t(`god.tab.${tab.id}`)}
+              {TAB_ICONS[tab.id] && <span className="text-sm leading-none">{TAB_ICONS[tab.id]}</span>}
+              <span className="hidden sm:inline">{t(`god.tab.${tab.id}`)}</span>
+              <span className="sm:hidden text-[10px] font-bold">{t(`god.tab.${tab.id}`).slice(0, 4)}</span>
             </button>
           ))}
         </div>
@@ -4709,21 +5629,15 @@ export function GODPage({ moodo = false }: { moodo?: boolean }) {
           className="max-w-screen-2xl mx-auto"
         >
           {activeTab === 'stats' && <StatsTab />}
-          {activeTab === 'users' && <UsersTab myRole={myRole} myLogin={myLogin} />}
-          {activeTab === 'moderation' && <ModerationTab />}
-          {activeTab === 'rejets' && <RejetsTab />}
-          {activeTab === 'matches' && <MatchesTab />}
-          {activeTab === 'pending' && myRole === 'SUPERADMIN' && <PendingTab />}
-          {activeTab === 'ideas' && <IdeasTab />}
-          {activeTab === 'bugs' && <BugsTab />}
-          {activeTab === 'alertes' && <AlertesTab />}
-          {activeTab === 'audit' && <AuditTab />}
+          {activeTab === 'players' && <PlayersTab myRole={myRole} myLogin={myLogin} />}
+          {activeTab === 'activity' && <ActivityTab myRole={myRole} />}
+          {activeTab === 'safety' && <SafetyTab />}
           {activeTab === 'history' && <AllHistoryTab />}
           {activeTab === 'tournaments' && <TournamentsTab />}
-          {activeTab === 'seasons' && myRole === 'SUPERADMIN' && <SeasonsTab />}
-          {activeTab === 'animations' && <AnimationsTab myLogin={myLogin} />}
-          {activeTab === 'announcements' && <AnnouncementsTab />}
-          {activeTab === 'items' && <ItemsAdminTab />}
+          {activeTab === 'feedback' && <FeedbackTab />}
+          {activeTab === 'content' && <ContentTab />}
+          {activeTab === 'system' && <SystemTab myRole={myRole} myLogin={myLogin} />}
+          {activeTab === 'sf-club' && myLogin && <SfSessionsTab myLogin={myLogin} />}
         </motion.div>
       </div>
     </div>

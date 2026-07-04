@@ -13,6 +13,7 @@ import { EloChart } from '../../components/EloChart';
 import { SectionHeader } from './shared/SectionHeader';
 import { RankingScopeToggle } from '../leaderboard/RankingScopeToggle';
 import { BetsPanel } from './BetsPanel';
+import { XpBar } from '../../components/XpBar';
 import { useProfilLogic } from './shared/useProfilLogic';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
@@ -52,6 +53,15 @@ export function ProfilMobile() {
       <div key={game} className="space-y-5">
         {/* Héro : ELO, stats, badges, autres disciplines — tout dans la carte */}
         <ProfileHeroCard stats={stats} />
+
+        {/* Passe de combat : niveau + barre d'XP + accès à la page /passe */}
+        {typeof me.level === 'number' && (
+          <XpBar
+            level={me.level}
+            xpIntoLevel={me.xpIntoLevel ?? 0}
+            xpForNextLevel={me.xpForNextLevel ?? 0}
+          />
+        )}
 
         {/* Réaction meme contextuelle (série de défaites → « offre ton ELO ? »,
             série de victoires → « calme-toi le sweat »). Cf. lib/playerReactions. */}

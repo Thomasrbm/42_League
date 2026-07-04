@@ -1,28 +1,19 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BottomSheet } from '../../../mobile/primitives/BottomSheet';
 import { AbacusSlider } from '../../../components/AbacusSlider';
 import { OutcomeButton } from '../../../components/OutcomeButton';
-import { SmashCharIcon } from '../../../components/SmashCharIcon';
-import { SfCharIcon } from '../../../components/SfCharIcon';
 import { Button } from '../../../components/Button';
 import { api, type Challenge } from '../../../lib/api';
 import { useLeagueData } from '../../../hooks/useLeagueData';
 import { useFlash } from '../../../hooks/useFlash';
 import { useT } from '../../../lib/i18n';
-import { SMASH_ROSTER } from '../../../lib/smash';
-import { SF_ROSTER } from '../../../lib/sf';
 import { haptic } from '../../../mobile/feedback/useHaptic';
-import { mostPlayedChars } from '../../../lib/chars';
-import { CharPicker, PerGameCharsEditor, type PerGameChars } from '../shared/CharPicker';
+import { SmashSetEditor, type SmashSetValue } from '../shared/SmashSetEditor';
 
 const WINNING_SCORE = 10;
 const LOSER_SCORE_MIN = -10;
 const LOSER_SCORE_MAX = 9;
-
-function smashTarget(bestOf: 3 | 5) {
-  return Math.ceil(bestOf / 2);
-}
 
 interface ChallengeRecordSheetProps {
   challenge: Challenge | null;
@@ -57,7 +48,7 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
   challenge: Challenge; myLogin: string | undefined; onClose: () => void; onDone: () => Promise<void>;
 }) {
   const t = useT();
-  const { refresh, me, matches } = useLeagueData();
+  const { refresh, me } = useLeagueData();
   const flash = useFlash();
 
   const game = challenge.game ?? 'babyfoot';
@@ -65,50 +56,29 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
   const isSf = game === 'streetfighter';
   // Street Fighter == Smash pour la saisie (set Bo3/Bo5 + 2 persos), mais sans stocks.
   const isSetGame = isSmash || isSf;
-  const charRoster = isSf ? SF_ROSTER : SMASH_ROSTER;
-  const CharIcon = isSf ? SfCharIcon : SmashCharIcon;
   const myFavorites = (isSf ? me?.user?.favSf : me?.user?.favSmash) ?? [];
   const isChess = game === 'chess';
   const opponent = challenge.challengerLogin === myLogin ? challenge.opponentLogin : challenge.challengerLogin;
-  // Persos les plus joués (moi / adversaire) — remontés en tête de la grille.
-  const myMostPlayed = useMemo(
-    () => (isSetGame ? mostPlayedChars(matches, myLogin, isSf ? 'streetfighter' : 'smash') : []),
-    [isSetGame, matches, myLogin, isSf],
-  );
-  const oppMostPlayed = useMemo(
-    () => (isSetGame ? mostPlayedChars(matches, opponent, isSf ? 'streetfighter' : 'smash') : []),
-    [isSetGame, matches, opponent, isSf],
-  );
 
   const [iWon, setIWon] = useState<boolean | null>(null);
   const [loserScore, setLoserScore] = useState(0);
-  const [bestOf, setBestOf] = useState<3 | 5>(3);
-  const [loserGames, setLoserGames] = useState(0);
-  const [charSelf, setCharSelf] = useState<string | null>(null);
-  const [charOpp, setCharOpp] = useState<string | null>(null);
-  const [winnerStocks, setWinnerStocks] = useState(3);
-  const [perGameChars, setPerGameChars] = useState<PerGameChars | null>(null);
+  const [setValue, setSetValue] = useState<SmashSetValue | null>(null);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
-
-  const target = smashTarget(bestOf);
-  const totalGames = target + loserGames;
 
   const handleSubmit = useCallback(async () => {
     if (iWon === null) return;
     setBusy(true);
     try {
       if (isSetGame) {
-        if (!charSelf || !charOpp) { flash.show(t('defis.chooseBothChars'), 'error'); setBusy(false); setSending(false); return; }
-        // Par défaut un seul perso pour tout le set ; sinon liste encodée par manche.
-        const finalSelf = perGameChars ? perGameChars.self || charSelf : charSelf;
-        const finalOpp = perGameChars ? perGameChars.opp || charOpp : charOpp;
+        if (!setValue) { setBusy(false); setSending(false); return; }
         await api.recordChallengeResult(challenge.id, {
-          scoreSelf: iWon ? target : loserGames,
-          scoreOpponent: iWon ? loserGames : target,
-          game: isSf ? 'streetfighter' : 'smash', bestOf, charSelf: finalSelf, charOpponent: finalOpp,
-          // Les stocks (vies) sont spécifiques au Smash ; SF n'en a pas.
-          ...(isSmash ? { stocks: winnerStocks } : {}),
+          scoreSelf: setValue.scoreSelf,
+          scoreOpponent: setValue.scoreOpponent,
+          game: isSf ? 'streetfighter' : 'smash',
+          bestOf: setValue.bestOf,
+          charSelf: setValue.charSelf,
+          charOpponent: setValue.charOpponent,
         });
       } else if (isChess) {
         await api.recordChallengeResult(challenge.id, { scoreSelf: iWon ? 1 : 0, scoreOpponent: iWon ? 0 : 1, game: 'chess' });
@@ -127,7 +97,7 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
       flash.show(err instanceof Error ? err.message : String(err), 'error');
       haptic('error');
     } finally { setBusy(false); setSending(false); }
-  }, [iWon, isSetGame, isSmash, isSf, isChess, charSelf, charOpp, perGameChars, target, loserGames, bestOf, winnerStocks, loserScore, challenge.id, opponent, flash, refresh, onDone, onClose]);
+  }, [iWon, isSetGame, isSf, isChess, setValue, loserScore, challenge.id, opponent, flash, refresh, onDone, onClose, t]);
 
   const triggerSend = () => { setSending(true); haptic('medium'); window.setTimeout(handleSubmit, 140); };
 
@@ -199,66 +169,18 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
           </div>
         )}
 
-        {/* Set (Smash / Street Fighter) */}
+        {/* Set (Smash / Street Fighter) — score d'abord, persos optionnels */}
         {iWon !== null && isSetGame && (
           <div className="space-y-4">
-            <div>
-              <label className="block text-[10px] uppercase tracking-wider text-muted font-bold mb-2">{t('defis.format')}</label>
-              <div className="grid grid-cols-2 gap-2">
-                {([3, 5] as const).map((bo) => (
-                  <button key={bo} type="button"
-                    onClick={() => { setBestOf(bo); setLoserGames((g) => Math.min(g, smashTarget(bo) - 1)); }}
-                    className={`py-2.5 rounded-xl border-2 text-sm font-extrabold uppercase transition-all ${bestOf === bo ? 'border-[#c97bff] bg-[#c97bff]/10 text-[#c97bff]' : 'border-border bg-bg-2/40 text-muted-2'}`}
-                  >Bo{bo}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase tracking-wider text-muted font-bold mb-2">
-                {t('defis.gamesOf')} {iWon ? opponent : (myLogin ?? t('defis.me'))} · {t('defis.winnerTarget')} {target}
-              </label>
-              <div className="flex gap-2">
-                {Array.from({ length: target }, (_, g) => (
-                  <button key={g} type="button" onClick={() => setLoserGames(g)}
-                    className={`flex-1 py-2 rounded-lg border font-mono font-extrabold tabular-nums transition-all ${loserGames === g ? 'border-[#c97bff] bg-[#c97bff]/10 text-[#c97bff]' : 'border-border bg-bg-2/40 text-muted-2'}`}
-                  >{g}</button>
-                ))}
-              </div>
-            </div>
-            {isSmash && (
-              <div>
-                <label className="block text-[10px] uppercase tracking-wider text-muted font-bold mb-2">{t('defis.winnerStocksShort')}</label>
-                <div className="flex gap-2">
-                  {[1, 2, 3].map((s) => (
-                    <button key={s} type="button" onClick={() => setWinnerStocks(s)}
-                      className={`flex-1 py-2 rounded-lg border font-mono font-extrabold tabular-nums transition-all ${winnerStocks === s ? 'border-[#c97bff] bg-[#c97bff]/10 text-[#c97bff]' : 'border-border bg-bg-2/40 text-muted-2'}`}
-                    >{'❤'.repeat(s)}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <CharPicker label={t('defis.yourChar')} value={charSelf} onChange={setCharSelf} roster={charRoster} Icon={CharIcon} favorites={myFavorites} favoritesLabel={t('favorites.label')} mostPlayed={myMostPlayed} />
-            <CharPicker label={`${t('defis.charOf')} ${opponent}`} value={charOpp} onChange={setCharOpp} roster={charRoster} Icon={CharIcon} mostPlayed={oppMostPlayed} />
-            <PerGameCharsEditor
-              totalGames={totalGames}
-              defaultSelf={charSelf}
-              defaultOpp={charOpp}
-              roster={charRoster}
-              Icon={CharIcon}
+            <SmashSetEditor
+              game={isSf ? 'streetfighter' : 'smash'}
+              iWon={iWon}
+              myLogin={myLogin}
+              oppLogin={opponent}
               myFavorites={myFavorites}
-              myMostPlayed={myMostPlayed}
-              oppMostPlayed={oppMostPlayed}
-              oppLabel={opponent}
-              onChange={setPerGameChars}
+              onChange={setSetValue}
             />
-            <div className="px-4 py-3 rounded-xl bg-bg-1/80 border border-border text-center text-sm text-muted-2 shadow-inner">
-              <span className={`font-extrabold ${iWon ? 'text-teal' : 'text-text-strong'}`}>{winnerLogin}</span>
-              {' '}{t('defis.winsShort')}{' '}<span className="font-extrabold text-text-strong font-mono tabular-nums">{target}</span>
-              <span className="text-muted mx-1.5 opacity-50">–</span>
-              <span className="font-extrabold text-text-strong font-mono tabular-nums">{loserGames}</span>
-              {' (Bo'}{bestOf}{')'}
-            </div>
-            <Button size="md" loading={busy} disabled={!charSelf || !charOpp} onClick={triggerSend} className="w-full py-3.5 text-sm font-bold shadow-lg">{t('defis.sendScore')}</Button>
+            <Button size="md" loading={busy} onClick={triggerSend} className="w-full py-3.5 text-sm font-bold shadow-lg">{t('defis.sendScore')}</Button>
           </div>
         )}
 

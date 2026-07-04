@@ -20,6 +20,14 @@ export const dict: Record<Lang, Dict> = {
     'settings.gameModes.hint': 'Tu apparais dans les classements et stats des modes activés.',
     'settings.gameModes.minOne': 'Au moins un mode doit rester actif',
 
+    // Réglages — qualité graphique (palier de perf, cf. lib/perf.ts)
+    'settings.quality': 'Qualité graphique',
+    'settings.quality.hint':
+      'Auto réduit les effets si l’appareil rame, sans rien changer sur les machines puissantes.',
+    'settings.quality.auto': 'Auto',
+    'settings.quality.high': 'Élevée',
+    'settings.quality.perf': 'Performance',
+
     // Réglages — compte / divers
     'settings.connectedAs': 'Connecté en tant que',
     'settings.exportError': "Erreur lors de l'export.",
@@ -42,6 +50,13 @@ export const dict: Record<Lang, Dict> = {
     'settings.gameModes.hint': 'You appear in the leaderboards and stats of the modes you enable.',
     'settings.gameModes.minOne': 'At least one mode must stay active',
 
+    'settings.quality': 'Graphics quality',
+    'settings.quality.hint':
+      'Auto trims effects only when the device struggles — nothing changes on powerful machines.',
+    'settings.quality.auto': 'Auto',
+    'settings.quality.high': 'High',
+    'settings.quality.perf': 'Performance',
+
     'settings.connectedAs': 'Signed in as',
     'settings.exportError': 'Export failed.',
     'settings.deleteError': 'Deletion failed.',
@@ -61,6 +76,13 @@ export const dict: Record<Lang, Dict> = {
     'settings.gameModes.title': 'Modos de juego',
     'settings.gameModes.hint': 'Apareces en las clasificaciones y estadísticas de los modos activados.',
     'settings.gameModes.minOne': 'Al menos un modo debe permanecer activo',
+
+    'settings.quality': 'Calidad gráfica',
+    'settings.quality.hint':
+      'Auto reduce los efectos solo si el dispositivo va lento, sin cambiar nada en equipos potentes.',
+    'settings.quality.auto': 'Auto',
+    'settings.quality.high': 'Alta',
+    'settings.quality.perf': 'Rendimiento',
 
     'settings.connectedAs': 'Conectado como',
     'settings.exportError': 'Error al exportar.',

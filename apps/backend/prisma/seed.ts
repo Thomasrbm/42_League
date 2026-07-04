@@ -324,6 +324,39 @@ async function seed() {
     },
   });
 
+  // ── Passe de combat : 100 paliers, récompenses = cosmétiques EXISTANTS ──────
+  // Pour l'instant on n'attache QUE des cosmétiques déjà présents en boutique
+  // (pas de nouvel item dédié). On les répartit sur les paliers « milestone »
+  // (multiples de 5) ; les autres paliers restent vides (rewardKind 'none') et
+  // seront garnis depuis /GOD. La piste complète 1..100 est visible côté joueur.
+  console.log('🎟️  Upserting battle pass tiers (100, cosmétiques existants)...');
+  const cosmetics = await prisma.shopItem.findMany({
+    where: { active: true, category: { in: ['title', 'banner', 'badge', 'cosmetic'] } },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    select: { id: true },
+  });
+  let cosmeticIdx = 0;
+  for (let tier = 1; tier <= 100; tier++) {
+    let data: {
+      rewardKind: string;
+      itemId: string | null;
+      coins: number | null;
+      consumableKind: string | null;
+    };
+    if (tier % 5 === 0 && cosmeticIdx < cosmetics.length) {
+      // Palier « milestone » : un cosmétique existant tant que la boutique en a.
+      data = { rewardKind: 'item', itemId: cosmetics[cosmeticIdx++]!.id, coins: null, consumableKind: null };
+    } else {
+      // Aucune récompense pour l'instant (à configurer dans /GOD).
+      data = { rewardKind: 'none', itemId: null, coins: null, consumableKind: null };
+    }
+    await prisma.battlePassTier.upsert({
+      where: { tier },
+      update: data,
+      create: { tier, ...data },
+    });
+  }
+
   console.log('\n✅ Done!');
   process.exit(0);
 }

@@ -18,6 +18,7 @@ import {
 } from '../lib/goat';
 import type { LeaderboardEntry, PlayedMatch } from '../lib/api';
 import { useT } from '../lib/i18n';
+import { CampusScopeToggle, filterByCampus, type CampusScope } from './leaderboard/campusScope';
 import { hasSeenGoatIntro, markGoatIntroSeen } from '../lib/storage';
 
 const OFFICIAL_CUP = '#ff6b6b';
@@ -55,16 +56,28 @@ function GoatWeightsList({ compact = false }: { compact?: boolean }) {
 export function GoatView({
   leaderboard: lbOverride,
   matches: matchesOverride,
+  campusScoped = false,
 }: {
   /** Classement scopé saison (snapshot). Défaut : classement live. */
   leaderboard?: LeaderboardEntry[];
   /** Matchs scopés saison (filtrés par seasonId). Défaut : tous les matchs live. */
   matches?: PlayedMatch[];
+  /**
+   * Affiche un sélecteur « Mon campus / Inter-campus » et filtre le G.O.A.T par
+   * campus. Réservé à la page autonome /goat : quand le G.O.A.T est embarqué dans
+   * le classement, le parent fournit déjà un `leaderboard` cloisonné.
+   */
+  campusScoped?: boolean;
 } = {}) {
   const live = useLeagueData();
-  const leaderboard = lbOverride ?? live.leaderboard;
-  const matches = matchesOverride ?? live.matches;
   const { tournaments, me } = live;
+  const myCampus = me?.user?.campus ?? null;
+  const [campusScope, setCampusScope] = useState<CampusScope>('mine');
+  const baseLeaderboard = lbOverride ?? live.leaderboard;
+  const leaderboard = campusScoped
+    ? filterByCampus(baseLeaderboard, myCampus ? campusScope : 'all', myCampus)
+    : baseLeaderboard;
+  const matches = matchesOverride ?? live.matches;
   const { game } = useGameMode();
   const t = useT();
   // L'intro ne s'affiche qu'au tout premier passage ; ensuite elle est rappelable
@@ -86,6 +99,11 @@ export function GoatView({
 
   return (
     <div>
+      {campusScoped && myCampus && (
+        <div className="mb-4 max-w-[240px]">
+          <CampusScopeToggle value={campusScope} onChange={setCampusScope} myCampus={myCampus} />
+        </div>
+      )}
       {/* ── Bandeau d'en-tête : explique la page d'emblée + accès à l'aide ── */}
       <GoatHeader onOpenHelp={() => setShowIntro(true)} />
 
@@ -324,7 +342,7 @@ export function GoatPage() {
         <ChevronLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" strokeWidth={2.5} />
         {t('common.back')}
       </button>
-      <GoatView />
+      <GoatView campusScoped />
     </Panel>
   );
 }

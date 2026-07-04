@@ -16,6 +16,7 @@ import { LeaderboardScatter, RankingViewToggle, GradesNavButton, type RankingVie
 import { GoatView } from '../GoatPage';
 import { TeamLeaderboard } from './TeamLeaderboard';
 import { RankingScopeToggle } from './RankingScopeToggle';
+import { CampusScopeToggle, useCampusScope, filterByCampus, hasCampusInfo } from './campusScope';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
 import { useT } from '../../lib/i18n';
@@ -219,6 +220,11 @@ export function LeaderboardDesktop() {
   const { game } = useGameMode();
   const myLogin = me?.login;
 
+  // Cloisonnement par campus : par défaut le joueur ne voit que son campus ; la
+  // bascule « Inter-campus » (ouverte à tous) lève le filtre. ELO global inchangé,
+  // on ne filtre que l'affichage (cf. campusScope).
+  const { scope: campusScope, setScope: setCampusScope, myCampus } = useCampusScope();
+
   const showTeamsTab = game === 'babyfoot';
   const [activeTab, setActiveTab] = useState<LeaderboardTab>('personal');
   useEffect(() => {
@@ -335,6 +341,20 @@ export function LeaderboardDesktop() {
     return { entries: e, rowStats: st };
   }, [standings, imgByLogin, leaderboard, statsByLogin, seasonMatches, game]);
 
+  // Cloisonnement campus : on filtre les entrées affichées puis on re-numérote les
+  // rangs de façon contiguë (un classement « de campus » commence à #1). En vue
+  // Inter-campus, ou sans campus rattaché, rien n'est retiré. Les snapshots non
+  // taggés (campus inconnu) restent globaux (cf. filterByCampus).
+  const scopedEntries = useMemo<LeaderboardEntry[]>(
+    () => filterByCampus(entries, campusScope, myCampus).map((e, i) => ({ ...e, rank: i + 1 })),
+    [entries, campusScope, myCampus],
+  );
+
+  // Snapshot d'une saison antérieure au tagging campus, demandé en vue « Mon
+  // campus » : on a affiché le classement global faute de mieux → on le signale.
+  const campusLegacySnapshot =
+    viewingPast && campusScope === 'mine' && !!myCampus && !hasCampusInfo(entries);
+
   // Win rate par login — abscisse du nuage de points. Dérivé de rowStats pour
   // suivre la saison affichée (live ou snapshot passé).
   const scatterWinRates = useMemo(() => {
@@ -343,10 +363,17 @@ export function LeaderboardDesktop() {
     return m;
   }, [rowStats]);
 
-  // Top 3 par rang officiel (ELO) — pour le podium.
+  // Top 3 par rang officiel (ELO) — pour le podium (scopé campus).
   const top3 = useMemo(
-    () => [...entries].sort((a, b) => a.rank - b.rank).slice(0, 3),
-    [entries],
+    () => [...scopedEntries].sort((a, b) => a.rank - b.rank).slice(0, 3),
+    [scopedEntries],
+  );
+
+  // Leaderboard live complet filtré campus → alimente le G.O.A.T live (pool
+  // cross-saison : on garde TOUS les joueurs du campus, pas seulement les classés).
+  const goatLiveLeaderboard = useMemo(
+    () => filterByCampus(leaderboard, campusScope, myCampus),
+    [leaderboard, campusScope, myCampus],
   );
 
   const podiumStats = useMemo(() => {
@@ -372,7 +399,7 @@ export function LeaderboardDesktop() {
   };
 
   const sortedRows = useMemo(() => {
-    const rows = entries.map((u) => ({
+    const rows = scopedEntries.map((u) => ({
       entry: u,
       stats: rowStats.get(u.login) ?? EMPTY_STATS,
     }));
@@ -419,7 +446,7 @@ export function LeaderboardDesktop() {
       return cmp * dir;
     });
     return rows;
-  }, [entries, rowStats, sort]);
+  }, [scopedEntries, rowStats, sort]);
 
   // Bouton « Où suis-je ? » : recentre sur le joueur courant dans les 3 vues.
   //  • Liste / G.O.A.T → défile jusqu'à l'élément #lb-me-row.
@@ -449,7 +476,7 @@ export function LeaderboardDesktop() {
         <DesktopPodium top3={top3} statsByLogin={podiumStats} past={viewingPast} />
       )}
 
-      <Panel title={t('panel.lb.title')} sub={`${entries.length} ${t('panel.lb.sub')}`} accent="crown">
+      <Panel title={t('panel.lb.title')} sub={`${scopedEntries.length} ${t('panel.lb.sub')}`} accent="crown">
         {/* Onglets Personnel / Équipes — Babyfoot uniquement */}
         {showTeamsTab && (
           <div className="mb-4 max-w-xs">
@@ -473,7 +500,11 @@ export function LeaderboardDesktop() {
               exit={{ opacity: 0, x: -14 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             >
-              <TeamLeaderboard />
+              <TeamLeaderboard
+                campusScope={campusScope}
+                onCampusScopeChange={setCampusScope}
+                myCampus={myCampus}
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -485,7 +516,10 @@ export function LeaderboardDesktop() {
             >
 
         <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-          <SeasonSelect seasons={seasons} value={seasonId} onChange={setSeasonId} currentLabel={t('lb.season.current')} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <SeasonSelect seasons={seasons} value={seasonId} onChange={setSeasonId} currentLabel={t('lb.season.current')} />
+            <CampusScopeToggle value={campusScope} onChange={setCampusScope} myCampus={myCampus} />
+          </div>
           <div className="flex items-center gap-2">
             {myLogin && sortedRows.some((r) => r.entry.login === myLogin) && (
               <button
@@ -506,16 +540,25 @@ export function LeaderboardDesktop() {
             {t('lb.unranked.note')}
           </p>
         )}
-        {entries.length === 0 ? (
+        {campusLegacySnapshot && (
+          <p className="text-[11px] text-amber-400/80 mb-3 -mt-1 leading-snug">
+            {t('lb.campus.legacyNote')}
+          </p>
+        )}
+        {scopedEntries.length === 0 ? (
           <div className="text-center text-muted-2 py-10">
             {viewingPast ? t('lb.snapshot.empty') : t('lb.unranked.empty')}
           </div>
         ) : viewMode === 'goat' && seasonHasMatches ? (
-          viewingPast ? <GoatView leaderboard={entries} matches={seasonMatches} /> : <GoatView />
+          viewingPast ? (
+            <GoatView leaderboard={scopedEntries} matches={seasonMatches} />
+          ) : (
+            <GoatView leaderboard={goatLiveLeaderboard} matches={allMatches} />
+          )
         ) : viewMode === 'graph' ? (
           <LeaderboardScatter
             ref={scatterRef}
-            entries={entries}
+            entries={scopedEntries}
             myLogin={myLogin}
             winRates={scatterWinRates}
             className="h-[640px]"

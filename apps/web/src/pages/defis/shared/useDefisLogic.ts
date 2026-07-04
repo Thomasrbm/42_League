@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from 'react';
-import { api, type Challenge, type LeaderboardEntry, type PendingMatch, type PendingFfa } from '../../../lib/api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { api, type Challenge, type LeaderboardEntry, type PendingMatch, type PendingFfa, type PlayedMatch } from '../../../lib/api';
 import { useLeagueData } from '../../../hooks/useLeagueData';
 import { useFlash } from '../../../hooks/useFlash';
 import { useConfirm } from '../../../hooks/useConfirm';
@@ -22,6 +22,8 @@ export interface DefisLogic {
   dartsToConfirm: PendingFfa[];
   /** Manches de fléchettes que j'attends (déclarées par moi, ou déjà confirmées). */
   dartsWaiting: PendingFfa[];
+  /** Matchs auto-validés (48h sans réponse) que je peux encore contester. */
+  contestableMatches: PlayedMatch[];
   others: LeaderboardEntry[];
   recentOpponents: LeaderboardEntry[];
   opponentCounts: Record<string, number>;
@@ -40,6 +42,8 @@ export interface DefisLogic {
   contestDarts: (id: string, claimedRemaining: number, message?: string) => Promise<void>;
   /** Annule une manche de fléchettes que j'ai déclarée. */
   cancelDartsDeclaration: (id: string) => Promise<void>;
+  /** Conteste a posteriori un match auto-validé → ouvre un litige (pas d'annulation d'ELO). */
+  contestMatch: (id: string, reason: 'never_played' | 'wrong_score', message: string) => Promise<void>;
   /** Propose l'annulation à l'amiable d'un défi accepté (sans perte d'ELO si accepté). */
   requestAmicableCancel: (id: string) => Promise<void>;
   /** Répond à une demande d'annulation à l'amiable (accept = true/false). */
@@ -82,13 +86,34 @@ export function challengeCancelState(c: Challenge, myLogin: string | undefined):
  * Ne contient aucune UI, juste de la donnée dérivée et des actions.
  */
 export function useDefisLogic(): DefisLogic {
-  const { challenges, leaderboard, me, pending, pendingFfas, pendingDarts, matches, refresh } = useLeagueData();
+  const { challenges, leaderboard, me, pending, pendingFfas, pendingDarts, matches, refresh: baseRefresh } = useLeagueData();
   const flash = useFlash();
   const confirm = useConfirm();
   const t = useT();
   const { hunter, forcedLeftAsTarget } = useOpsStatus();
 
   const myLogin = me?.login;
+
+  // Matchs auto-validés (48h sans réponse) encore contestables : source dédiée
+  // (hors useLeagueData). Re-fetch au montage et dès que `matches` bouge — un match
+  // auto-validé y apparaît via le polling, ce qui rafraîchit aussi cette liste.
+  const [contestableMatches, setContestableMatches] = useState<PlayedMatch[]>([]);
+  const refetchContestable = useCallback(async () => {
+    try {
+      setContestableMatches(await api.contestableMatches());
+    } catch {
+      /* silencieux : pas bloquant pour la page Défis */
+    }
+  }, []);
+  useEffect(() => {
+    void refetchContestable();
+  }, [refetchContestable, matches]);
+
+  // Refresh combiné : data de ligue + liste des contestables.
+  const refresh = useCallback(async () => {
+    await baseRefresh();
+    await refetchContestable();
+  }, [baseRefresh, refetchContestable]);
 
   const { incoming, outgoing, accepted } = useMemo(() => {
     const inc: Challenge[] = [];
@@ -402,6 +427,19 @@ export function useDefisLogic(): DefisLogic {
     [confirm, flash, refresh, t],
   );
 
+  const contestMatch = useCallback(
+    async (id: string, reason: 'never_played' | 'wrong_score', message: string) => {
+      try {
+        await api.contestPlayedMatch(id, reason, message);
+        flash.show(t('defis.toast.matchContested'));
+        await refresh();
+      } catch (err) {
+        flash.show(err instanceof Error ? err.message : String(err), 'error');
+      }
+    },
+    [flash, refresh, t],
+  );
+
   const requestAmicableCancel = useCallback(
     async (id: string) => {
       const ok = await confirm({
@@ -455,6 +493,7 @@ export function useDefisLogic(): DefisLogic {
     ffaWaiting,
     dartsToConfirm,
     dartsWaiting,
+    contestableMatches,
     others,
     recentOpponents,
     opponentCounts,
@@ -467,6 +506,7 @@ export function useDefisLogic(): DefisLogic {
     confirmDarts,
     contestDarts,
     cancelDartsDeclaration,
+    contestMatch,
     requestAmicableCancel,
     respondAmicableCancel,
   };

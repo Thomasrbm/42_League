@@ -9,6 +9,7 @@ import { useFlash } from '../../../hooks/useFlash';
 import { useOpsStatus } from '../../../hooks/useOpsStatus';
 import { useT } from '../../../lib/i18n';
 import { haptic } from '../../../mobile/feedback/useHaptic';
+import { Cooldown } from '../shared/Cooldown';
 
 // ─── Pill par joueur pour les confirmations 2v2 ───────────────────────────────
 
@@ -171,6 +172,15 @@ export function PendingMatchCard({ match, myLogin, onDone }: PendingMatchCardPro
               {match.declarerLogin}
             </PlayerLink>
             <span className="text-muted-2">{t('defis.declared')}</span>
+          </div>
+
+          {/* Cooldown 48h : passé ce délai sans réponse, le match est auto-validé. */}
+          <div className="flex justify-center mb-3">
+            <Cooldown
+              from={match.declaredAt}
+              label={t('defis.cooldown.autoValidateIn')}
+              expiredLabel={t('defis.cooldown.autoValidating')}
+            />
           </div>
 
           {/* Discipline du match */}

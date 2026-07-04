@@ -7,6 +7,7 @@ import { TeamPodium } from './TeamPodium';
 import { api, type BabyfootTeamEntry, type LeaderboardEntry } from '../../lib/api';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useT } from '../../lib/i18n';
+import { CampusScopeToggle, type CampusScope } from './campusScope';
 
 // ─── Avatar d'un joueur dans la carte d'équipe ───────────────────────────────
 
@@ -139,7 +140,16 @@ function EmptyTeams() {
  * Les avatars sont dénormalisés depuis le leaderboard individuel pour éviter
  * un appel réseau supplémentaire.
  */
-export function TeamLeaderboard() {
+export function TeamLeaderboard({
+  campusScope = 'all',
+  onCampusScopeChange,
+  myCampus,
+}: {
+  /** Vue campus : 'mine' = duos dont les deux joueurs sont du campus, 'all' = tous. */
+  campusScope?: CampusScope;
+  onCampusScopeChange?: (v: CampusScope) => void;
+  myCampus?: string | null;
+} = {}) {
   const t = useT();
   const { leaderboard } = useLeagueData();
 
@@ -176,6 +186,22 @@ export function TeamLeaderboard() {
     player2ImageUrl: avatarByLogin.get(t.player2Login) ?? null,
   }));
 
+  // Cloisonnement campus : un duo « de campus » a ses DEUX joueurs du campus. Si
+  // aucun duo ne porte d'info campus (données anciennes), on reste global. Les
+  // rangs sont re-numérotés de façon contiguë au sein de la vue affichée.
+  const hasCampus = teams.some((t) => t.player1Campus || t.player2Campus);
+  const scoped =
+    campusScope === 'mine' && myCampus && hasCampus
+      ? enriched.filter((t) => t.player1Campus === myCampus && t.player2Campus === myCampus)
+      : enriched;
+  const ranked = scoped.map((t, i) => ({ ...t, rank: i + 1 }));
+
+  const toggle = onCampusScopeChange ? (
+    <div className="mb-3 max-w-[240px]">
+      <CampusScopeToggle value={campusScope} onChange={onCampusScopeChange} myCampus={myCampus} />
+    </div>
+  ) : null;
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -192,22 +218,30 @@ export function TeamLeaderboard() {
     );
   }
 
-  if (enriched.length === 0) {
-    return <EmptyTeams />;
+  if (ranked.length === 0) {
+    return (
+      <div>
+        {toggle}
+        <EmptyTeams />
+      </div>
+    );
   }
 
   // Top 3 → podium « duo », le reste (rang 4+) → liste.
-  const podium = enriched.slice(0, 3);
-  const rest = enriched.slice(3);
+  const podium = ranked.slice(0, 3);
+  const rest = ranked.slice(3);
 
   return (
     <div>
+      {toggle}
       <TeamPodium top3={podium} />
       {rest.length > 0 && (
         <StaggerList className="space-y-2" stagger={0.04}>
           {rest.map((entry) => (
             <StaggerItem key={entry.id}>
-              <TeamCard entry={entry} isTop={false} />
+              <div className="cv-row">
+                <TeamCard entry={entry} isTop={false} />
+              </div>
             </StaggerItem>
           ))}
         </StaggerList>

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { rankTierForRank } from '@42-league/shared';
 import { tierImage } from '../lib/tierImages';
@@ -11,7 +12,7 @@ import { tierImage } from '../lib/tierImages';
  * - `size`       : 'xs' (compact, listes) | 'sm' (par défaut).
  * - `showLabel`  : libellé du palier (par défaut true) ; sinon icône/point seul.
  */
-export function RankBadge({
+export const RankBadge = memo(function RankBadge({
   elo,
   rank,
   size = 'sm',
@@ -60,4 +61,4 @@ export function RankBadge({
   );
   if (asLink) return <Link to="/grades">{badge}</Link>;
   return badge;
-}
+});

@@ -52,46 +52,46 @@ export function HistoriqueList({
         {tab === 'mine'
           ? data.mine
               .slice(0, limit)
-              .map((item, i) =>
-                item.kind === 'match' ? (
-                  <MyMatchCard
-                    key={item.id}
-                    stat={item.stat}
-                    lang={lang}
-                    imgByLogin={imgByLogin}
-                    delay={Math.min(i, 12) * 0.02}
-                  />
-                ) : (
-                  <MyFfaCard
-                    key={item.id}
-                    stat={item.stat}
-                    lang={lang}
-                    imgByLogin={imgByLogin}
-                    delay={Math.min(i, 12) * 0.02}
-                  />
-                ),
-              )
+              .map((item, i) => (
+                <div key={item.id} className="cv-row">
+                  {item.kind === 'match' ? (
+                    <MyMatchCard
+                      stat={item.stat}
+                      lang={lang}
+                      imgByLogin={imgByLogin}
+                      delay={Math.min(i, 12) * 0.02}
+                    />
+                  ) : (
+                    <MyFfaCard
+                      stat={item.stat}
+                      lang={lang}
+                      imgByLogin={imgByLogin}
+                      delay={Math.min(i, 12) * 0.02}
+                    />
+                  )}
+                </div>
+              ))
           : data.global
               .slice(0, limit)
-              .map((item, i) =>
-                item.kind === 'match' ? (
-                  <GlobalMatchCard
-                    key={item.id}
-                    match={item.match}
-                    lang={lang}
-                    imgByLogin={imgByLogin}
-                    delay={Math.min(i, 12) * 0.02}
-                  />
-                ) : (
-                  <GlobalFfaCard
-                    key={item.id}
-                    ffa={item.ffa}
-                    lang={lang}
-                    imgByLogin={imgByLogin}
-                    delay={Math.min(i, 12) * 0.02}
-                  />
-                ),
-              )}
+              .map((item, i) => (
+                <div key={item.id} className="cv-row">
+                  {item.kind === 'match' ? (
+                    <GlobalMatchCard
+                      match={item.match}
+                      lang={lang}
+                      imgByLogin={imgByLogin}
+                      delay={Math.min(i, 12) * 0.02}
+                    />
+                  ) : (
+                    <GlobalFfaCard
+                      ffa={item.ffa}
+                      lang={lang}
+                      imgByLogin={imgByLogin}
+                      delay={Math.min(i, 12) * 0.02}
+                    />
+                  )}
+                </div>
+              ))}
       </motion.div>
     </AnimatePresence>
   );

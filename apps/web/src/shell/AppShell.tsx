@@ -15,6 +15,8 @@ const MatchmakingOverlay = lazy(() => import('../components/MatchmakingOverlay')
 const DuelStrikeOverlay  = lazy(() => import('../components/DuelStrikeOverlay').then(m => ({ default: m.DuelStrikeOverlay })));
 const ContestRageOverlay = lazy(() => import('../components/ContestRageOverlay').then(m => ({ default: m.ContestRageOverlay })));
 const RankUpOverlay      = lazy(() => import('../components/RankUpOverlay').then(m => ({ default: m.RankUpOverlay })));
+const LevelUpOverlay     = lazy(() => import('../components/LevelUpOverlay').then(m => ({ default: m.LevelUpOverlay })));
+const RewardUnlockOverlay = lazy(() => import('../components/RewardUnlockOverlay').then(m => ({ default: m.RewardUnlockOverlay })));
 
 interface AppShellProps {
   children: ReactNode;
@@ -60,6 +62,10 @@ export function AppShell({ children }: AppShellProps) {
         <DuelStrikeOverlay />
         {/* Cinématique « PASSAGE DE RANG » : l'emblème claque + onde de choc + éclairs */}
         <RankUpOverlay />
+        {/* Passe de combat : « niveau supérieur » (hausse de me.level) + « récompense
+            débloquée » (event SSE battlepass:tier) */}
+        <LevelUpOverlay />
+        <RewardUnlockOverlay />
       </Suspense>
     </>
   );

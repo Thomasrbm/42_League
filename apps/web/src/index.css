@@ -651,6 +651,100 @@
     }
   }
 
+  /* ─── « Apôtre de Sheldon » — effet cosmétique vendu (cf. components/SheldonApostle.tsx) ── */
+
+  /* Spore qui monte lentement, légèrement vacillante. */
+  .sheldon-spore {
+    animation-name: sheldon-spore-rise;
+    animation-timing-function: ease-out;
+    animation-iteration-count: infinite;
+    opacity: 0;
+  }
+  @keyframes sheldon-spore-rise {
+    0% {
+      transform: translate3d(0, 0, 0) scale(0.5);
+      opacity: 0;
+    }
+    15% {
+      opacity: 0.85;
+    }
+    75% {
+      opacity: 0.6;
+    }
+    100% {
+      transform: translate3d(var(--spore-drift, 0px), -100px, 0) scale(1.1);
+      opacity: 0;
+    }
+  }
+
+  /* Nappe toxique : pulsation lente d'opacité + légère montée. */
+  .sheldon-ooze {
+    animation: sheldon-ooze 3.2s ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+  @keyframes sheldon-ooze {
+    0%,
+    100% {
+      transform: scaleY(1);
+      opacity: 0.7;
+    }
+    50% {
+      transform: scaleY(1.08);
+      opacity: 1;
+    }
+  }
+
+  /* Petit tremblement de l'icône du badge. */
+  .sheldon-spore-bob {
+    animation: sheldon-spore-bob 2.2s ease-in-out infinite;
+  }
+  @keyframes sheldon-spore-bob {
+    0%,
+    100% {
+      transform: rotate(-8deg) scale(1);
+    }
+    50% {
+      transform: rotate(8deg) scale(1.15);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sheldon-spore,
+    .sheldon-ooze,
+    .sheldon-spore-bob {
+      animation: none;
+    }
+  }
+
+  /* ─── Anneau cosmétique d'avatar (cf. components/Avatar.tsx + lib/profileFx) ──
+     Contour animé posé autour d'une photo de profil quand son joueur porte un
+     effet (boost ELO « EN FEU », Apôtre de Sheldon…). La couleur arrive en
+     inline-style via `--fx`, donc UNE seule classe couvre tous les effets.
+     100 % CSS (pas de JS/frame) : on n'anime que l'opacité d'un calque déjà
+     peint → composité par le GPU, négligeable même à plusieurs avatars. */
+  .profile-fx-ring {
+    border: 1.5px solid var(--fx);
+    box-shadow:
+      0 0 6px 0 var(--fx),
+      0 0 14px 1px color-mix(in srgb, var(--fx) 45%, transparent);
+    animation: profile-fx-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes profile-fx-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .profile-fx-ring {
+      animation: none;
+      opacity: 0.85;
+    }
+  }
+
   /* Coin "cogwheel" — pour décor en haut à droite. */
   .corner-gear {
     background:
@@ -732,4 +826,99 @@
   .soft-blink {
     animation: none;
   }
+}
+
+/* ── Listes longues : rendu hors-écran sauté ─────────────────────────────────
+   content-visibility:auto = le navigateur ne calcule layout/paint d'une ligne
+   QUE lorsqu'elle approche du viewport (énorme gain sur classements/historiques,
+   sur toutes les machines). `contain-intrinsic-size: auto <h>` : taille estimée
+   AVANT 1er rendu, puis le mot-clé `auto` mémorise la hauteur réelle → pas de
+   saut de scrollbar. 100 % invisible (le contenu sauté est hors-écran). */
+.cv-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PALIER « LITE » — qualité graphique dégradée (cf. lib/perf.ts).
+   Posé via <html data-perf="lite"> quand : prefers-reduced-motion, machine très
+   faible, FPS bas détecté, ou réglage « Performance ». On NE touche PAS au design
+   (couleurs, layout, dégradés) : on coupe uniquement les opérations qui écroulent
+   le compositing logiciel (VM / vieux PC) :
+     1. flou plein écran (GameBackdrop : géré côté composant)
+     2. backdrop-filter (.glass) — l'effet le plus coûteux du web
+     3. fond attaché fixe + grille HUD fixe (repaint au scroll)
+     4. animations CSS infinies décoratives (GPU/CPU continu)
+     5. will-change orphelins (mémoire de calques gaspillée)
+   Le pendant JS (boucles framer-motion, particules) est coupé par MotionProvider
+   (reducedMotion='always' en lite). Aucun de ces blocs ne s'applique en 'full'.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* (2) backdrop-filter → fallback opaque proche du verre teinté d'origine. */
+[data-perf='lite'] .glass {
+  background: rgba(21, 18, 14, 0.94);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+[data-perf='lite'] .glass-strong {
+  background: rgba(12, 10, 8, 0.97);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* (3) fond : on détache le background fixe (repaint au scroll) et on masque la
+   grille HUD fixe en surimpression. La teinte/dégradé du fond restent identiques. */
+[data-perf='lite'] body {
+  background-attachment: scroll;
+}
+[data-perf='lite'] body::before {
+  display: none;
+}
+
+/* (4) animations CSS infinies décoratives → figées. Les chiffres/badges gardent
+   leur état peint, seul le mouvement perpétuel disparaît. On conserve volontairement
+   `.animate-spin` (spinners de chargement) et les anims one-shot (fade-in, pop…). */
+[data-perf='lite'] .shimmer,
+[data-perf='lite'] .text-gold-shine,
+[data-perf='lite'] .title-rainbow,
+[data-perf='lite'] .soft-blink,
+[data-perf='lite'] .ops-duel,
+[data-perf='lite'] .profile-fx-ring,
+[data-perf='lite'] .elo-ember,
+[data-perf='lite'] .elo-fire-flicker,
+[data-perf='lite'] .elo-flame-bob,
+[data-perf='lite'] .sheldon-spore,
+[data-perf='lite'] .sheldon-ooze,
+[data-perf='lite'] .sheldon-spore-bob,
+[data-perf='lite'] .animate-spin-sun,
+[data-perf='lite'] .animate-gear-spin,
+[data-perf='lite'] .animate-gold-sweep,
+[data-perf='lite'] .animate-glow-pulse,
+[data-perf='lite'] .animate-pulse-ring,
+[data-perf='lite'] .animate-ember,
+[data-perf='lite'] .animate-shimmer,
+[data-perf='lite'] .animate-rgb-path-travel {
+  animation: none !important;
+}
+/* La pastille cosmétique reste visible (juste non pulsée). */
+[data-perf='lite'] .profile-fx-ring {
+  opacity: 0.85;
+}
+/* Décor d'univers : on garde l'entrée mais on coupe la respiration perpétuelle. */
+[data-perf='lite'] .animate-backdrop-in {
+  animation: backdrop-in 0.4s ease both;
+}
+
+/* (5) on libère les indices de calque devenus inutiles (anim coupée). */
+[data-perf='lite'] .gpu,
+[data-perf='lite'] .ops-duel {
+  will-change: auto;
+}
+
+/* (6) anneau de grade des avatars : le `filter: saturate()` crée UN calque GPU
+   par avatar (× chaque ligne de classement → coûteux). On le retire en lite ; le
+   rebord conic-gradient + le halo box-shadow restent peints (perte de saturation
+   imperceptible). */
+[data-perf='lite'] .avatar-grade-ring {
+  filter: none !important;
 }

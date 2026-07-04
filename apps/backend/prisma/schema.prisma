@@ -60,6 +60,9 @@ model User {
   tournamentsWonFlechettes Int  @default(0) @map("tournaments_won_flechettes")
   // Porte-monnaie « League Coin » — solde dépensable dans la boutique (cf. ShopItem).
   leagueCoins         Int       @default(0) @map("league_coins")
+  // XP cumulée à vie (ne reset jamais) — pilote le niveau et le passe de combat.
+  // 1 niveau = 1 palier (cf. BattlePassTier). Le backend est l'autorité du calcul.
+  xp                  Int       @default(0)
   // Consommable « ELO ×2 » (kind 'elo_mult', cf. ConsumableInventory) — « EN FEU ».
   // `eloMultUntil` = fin de la fenêtre de boost : tant qu'elle est dans le futur,
   // chaque score validé double gain ET perte d'ELO. `eloMultWeekKey` = semaine ISO
@@ -99,6 +102,7 @@ model User {
   stagingAllowed      Boolean   @default(false) @map("staging_allowed")
   // Permissions granulaires d'un MODERATOR (null = aucune permission). Voir ModeratorPermission.
   moderatorPermissions Json?    @map("moderator_permissions")
+  sfAdmin             Boolean   @default(false) @map("sf_admin")
   createdAt           DateTime  @default(now()) @map("created_at")
 
   declaredPending           PendingMatch[]          @relation("declarer")
@@ -149,6 +153,10 @@ model User {
   analyticsEvents           AnalyticsEvent[]        @relation("userAnalytics")
   // Annonces générales déjà vues (popup « une seule fois » par utilisateur).
   announcementsSeen         AnnouncementSeen[]      @relation("announcementsSeen")
+  sfSessionsOrganized       SfSession[]
+  // XP & passe de combat — journal des gains d'XP + paliers déjà accordés.
+  xpTransactions            XpTransaction[]
+  battlePassClaims          BattlePassClaim[]
 
   @@map("users")
 }
@@ -294,6 +302,10 @@ model RejectedMatch {
   contestMessage String   @map("contest_message")
   // Discipline du match contesté (pour appliquer le malus d'Elo sur le bon Elo).
   game           String   @default("babyfoot")
+  // Contestation a posteriori : litige ouvert sur un match DÉJÀ compté car
+  // auto-validé après expiration du délai de 48h (cf. autoConfirmedAt). NULL pour
+  // les contestations classiques d'un match encore en attente (jamais compté).
+  playedMatchId  String?  @map("played_match_id")
   rejectedAt     DateTime @default(now()) @map("rejected_at")
   // Arbitrage : 'open' tant que non tranché, 'resolved' une fois jugé.
   status         String   @default("open")
@@ -568,6 +580,19 @@ model PlayedMatch {
   winner        String // 'A' or 'B'
   playedAt      DateTime @map("played_at")
   countedForElo Boolean  @map("counted_for_elo")
+  // Validation : NULL = confirmé bilatéralement par l'adversaire. Daté = match
+  // AUTO-VALIDÉ après expiration du délai de 48h (l'adversaire n'a pas répondu).
+  // Un tel match reste contestable a posteriori (cf. POST /matches/played/:id/contest)
+  // tant qu'aucun litige n'a été ouvert (contestedAt) ni tranché par un admin.
+  autoConfirmedAt DateTime? @map("auto_confirmed_at")
+  // Login du déclarant au moment de l'auto-validation. Les côtés A/B d'un match
+  // suivent l'ordre canonique (pairKey), pas l'ordre déclarant/adversaire : on
+  // mémorise donc qui a déclaré pour (1) n'autoriser la contestation qu'au camp
+  // adverse et (2) reconstruire la perspective déclarant/adversaire du litige.
+  autoConfirmDeclarerLogin String? @map("auto_confirm_declarer_login")
+  // Daté quand l'adversaire a ouvert un litige sur ce match auto-validé : empêche
+  // la double-contestation et retire le bouton « Contester » côté front.
+  contestedAt     DateTime? @map("contested_at")
   deltaA        Int      @map("delta_a")
   deltaB        Int      @map("delta_b")
   seasonId      String?  @map("season_id") // saison à laquelle appartient ce match
@@ -737,6 +762,9 @@ model SeasonStanding {
   elo      Int
   wins     Int
   losses   Int
+  // Campus du joueur figé à la clôture (cloisonnement par campus du snapshot).
+  // Null sur les anciens snapshots (avant le tagging) → ceux-ci restent globaux.
+  campus   String?
 
   @@index([seasonId])
   @@index([login])
@@ -766,6 +794,10 @@ enum AdminAction {
   GRANT_BADGE
   REMOVE_BADGE
   RESET_OPS_COOLDOWN
+  SET_SF_ADMIN
+  OPEN_SF_SESSION
+  CLOSE_SF_SESSION
+  CANCEL_SF_SESSION
 }
 
 model AdminAuditLog {
@@ -812,6 +844,8 @@ model ShopItem {
   createdAt   DateTime        @default(now()) @map("created_at")
   inventory   ShopInventory[]
   prizeFor    Tournament[]    @relation("tournamentPrize")
+  // Paliers de passe de combat offrant ce cosmétique en récompense.
+  battlePassTiers BattlePassTier[]
 
   @@map("shop_items")
 }
@@ -819,12 +853,15 @@ model ShopItem {
 // Inventaire : objets possédés par un joueur. `equipped` = objet actuellement
 // porté (au plus un équipé par catégorie, cf. logique d'équipement dans index.ts).
 model ShopInventory {
-  userLogin  String   @map("user_login")
-  itemId     String   @map("item_id")
-  equipped   Boolean  @default(false)
-  acquiredAt DateTime @default(now()) @map("acquired_at")
-  user       User     @relation("userInventory", fields: [userLogin], references: [login], onDelete: Cascade, onUpdate: Cascade)
-  item       ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userLogin   String   @map("user_login")
+  itemId      String   @map("item_id")
+  equipped    Boolean   @default(false)
+  acquiredAt  DateTime  @default(now()) @map("acquired_at")
+  equippedAt  DateTime? @map("equipped_at")
+  // Image uploadée par le joueur pour les bannières personnalisables (allowUpload).
+  userPayload Json?    @map("user_payload")
+  user        User     @relation("userInventory", fields: [userLogin], references: [login], onDelete: Cascade, onUpdate: Cascade)
+  item        ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@id([userLogin, itemId])
   @@index([userLogin])
@@ -983,6 +1020,59 @@ model CoinTransaction {
   @@map("coin_transaction")
 }
 
+// ─── XP & passe de combat ────────────────────────────────────────────────────
+//
+// L'XP est CUMULATIVE À VIE (jamais reset entre saisons). Le niveau dérive de
+// User.xp via la courbe définie côté serveur (xpForLevel) ; le backend est la
+// source de vérité. Un niveau = un palier du passe (BattlePassTier). XpTransaction
+// est un journal pur (jamais relu pour recalculer un total), à l'image de
+// CoinTransaction.
+model XpTransaction {
+  id           String   @id @default(uuid())
+  userLogin    String   @map("user_login")
+  amount       Int
+  balanceAfter Int      @map("balance_after")
+  type         String // 'match' | 'admin_grant' | 'tier_bonus'
+  refId        String?  @map("ref_id")
+  meta         Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userLogin], references: [login], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userLogin, createdAt])
+  @@index([type])
+  @@map("xp_transaction")
+}
+
+// Palier configuré du passe de combat (tier == niveau). La récompense est
+// accordée automatiquement quand le joueur atteint le niveau correspondant
+// (cf. reconcileBattlePassTx). `rewardKind` pilote le champ utilisé.
+model BattlePassTier {
+  tier           Int       @id
+  rewardKind     String    @map("reward_kind") // 'item' | 'coins' | 'consumable' | 'none'
+  itemId         String?   @map("item_id")
+  item           ShopItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  coins          Int?
+  consumableKind String?   @map("consumable_kind") // 'anti_ops' | 'elo_mult' | 'force_duel' | 'mini_ops'
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("battle_pass_tier")
+}
+
+// Trace l'octroi d'un palier à un joueur — garantit l'idempotence de
+// reconcileBattlePassTx (un palier accordé une seule fois, jamais en double).
+model BattlePassClaim {
+  userLogin String   @map("user_login")
+  tier      Int
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  user User @relation(fields: [userLogin], references: [login], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userLogin, tier])
+  @@map("battle_pass_claim")
+}
+
 // Idempotence des revenus passifs hebdomadaires (podium des trophées). Une ligne par
 // semaine ISO payée : empêche de créditer deux fois la même semaine (redémarrages,
 // ticks multiples). `weekKey` au format "2026-W24". `top1/2/3` = podium payé (audit).
@@ -1018,4 +1108,21 @@ model AnalyticsEvent {
   @@index([type, name])
   @@index([login, createdAt])
   @@map("analytics_events")
+}
+
+model SfSession {
+  id             String    @id @default(cuid())
+  startTime      DateTime  @map("start_time")
+  endTime        DateTime? @map("end_time")
+  organizerLogin String    @map("organizer_login")
+  description    String?
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organizer User @relation(fields: [organizerLogin], references: [login], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([startTime])
+  @@index([organizerLogin])
+  @@map("sf_sessions")
 }

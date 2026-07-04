@@ -45,6 +45,8 @@ import {
   DeclareDartsSchema,
   ConfirmDartsSchema,
   ContestDartsSchema,
+  CreateSfSessionSchema,
+  UpdateSfSessionSchema,
   calculateBabyfootElo,
   calculateFfaElo,
   calculateDartsElo,
@@ -74,6 +76,7 @@ import {
   getGameAdvantage,
   getGameDef,
   parseGameId,
+  playedFilter,
   projectStats,
   ratingUpdate,
   readElo,
@@ -115,7 +118,7 @@ import { streamSSE } from 'hono/streaming';
 import { bodyLimit } from 'hono/body-limit';
 import { registerSse, emit, broadcast, type SseEvent } from './sse.js';
 import { issueStreamToken, issueToken, verifyStreamToken, verifyToken } from './tokens.js';
-import { logAdminAction, notifyClientError } from './audit.js';
+import { logAdminAction, notifyClientError, notifyDiscordDispute } from './audit.js';
 import { rateLimit, clientIp, clearPenalty, getPenaltyInfo } from './rate-limit.js';
 
 // Hardcoded — immutable. No API can grant or revoke this.
@@ -260,6 +263,13 @@ async function requireAdminOrModerator(login: string): Promise<void> {
   if (role !== 'ADMIN' && role !== 'SUPERADMIN' && role !== 'MODERATOR') {
     throw new HTTPException(403, { message: 'admins only' });
   }
+}
+
+async function requireSfAdminOrAdmin(login: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { login }, select: { sfAdmin: true, role: true } });
+  if (!user) throw new HTTPException(403, { message: 'forbidden' });
+  if (user.sfAdmin || user.role === 'ADMIN' || user.role === 'SUPERADMIN') return;
+  throw new HTTPException(403, { message: 'sf admin or admin required' });
 }
 
 /**
@@ -1125,7 +1135,12 @@ async function equippedCosmetics(login: string): Promise<EquippedCosmetics> {
         color: it.color ?? null,
       };
     } else if (it.category === 'banner') {
-      out.equippedBanner = typeof payload.image === 'string' ? payload.image : null;
+      // Bannière personnalisable : image uploadée par le joueur prioritaire sur l'image de l'item.
+      const up = r.userPayload && typeof r.userPayload === 'object' && !Array.isArray(r.userPayload)
+        ? (r.userPayload as Record<string, unknown>)
+        : null;
+      const userImg = up && typeof up.image === 'string' ? up.image : null;
+      out.equippedBanner = userImg ?? (typeof payload.image === 'string' ? payload.image : null);
     }
   }
   return out;
@@ -1171,6 +1186,12 @@ app.get('/me', async (c) => {
     equippedBanner: cosmetics.equippedBanner,
     // Solde « League Coin » du joueur (porte-monnaie boutique).
     coins: user?.leagueCoins ?? 0,
+    // XP & passe de combat : total à vie + niveau/progression dérivés (autorité serveur).
+    xp: user?.xp ?? 0,
+    level: levelFromXp(user?.xp ?? 0).level,
+    xpIntoLevel: levelFromXp(user?.xp ?? 0).xpIntoLevel,
+    xpForNextLevel: levelFromXp(user?.xp ?? 0).xpForNextLevel,
+    tier: levelFromXp(user?.xp ?? 0).level,
     // Réputation litiges : marque (nb de litiges perdus) + fin du cooldown de
     // sanction (déclaration/paris bloqués tant qu'elle est future).
     disputesLost: user?.disputesLost ?? 0,
@@ -1190,6 +1211,7 @@ app.get('/me', async (c) => {
     palmares,
     // Pilote la consent-gate côté frontend (cf. AuthenticatedShell).
     consentRequired: consentRequired(user),
+    sfAdmin: user?.sfAdmin ?? false,
     termsVersion: CURRENT_TERMS_VERSION,
     // Annonces générales à montrer en popup (cf. AnnouncementPopup côté front).
     unseenAnnouncements,
@@ -1214,6 +1236,25 @@ app.put('/me/title', async (c) => {
   if (!raw) {
     const updated = await prisma.user.update({ where: { login }, data: { title: null } });
     return c.json({ login: updated.login, title: updated.title });
+  }
+
+  // Bloque le changement si l'Apôtre de Sheldon est encore dans sa semaine d'exposition.
+  const nowTitle = new Date();
+  const equippedItems = await prisma.shopInventory.findMany({
+    where: { userLogin: login, equipped: true },
+    include: { item: true },
+  });
+  const activeSheldon = equippedItems.find(
+    (r) =>
+      isSheldonApostle(r.item) &&
+      r.equippedAt != null &&
+      r.equippedAt.getTime() + SHELDON_LOCK_MS > nowTitle.getTime(),
+  );
+  if (activeSheldon) {
+    const until = new Date(activeSheldon.equippedAt!.getTime() + SHELDON_LOCK_MS).toISOString();
+    throw new HTTPException(409, {
+      message: `impossible de changer de titre tant que l'Apôtre de Sheldon est équipé (jusqu'au ${until})`,
+    });
   }
 
   const role = await getUserRole(login);
@@ -1636,9 +1677,10 @@ app.get('/leaderboard', async (c) => {
   // Classement par jeu : trie sur l'Elo de la discipline et expose ses compteurs
   // sous les mêmes clés (elo / matchesPlayed / tournamentsWon) pour un front unifié.
   const game = parseGame(c.req.query('game'));
-  // N'apparaissent au classement d'un mode que les joueurs qui y adhèrent (games).
+  // N'apparaissent au classement d'un mode que les joueurs qui y adhèrent (games)
+  // et qui ont disputé au moins un match (évite le vide entre 1001 et 999 ELO).
   const users = await prisma.user.findMany({
-    where: { ...VISIBLE_USER_WHERE, games: { has: game } },
+    where: { ...VISIBLE_USER_WHERE, games: { has: game }, ...playedFilter(game) },
     orderBy: eloOrderBy(game),
     take: MAX_PUBLIC_LIST,
   });
@@ -1669,8 +1711,8 @@ app.get('/leaderboard', async (c) => {
 // matchs 2v2 validés (bilan wins/losses). Partagé par le classement, la liste
 // « mes équipes » et le profil d'un duo.
 const TEAM_ENTRY_INCLUDE = {
-  player1: { select: { imageUrl: true } },
-  player2: { select: { imageUrl: true } },
+  player1: { select: { imageUrl: true, campus: true } },
+  player2: { select: { imageUrl: true, campus: true } },
   matchesAsTeamA: { where: { mode: '2v2', countedForElo: true }, select: { winner: true } },
   matchesAsTeamB: { where: { mode: '2v2', countedForElo: true }, select: { winner: true } },
 } satisfies Prisma.BabyfootTeamInclude;
@@ -1694,6 +1736,10 @@ function enrichTeamEntry(t: TeamWithCounts) {
     losses: total - wins,
     player1ImageUrl: t.player1.imageUrl,
     player2ImageUrl: t.player2.imageUrl,
+    // Campus des deux joueurs : permet au front de cloisonner le classement
+    // d'équipes par campus (un duo « de campus » = ses deux joueurs du campus).
+    player1Campus: t.player1.campus,
+    player2Campus: t.player2.campus,
   };
 }
 
@@ -2093,6 +2139,7 @@ async function performSeasonRollover(newName: string) {
               elo,
               wins: s.w,
               losses: s.l,
+              campus: u.campus ?? null,
             },
           });
         }
@@ -2913,6 +2960,19 @@ async function settle2v2PendingAsPlayed(tx: Prisma.TransactionClient, p: Pending
       p.declaredAt,
       { coinFactor: decayFactor, countForQuests: decayFactor >= 1 },
     );
+    // XP + paliers du passe (2v2 : pas d'écart pairwise, gagnants 100 / autres 50).
+    await awardMatchExperienceTx(
+      tx,
+      'babyfoot',
+      [
+        { login: a1, won: winner === 'A' },
+        { login: a2, won: winner === 'A' },
+        { login: b1, won: winner === 'B' },
+        { login: b2, won: winner === 'B' },
+      ],
+      p.declaredAt,
+      { decayFactor },
+    );
   }
   return created;
 }
@@ -3021,6 +3081,17 @@ async function settlePendingAsPlayed(tx: Prisma.TransactionClient, p: PendingFor
       p.declaredAt,
       // Coins dégressés comme l'ELO ; quêtes non créditées sur un rematch dégressé.
       { coinFactor: decayFactor, countForQuests: decayFactor >= 1 },
+    );
+    // XP + paliers du passe — 1v1 : on passe l'écart de score (bonus dédié).
+    await awardMatchExperienceTx(
+      tx,
+      game,
+      [
+        { login: a, won: winner === 'A', scoreGap: Math.abs(scoreA - scoreB) },
+        { login: b, won: winner === 'B', scoreGap: Math.abs(scoreA - scoreB) },
+      ],
+      p.declaredAt,
+      { decayFactor, isDraw: winner === 'draw' },
     );
   }
   return created;
@@ -3286,6 +3357,10 @@ app.post('/matches/:id/reject', async (c) => {
   }
   // Mon « score à valider » est traité (rejeté) → notif cloche soldée.
   void markNotifsReadByRef(me, id);
+  // Litige ouvert → alerte Discord pour l'arbitrage (sans donnée personnelle).
+  void notifyDiscordDispute({ game: rejectGame, kind: 'pending', reason: contestReason }).catch(
+    (err) => console.error('[dispute] discord notify failed', err),
+  );
   return c.json({ id, status: 'rejected', contestReason });
 });
 
@@ -3313,6 +3388,120 @@ app.post('/matches/:id/cancel', async (c) => {
     emit([opponentLogin], { type: 'match:cancelled', payload: { id, cancelledBy: me } });
   }
   return c.json({ id, status: 'cancelled' });
+});
+
+// ── Contestation a posteriori d'un match AUTO-VALIDÉ ─────────────────────────
+// Un match déclaré confirmé automatiquement après 48h (l'adversaire absent n'a pas
+// répondu) reste contestable tant qu'aucun litige n'a été ouvert. La contestation
+// ouvre simplement un litige (RejectedMatch 'open') rattaché au match compté, qui
+// part en file d'arbitrage (/GOD) : le résultat reste acquis tant qu'un admin n'a
+// pas tranché (pas d'annulation automatique de l'ELO). Seul le camp ADVERSE du
+// déclarant peut contester (le déclarant ne conteste pas son propre score).
+
+// Logins de l'ÉQUIPE du déclarant d'un match auto-validé (le déclarant seul en 1v1,
+// son duo en 2v2). Sert à n'autoriser la contestation qu'au camp adverse.
+type AutoConfirmedMatch = {
+  mode: string | null;
+  playerALogin: string;
+  playerBLogin: string;
+  playerA2Login: string | null;
+  playerB2Login: string | null;
+  autoConfirmDeclarerLogin: string | null;
+};
+function declarerSideLogins(m: AutoConfirmedMatch): string[] {
+  const decl = m.autoConfirmDeclarerLogin;
+  if (!decl) return [];
+  if (m.mode === '2v2') {
+    return decl === m.playerALogin || decl === m.playerA2Login
+      ? [m.playerALogin, m.playerA2Login].filter(Boolean) as string[]
+      : [m.playerBLogin, m.playerB2Login].filter(Boolean) as string[];
+  }
+  return [decl];
+}
+function isContestableBy(m: AutoConfirmedMatch, me: string): boolean {
+  const participants = [m.playerALogin, m.playerBLogin, m.playerA2Login, m.playerB2Login].filter(
+    Boolean,
+  ) as string[];
+  return participants.includes(me) && !declarerSideLogins(m).includes(me);
+}
+
+// Liste des matchs auto-validés que JE peux encore contester (camp adverse, pas
+// encore contestés). Alimente le bouton « Contester » côté front.
+app.get('/matches/contestable', async (c) => {
+  const me = await getCurrentLogin(c);
+  const rows = await prisma.playedMatch.findMany({
+    where: {
+      autoConfirmedAt: { not: null },
+      contestedAt: null,
+      OR: [{ playerALogin: me }, { playerBLogin: me }, { playerA2Login: me }, { playerB2Login: me }],
+    },
+    orderBy: { playedAt: 'desc' },
+    take: 100,
+  });
+  return c.json(rows.filter((m) => isContestableBy(m, me)));
+});
+
+app.post('/matches/played/:id/contest', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = RejectMatchSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: parsed.error.message });
+  }
+  const { contestReason, contestMessage } = parsed.data;
+
+  let info: { declarerLogin: string; game: string } | undefined;
+  await prisma.$transaction(async (tx) => {
+    const m = await tx.playedMatch.findUnique({ where: { id } });
+    if (!m) throw new HTTPException(404, { message: 'match introuvable' });
+    if (!m.autoConfirmedAt) {
+      throw new HTTPException(409, { message: 'seul un match auto-validé est contestable a posteriori' });
+    }
+    if (m.contestedAt) throw new HTTPException(409, { message: 'match déjà contesté' });
+    if (!isContestableBy(m, me)) {
+      throw new HTTPException(403, { message: 'seul le camp adverse du déclarant peut contester ce match' });
+    }
+    const decl = m.autoConfirmDeclarerLogin!;
+    // Reconstruit la perspective déclarant/adversaire : les côtés A/B suivent l'ordre
+    // canonique, pas l'ordre déclarant/adversaire.
+    const declSideIsA = decl === m.playerALogin || decl === m.playerA2Login;
+    const scoreDeclarer = declSideIsA ? m.scoreA : m.scoreB;
+    const scoreOpponent = declSideIsA ? m.scoreB : m.scoreA;
+    await tx.rejectedMatch.create({
+      data: {
+        id: randomUUID(),
+        declarerLogin: decl,
+        opponentLogin: me,
+        scoreDeclarer,
+        scoreOpponent,
+        contestReason,
+        contestMessage,
+        game: m.game,
+        playedMatchId: m.id,
+        status: 'open',
+      },
+    });
+    await tx.playedMatch.update({ where: { id }, data: { contestedAt: new Date() } });
+    info = { declarerLogin: decl, game: m.game };
+  });
+
+  if (info) {
+    emit([info.declarerLogin], { type: 'match:rejected', payload: { id, contestReason, rejectedBy: me } });
+    void notify(info.declarerLogin, {
+      type: 'match_rejected',
+      title: `@${me} a contesté ton match auto-validé`,
+      body: contestReason === 'never_played' ? 'Match jamais joué' : 'Score incorrect',
+      link: `/challenges?game=${encodeURIComponent(info.game)}`,
+      game: info.game,
+      refId: id,
+    });
+    // Litige ouvert → alerte Discord pour l'arbitrage (sans donnée personnelle).
+    void notifyDiscordDispute({ game: info.game, kind: 'auto_validated', reason: contestReason }).catch(
+      (err) => console.error('[dispute] discord notify failed', err),
+    );
+  }
+  return c.json({ id, status: 'contested', contestReason });
 });
 
 // =========================================================================
@@ -3381,6 +3570,13 @@ async function settleFfaAsPlayed(tx: Prisma.TransactionClient, p: PendingFfaForS
   // Coins + quêtes : le 1er (position 1) touche la prime de victoire, les autres
   // la prime de participation. Un FFA compte toujours pour l'Elo.
   await awardMatchEconomyTx(
+    tx,
+    'smash',
+    ordered.map((pp) => ({ login: pp.login, won: pp.position === 1 })),
+    p.declaredAt,
+  );
+  // XP + paliers du passe — FFA : pas d'écart pairwise (1er = 100, autres 50).
+  await awardMatchExperienceTx(
     tx,
     'smash',
     ordered.map((pp) => ({ login: pp.login, won: pp.position === 1 })),
@@ -3700,6 +3896,13 @@ async function settleDartsAsPlayed(tx: Prisma.TransactionClient, p: PendingDarts
   // Coins + quêtes : le vainqueur (reste le plus bas = 1er du classement) touche
   // la prime de victoire, les autres la participation. Une manche compte toujours.
   await awardMatchEconomyTx(
+    tx,
+    'flechettes',
+    ordered.map((pp, i) => ({ login: pp.login, won: i === 0 })),
+    p.declaredAt,
+  );
+  // XP + paliers du passe — FFA fléchettes : pas d'écart pairwise (1er = 100, autres 50).
+  await awardMatchExperienceTx(
     tx,
     'flechettes',
     ordered.map((pp, i) => ({ login: pp.login, won: i === 0 })),
@@ -9142,11 +9345,11 @@ app.get('/shop', async (c) => {
 // déséquiper avant, ni de lui substituer un autre objet de sa catégorie).
 const SHELDON_REWARD = 300;
 const SHELDON_LOCK_MS = 7 * 24 * 60 * 60 * 1000;
-// Seuil d'Elo pour ouvrir l'accès à la Boîte Mystère : il faut au moins 1010 sur
+// Seuil d'Elo pour ouvrir l'accès à la Boîte Mystère : il faut au moins 300 sur
 // SA MEILLEURE discipline (le pari coûte de l'Elo en cas de perte — on réserve donc
 // la box à ceux qui ont un coussin). Volontairement ABSENT de la description du
 // produit : le refus ci-dessous est le seul endroit où ce seuil est révélé.
-const MYSTERY_BOX_MIN_BEST_ELO = 1010;
+const MYSTERY_BOX_MIN_BEST_ELO = 300;
 /** Meilleur Elo du joueur toutes disciplines confondues. */
 function bestEloOf(u: {
   elo: number;
@@ -9344,19 +9547,88 @@ app.post('/shop/:id/buy', async (c) => {
 app.get('/me/inventory', async (c) => {
   const login = await getCurrentLogin(c);
   await getOrCreateUser(login);
-  const rows = await prisma.shopInventory.findMany({
+  let rows = await prisma.shopInventory.findMany({
     where: { userLogin: login },
     include: { item: true },
     orderBy: { acquiredAt: 'asc' },
   });
+
+  // Auto-expiry : si l'Apôtre de Sheldon a dépassé sa semaine d'exposition, on le déséquipe.
+  const nowInv = new Date();
+  const expiredSheldon = rows.filter(
+    (r) =>
+      r.equipped &&
+      isSheldonApostle(r.item) &&
+      r.equippedAt != null &&
+      r.equippedAt.getTime() + SHELDON_LOCK_MS <= nowInv.getTime(),
+  );
+  if (expiredSheldon.length > 0) {
+    await Promise.all(
+      expiredSheldon.map((r) =>
+        prisma.shopInventory.update({
+          where: { userLogin_itemId: { userLogin: login, itemId: r.itemId } },
+          data: { equipped: false, equippedAt: null },
+        }),
+      ),
+    );
+    const u = await prisma.user.findUnique({ where: { login }, select: { title: true } });
+    if (u?.title && isSheldonApostle({ name: u.title })) {
+      await prisma.user.update({ where: { login }, data: { title: null } });
+    }
+    rows = await prisma.shopInventory.findMany({
+      where: { userLogin: login },
+      include: { item: true },
+      orderBy: { acquiredAt: 'asc' },
+    });
+  }
+
   return c.json(
     rows.map((r) => ({
       itemId: r.itemId,
       item: serializeShopItem(r.item),
       equipped: r.equipped,
       acquiredAt: r.acquiredAt.toISOString(),
+      userPayload: r.userPayload ?? null,
     })),
   );
+});
+
+// POST /me/inventory/:id/banner-image — upload une image personnalisée pour une bannière
+// dont le payload contient `allowUpload: true`. Stockée dans ShopInventory.userPayload.
+const CustomBannerImageSchema = z.object({
+  image: z
+    .string()
+    .min(1)
+    .refine((s) => s.startsWith('data:image/'), 'Image invalide (data-URL requise)')
+    .refine((s) => s.length <= MAX_BANNER_DATAURL_LEN, 'Image trop lourde (max ~700 Ko)'),
+});
+app.post('/me/inventory/:id/banner-image', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const itemId = c.req.param('id');
+  const body = await c.req.json().catch(() => null);
+  const parsed = CustomBannerImageSchema.safeParse(body);
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.issues[0]?.message ?? 'Image invalide' });
+
+  const entry = await prisma.shopInventory.findUnique({
+    where: { userLogin_itemId: { userLogin: login, itemId } },
+    include: { item: true },
+  });
+  if (!entry) throw new HTTPException(404, { message: 'Item non trouvé dans ton inventaire' });
+  if (entry.item.category !== 'banner')
+    throw new HTTPException(400, { message: "Cet item n'est pas une bannière" });
+  const itemPayload =
+    entry.item.payload && typeof entry.item.payload === 'object' && !Array.isArray(entry.item.payload)
+      ? (entry.item.payload as Record<string, unknown>)
+      : {};
+  if (!itemPayload.allowUpload)
+    throw new HTTPException(400, { message: "Cette bannière ne supporte pas l'upload personnalisé" });
+
+  await prisma.shopInventory.update({
+    where: { userLogin_itemId: { userLogin: login, itemId } },
+    data: { userPayload: { image: parsed.data.image } },
+  });
+  return c.json({ ok: true });
 });
 
 // POST /me/inventory/:id/equip — (dé)équipe un objet possédé. Au plus un objet
@@ -9388,10 +9660,13 @@ app.post('/me/inventory/:id/equip', async (c) => {
     include: { item: true },
   });
   const lockedSheldon = equippedRows.find(
-    (r) => isSheldonApostle(r.item) && r.acquiredAt.getTime() + SHELDON_LOCK_MS > nowEquip.getTime(),
+    (r) =>
+      isSheldonApostle(r.item) &&
+      r.equippedAt != null &&
+      r.equippedAt.getTime() + SHELDON_LOCK_MS > nowEquip.getTime(),
   );
   if (lockedSheldon) {
-    const until = new Date(lockedSheldon.acquiredAt.getTime() + SHELDON_LOCK_MS).toISOString();
+    const until = new Date(lockedSheldon.equippedAt!.getTime() + SHELDON_LOCK_MS).toISOString();
     if (lockedSheldon.itemId === itemId && !equipped) {
       throw new HTTPException(409, { message: `l'Apôtre de Sheldon reste équipé jusqu'au ${until}` });
     }
@@ -9413,16 +9688,17 @@ app.post('/me/inventory/:id/equip', async (c) => {
       : undefined;
   const titleStr = typeof titlePayload === 'string' ? titlePayload : null;
 
+  const nowEquipTx = new Date();
   await prisma.$transaction(async (tx) => {
     if (equipped) {
       // Un seul objet équipé par catégorie : on déséquipe les autres de la même catégorie.
       await tx.shopInventory.updateMany({
         where: { userLogin: login, equipped: true, item: { category } },
-        data: { equipped: false },
+        data: { equipped: false, equippedAt: null },
       });
       await tx.shopInventory.update({
         where: { userLogin_itemId: { userLogin: login, itemId } },
-        data: { equipped: true },
+        data: { equipped: true, equippedAt: nowEquipTx },
       });
       if (category === 'title' && titleStr) {
         await tx.user.update({ where: { login }, data: { title: titleStr } });
@@ -9430,7 +9706,7 @@ app.post('/me/inventory/:id/equip', async (c) => {
     } else {
       await tx.shopInventory.update({
         where: { userLogin_itemId: { userLogin: login, itemId } },
-        data: { equipped: false },
+        data: { equipped: false, equippedAt: null },
       });
       if (category === 'title' && titleStr) {
         const u = await tx.user.findUnique({ where: { login }, select: { title: true } });
@@ -10083,6 +10359,120 @@ app.delete('/admin/shop/items/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Passe de combat ───────────────────────────────────────────────────────────
+
+// Validation d'un palier (admin). itemId requis pour 'item', coins pour 'coins',
+// consumableKind pour 'consumable' ; 'none' = palier vide (montre la progression).
+const BattlePassTierInputSchema = z.object({
+  rewardKind: z.enum(['item', 'coins', 'consumable', 'none']),
+  itemId: z.string().nullish(),
+  coins: z.number().int().nonnegative().nullish(),
+  consumableKind: z.enum(['anti_ops', 'elo_mult', 'force_duel', 'mini_ops']).nullish(),
+});
+
+function serializeBattlePassTierAdmin(t: {
+  tier: number;
+  rewardKind: string;
+  itemId: string | null;
+  coins: number | null;
+  consumableKind: string | null;
+}) {
+  return {
+    tier: t.tier,
+    rewardKind: t.rewardKind,
+    itemId: t.itemId ?? null,
+    coins: t.coins ?? null,
+    consumableKind: t.consumableKind ?? null,
+  };
+}
+
+// GET /me/battlepass — état du passe pour le joueur courant (spec §5). La piste
+// complète des paliers configurés + progression d'XP + déblocage/réclamation.
+app.get('/me/battlepass', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const user = await prisma.user.findUnique({ where: { login }, select: { xp: true } });
+  const totalXp = user?.xp ?? 0;
+  const { level, xpIntoLevel, xpForNextLevel } = levelFromXp(totalXp);
+  const [tiers, claims] = await Promise.all([
+    prisma.battlePassTier.findMany({ orderBy: { tier: 'asc' }, include: { item: true } }),
+    prisma.battlePassClaim.findMany({ where: { userLogin: login }, select: { tier: true, grantedAt: true } }),
+  ]);
+  const claimedAt = new Map(claims.map((cl) => [cl.tier, cl.grantedAt]));
+  // Échelle complète : on affiche TOUS les paliers de 1 à BATTLE_PASS_MAX_TIERS,
+  // qu'ils soient configurés ou non, pour que le joueur voie la piste entière et
+  // quel palier donne quelle récompense. Les paliers non configurés = 'none'.
+  const cfg = new Map(tiers.map((t) => [t.tier, t]));
+  return c.json({
+    totalXp,
+    level,
+    xpIntoLevel,
+    xpForNextLevel,
+    tiers: Array.from({ length: BATTLE_PASS_MAX_TIERS }, (_, i) => {
+      const tier = i + 1;
+      const t = cfg.get(tier);
+      return {
+        tier,
+        xpRequired: cumulativeXpForTier(tier),
+        rewardKind: t?.rewardKind ?? 'none',
+        item: t && t.rewardKind === 'item' && t.item ? serializeShopItem(t.item) : null,
+        coins: t?.coins ?? null,
+        consumableKind: t?.consumableKind ?? null,
+        unlocked: level >= tier,
+        claimedAt: claimedAt.has(tier) ? claimedAt.get(tier)!.toISOString() : null,
+      };
+    }),
+  });
+});
+
+// GET /admin/battlepass/tiers — tous les paliers configurés (admin).
+app.get('/admin/battlepass/tiers', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const tiers = await prisma.battlePassTier.findMany({ orderBy: { tier: 'asc' } });
+  return c.json(tiers.map(serializeBattlePassTierAdmin));
+});
+
+// PUT /admin/battlepass/tiers/:tier — upsert de la récompense d'un palier (admin).
+app.put('/admin/battlepass/tiers/:tier', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const tier = Number(c.req.param('tier'));
+  if (!Number.isInteger(tier) || tier < 1) {
+    throw new HTTPException(400, { message: 'tier invalide' });
+  }
+  const body = await c.req.json().catch(() => null);
+  const parsed = BattlePassTierInputSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: parsed.error.message });
+  }
+  const d = parsed.data;
+  const data = {
+    rewardKind: d.rewardKind,
+    itemId: d.rewardKind === 'item' ? d.itemId ?? null : null,
+    coins: d.rewardKind === 'coins' ? d.coins ?? null : null,
+    consumableKind: d.rewardKind === 'consumable' ? d.consumableKind ?? null : null,
+  };
+  const t = await prisma.battlePassTier.upsert({
+    where: { tier },
+    update: data,
+    create: { tier, ...data },
+  });
+  return c.json(serializeBattlePassTierAdmin(t));
+});
+
+// DELETE /admin/battlepass/tiers/:tier — supprime un palier (admin).
+app.delete('/admin/battlepass/tiers/:tier', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const tier = Number(c.req.param('tier'));
+  if (!Number.isInteger(tier)) {
+    throw new HTTPException(400, { message: 'tier invalide' });
+  }
+  await prisma.battlePassTier.delete({ where: { tier } }).catch(() => {});
+  return c.json({ ok: true });
+});
+
 // ── Annonces générales (admin → tous les joueurs) ────────────────────────────
 
 function serializeAnnouncement(a: {
@@ -10199,6 +10589,7 @@ type CoinTxType =
   | 'sheldon_reward'
   | 'trophy_income'
   | 'dispute_malus'
+  | 'battlepass_tier'
   | 'admin_grant';
 
 interface CoinTxEntry {
@@ -10550,6 +10941,193 @@ async function awardMatchEconomyTx(
         gamesPlayed: { set: gamesPlayed },
       },
     });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// XP & passe de combat
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// L'XP est cumulative à vie (User.xp, jamais reset). Le niveau dérive de l'XP
+// via une courbe purement serveur — le front n'affiche que ce que l'API renvoie.
+// 1 niveau = 1 palier (BattlePassTier) ; atteindre un niveau accorde la
+// récompense du palier correspondant (reconcileBattlePassTx, idempotent).
+
+/** Nombre de paliers affichés sur la piste du passe (échelle complète 1..N). */
+const BATTLE_PASS_MAX_TIERS = 100;
+
+/** XP nécessaire pour passer du niveau L au niveau L+1 (L1→2:100, L2→3:150, …). */
+function xpForLevel(L: number): number {
+  return 50 * (L + 1);
+}
+
+/**
+ * Décompose une XP totale (cumulée à vie) en niveau + progression. Niveau de
+ * départ = 1 (totalXp 0 → niveau 1). `xpIntoLevel` = XP au-delà du seuil du
+ * niveau courant ; `xpForNextLevel` = coût total pour finir le niveau courant.
+ */
+function levelFromXp(totalXp: number): { level: number; xpIntoLevel: number; xpForNextLevel: number } {
+  let level = 1;
+  let remaining = Math.max(0, Math.floor(totalXp));
+  while (remaining >= xpForLevel(level)) {
+    remaining -= xpForLevel(level);
+    level++;
+  }
+  return { level, xpIntoLevel: remaining, xpForNextLevel: xpForLevel(level) };
+}
+
+/** XP cumulée requise pour ATTEINDRE le palier/niveau T (T1:0, T2:100, T3:250…). */
+function cumulativeXpForTier(T: number): number {
+  let sum = 0;
+  for (let k = 1; k < T; k++) sum += xpForLevel(k);
+  return sum;
+}
+
+type XpTxType = 'match' | 'admin_grant' | 'tier_bonus';
+
+interface XpTxEntry {
+  type: XpTxType;
+  refId?: string | null;
+  meta?: Prisma.InputJsonValue;
+}
+
+/**
+ * Écrit une ligne au journal des mouvements d'XP. Purement historique (jamais
+ * relu pour un total). Un delta nul n'est pas journalisé. Mirroir de logCoinTx.
+ */
+async function logXpTx(
+  tx: Prisma.TransactionClient,
+  login: string,
+  amount: number,
+  balanceAfter: number,
+  entry: XpTxEntry,
+): Promise<void> {
+  if (amount === 0) return;
+  await tx.xpTransaction.create({
+    data: {
+      id: randomUUID(),
+      userLogin: login,
+      amount,
+      balanceAfter,
+      type: entry.type,
+      refId: entry.refId ?? null,
+      meta: entry.meta ?? undefined,
+    },
+  });
+}
+
+/**
+ * Crédite de l'XP (jamais négatif côté usage). Retourne le nouveau total, ou
+ * null si joueur absent. Journalise le mouvement si `entry` est fourni. Mirroir
+ * de grantCoinsTx (mais l'XP ne se débite pas : on borne à 0 par sécurité).
+ */
+async function grantXpTx(
+  tx: Prisma.TransactionClient,
+  login: string,
+  amount: number,
+  entry?: XpTxEntry,
+): Promise<number | null> {
+  const target = await tx.user.findUnique({ where: { login }, select: { xp: true } });
+  if (!target) return null;
+  const next = Math.max(0, target.xp + amount);
+  const delta = next - target.xp;
+  await tx.user.update({ where: { login }, data: { xp: next } });
+  if (entry) await logXpTx(tx, login, delta, next, entry);
+  return next;
+}
+
+/**
+ * Octroie l'XP de match à chaque participant (DANS la transaction de
+ * settlement). À n'appeler que lorsque le match compte pour l'Elo, juste après
+ * awardMatchEconomyTx. Barème (spec §2) :
+ *  - base « a joué » : 50 ; bonus victoire : +50 (gagnant = 100 avant écart).
+ *  - 1v1 (scoreGap connu) : gagnant + min(max(gap,0),10)*5 ; perdant + (gap<=1?25:gap<=3?10:0).
+ *  - match nul (échecs) : chacun 50 + 25, pas de bonus victoire.
+ *  - FFA / 2v2 : pas de bonus d'écart (gagnant(s) 100, autres 50).
+ *  - Tout est ×decayFactor puis arrondi (Math.round). Mirroir de awardMatchEconomyTx.
+ */
+async function awardMatchExperienceTx(
+  tx: Prisma.TransactionClient,
+  game: string,
+  participants: { login: string; won: boolean; scoreGap?: number }[],
+  playedAt: Date,
+  opts: { decayFactor?: number; isDraw?: boolean } = {},
+): Promise<void> {
+  const decayFactor = opts.decayFactor ?? 1;
+  const isDraw = opts.isDraw ?? false;
+  for (const p of participants) {
+    let xp: number;
+    if (isDraw) {
+      // Nulle : pas de bonus victoire, mais une prime « match serré » fixe.
+      xp = 50 + 25;
+    } else {
+      xp = 50 + (p.won ? 50 : 0);
+      // Bonus d'écart 1v1 uniquement (scoreGap fourni seulement en 1v1).
+      if (p.scoreGap != null) {
+        const gap = p.scoreGap;
+        if (p.won) {
+          xp += Math.min(Math.max(gap, 0), 10) * 5; // max +50
+        } else {
+          xp += gap <= 1 ? 25 : gap <= 3 ? 10 : 0; // défaite serrée = + d'XP
+        }
+      }
+    }
+    const amount = Math.max(0, Math.round(xp * decayFactor));
+    if (amount > 0) {
+      await grantXpTx(tx, p.login, amount, {
+        type: 'match',
+        meta: { game, won: isDraw ? null : p.won },
+      });
+    }
+    // Accorde immédiatement les paliers franchis grâce à cet apport d'XP.
+    await reconcileBattlePassTx(tx, p.login);
+  }
+}
+
+/**
+ * Octroie automatiquement, dans l'ordre croissant, les paliers de passe de
+ * combat dont le niveau est atteint (tier <= level) et pas encore réclamés.
+ * Idempotent grâce à BattlePassClaim. Émet `battlepass:tier` si des paliers ont
+ * été accordés. À appeler dans la même transaction que le gain d'XP.
+ */
+async function reconcileBattlePassTx(tx: Prisma.TransactionClient, login: string): Promise<void> {
+  const user = await tx.user.findUnique({ where: { login }, select: { xp: true } });
+  if (!user) return;
+  const { level } = levelFromXp(user.xp);
+  const [tiers, claims] = await Promise.all([
+    tx.battlePassTier.findMany({ where: { tier: { lte: level } }, orderBy: { tier: 'asc' } }),
+    tx.battlePassClaim.findMany({ where: { userLogin: login }, select: { tier: true } }),
+  ]);
+  const claimed = new Set(claims.map((c) => c.tier));
+  const granted: number[] = [];
+  for (const t of tiers) {
+    if (claimed.has(t.tier)) continue;
+    switch (t.rewardKind) {
+      case 'item':
+        if (t.itemId) await grantItemTx(tx, login, t.itemId, false);
+        break;
+      case 'coins':
+        if (t.coins && t.coins > 0)
+          await grantCoinsTx(tx, login, t.coins, { type: 'battlepass_tier', refId: String(t.tier) });
+        break;
+      case 'consumable':
+        if (t.consumableKind) {
+          await tx.consumableInventory.upsert({
+            where: { userLogin_kind: { userLogin: login, kind: t.consumableKind } },
+            update: { quantity: { increment: 1 } },
+            create: { userLogin: login, kind: t.consumableKind, quantity: 1 },
+          });
+        }
+        break;
+      case 'none':
+      default:
+        break;
+    }
+    await tx.battlePassClaim.create({ data: { userLogin: login, tier: t.tier } });
+    granted.push(t.tier);
+  }
+  if (granted.length > 0) {
+    emit([login], { type: 'battlepass:tier', payload: { tiers: granted } });
   }
 }
 
@@ -11662,32 +12240,163 @@ async function purgeOldAuditLogs(): Promise<void> {
   if (count > 0) console.log(`[purge] ${count} audit log entries older than 24 months deleted`);
 }
 
-// ── Expiration des matchs en attente non confirmés ──
-// Un PendingMatch jamais confirmé ni refusé reste affiché indéfiniment et pollue
-// l'UI des deux joueurs. On les purge après PENDING_MATCH_TTL_HOURS et on notifie
-// les deux camps pour que leur liste se rafraîchisse.
-const PENDING_MATCH_TTL_HOURS = Number(process.env.PENDING_MATCH_TTL_HOURS ?? 72);
+// ── Cooldown de 48h : auto-validation des matchs déclarés non confirmés ──
+// Un match déclaré que l'adversaire ne confirme NI ne conteste sous 48h est
+// AUTO-VALIDÉ avec le score du déclarant (l'ELO compte), puis reste contestable a
+// posteriori (cf. POST /matches/played/:id/contest) tant qu'aucun litige n'a été
+// ouvert ni tranché. Remplace l'ancienne purge (suppression à 72h) : on ne jette
+// plus le résultat, on l'entérine — l'adversaire absent ne bloque plus le match.
+const PENDING_MATCH_AUTOCONFIRM_HOURS = Number(process.env.PENDING_MATCH_AUTOCONFIRM_HOURS ?? 48);
+// Idem pour les défis : un défi (invitation à jouer) non accepté sous 48h EXPIRE
+// (status 'expired', sans pénalité ni auto-acceptation) et disparaît des listes.
+const CHALLENGE_ACCEPT_TTL_HOURS = Number(process.env.CHALLENGE_ACCEPT_TTL_HOURS ?? 48);
 
-async function purgeStalePendingMatches(): Promise<void> {
-  const cutoff = new Date(Date.now() - PENDING_MATCH_TTL_HOURS * 60 * 60 * 1000);
+async function autoConfirmStalePendingMatches(): Promise<void> {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - PENDING_MATCH_AUTOCONFIRM_HOURS * 60 * 60 * 1000);
   const stale = await prisma.pendingMatch.findMany({
     where: { declaredAt: { lt: cutoff } },
-    select: { id: true, declarerLogin: true, opponentLogin: true, partner1Login: true, partner2Login: true },
+    orderBy: { declaredAt: 'asc' },
   });
   if (stale.length === 0) return;
-  await prisma.pendingMatch.deleteMany({ where: { id: { in: stale.map((m) => m.id) } } });
-  for (const m of stale) {
-    // 2v2 : prévenir aussi les coéquipiers.
-    const recipients = [m.declarerLogin, m.opponentLogin, m.partner1Login, m.partner2Login].filter(
-      Boolean,
-    ) as string[];
-    emit(recipients, {
-      type: 'match:expired',
-      payload: { id: m.id },
-    });
+
+  let confirmed = 0;
+  for (const p of stale) {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // Re-lecture dans la transaction : un confirm/reject concurrent a pu la régler.
+        const fresh = await tx.pendingMatch.findUnique({ where: { id: p.id } });
+        if (!fresh) return null;
+        const created = await settlePendingAsPlayed(tx, fresh);
+        // Marque le match comme auto-validé (→ contestable a posteriori) et mémorise
+        // le déclarant (les côtés A/B suivent l'ordre canonique, pas déclarant/adversaire).
+        await tx.playedMatch.update({
+          where: { id: created.id },
+          data: { autoConfirmedAt: now, autoConfirmDeclarerLogin: fresh.declarerLogin },
+        });
+
+        // OPS (strictement 1v1) : un duel d'ops auto-validé consomme un match forcé,
+        // exactement comme au confirm manuel (cf. /matches/:id/confirm).
+        const opsBetween =
+          created.mode === '2v2'
+            ? null
+            : await tx.ops.findFirst({
+                where: {
+                  expiresAt: { gt: now },
+                  forcedUsed: { lt: OPS_FORCED_MATCHES },
+                  OR: [
+                    { ownerLogin: created.playerALogin, targetLogin: created.playerBLogin },
+                    { ownerLogin: created.playerBLogin, targetLogin: created.playerALogin },
+                  ],
+                },
+              });
+        if (opsBetween) {
+          const willEnd = opsBetween.forcedUsed + 1 >= OPS_FORCED_MATCHES;
+          await tx.ops.update({
+            where: { id: opsBetween.id },
+            data: { forcedUsed: { increment: 1 }, ...(willEnd ? { endedAt: now } : {}) },
+          });
+        }
+        // Paris sur un duel d'ops : réglés par le vainqueur (ou remboursés si nul).
+        let opsDuelCredited: string[] = [];
+        if (fresh.challengeId) {
+          const winnerLogin =
+            created.winner === 'A'
+              ? created.playerALogin
+              : created.winner === 'B'
+                ? created.playerBLogin
+                : null;
+          opsDuelCredited = winnerLogin
+            ? await settleBetsTx(tx, { targetType: 'ops', challengeId: fresh.challengeId }, winnerLogin)
+            : await refundBetsTx(tx, { targetType: 'ops', challengeId: fresh.challengeId });
+        }
+        return { match: created, opsTouched: !!opsBetween, opsDuelCredited };
+      });
+      if (!result) continue;
+      const match = result.match;
+      confirmed++;
+
+      const recipients =
+        match.mode === '2v2'
+          ? ([match.playerALogin, match.playerBLogin, match.playerA2Login, match.playerB2Login].filter(
+              Boolean,
+            ) as string[])
+          : [match.playerALogin, match.playerBLogin];
+      // Résultat poussé en temps réel + marqueur auto-validation (le front affiche
+      // « match auto-validé, contestable » à l'adversaire).
+      emit(recipients, { type: 'match:confirmed', payload: { ...match, autoConfirmed: true } });
+      // Le « score à valider » de l'adversaire est soldé, puis on le prévient que le
+      // match a été auto-validé faute de réponse — et qu'il peut encore le contester.
+      const opponents = [p.opponentLogin, p.partner2Login].filter(Boolean) as string[];
+      void markNotifsReadByRef(opponents, p.id);
+      void notifyMany(opponents, {
+        type: 'match_auto_confirmed',
+        title: `Match auto-validé`,
+        body: `Tu n'as pas répondu sous ${PENDING_MATCH_AUTOCONFIRM_HOURS}h : le score de @${p.declarerLogin} a été validé. Tu peux encore le contester.`,
+        link: `/challenges?game=${encodeURIComponent(match.game)}`,
+        game: match.game,
+        refId: match.id,
+      });
+      void notifyMatchResult(match);
+      broadcast({ type: 'leaderboard:update', payload: {} });
+      void maybeNotifyTop3(match.playerALogin, match.deltaA);
+      void maybeNotifyTop3(match.playerBLogin, match.deltaB);
+      if (result.opsDuelCredited.length) {
+        emit([...new Set(result.opsDuelCredited)], { type: 'panel:update', payload: {} });
+      }
+      if (result.opsTouched) {
+        emit([match.playerALogin, match.playerBLogin], {
+          type: 'ops:update',
+          payload: { reason: 'forced_played' },
+        });
+      }
+    } catch (err) {
+      console.error(`[auto-confirm] failed to settle pending match ${p.id}`, err);
+    }
+  }
+  if (confirmed > 0) {
+    console.log(
+      `[auto-confirm] ${confirmed} pending match(es) older than ${PENDING_MATCH_AUTOCONFIRM_HOURS}h auto-validated`,
+    );
+  }
+}
+
+// Expire les défis (invitations) non acceptés sous 48h : status 'expired', sans
+// pénalité ni auto-acceptation (un défi n'engage personne tant qu'il n'est pas
+// accepté). Seuls les défis 'pending' sont concernés ; les duels d'ops, nés
+// 'accepted', ne sont jamais touchés.
+async function expireStaleChallenges(): Promise<void> {
+  const cutoff = new Date(Date.now() - CHALLENGE_ACCEPT_TTL_HOURS * 60 * 60 * 1000);
+  const stale = await prisma.challenge.findMany({
+    where: { status: 'pending', createdAt: { lt: cutoff } },
+    select: {
+      id: true,
+      challengerLogin: true,
+      opponentLogin: true,
+      partnerLogin: true,
+      opponentPartnerLogin: true,
+      opsId: true,
+    },
+  });
+  // Sécurité : ne jamais expirer un duel d'ops forcé (il est de toute façon 'accepted').
+  const expirable = stale.filter((ch) => !ch.opsId);
+  if (expirable.length === 0) return;
+  await prisma.challenge.updateMany({
+    where: { id: { in: expirable.map((ch) => ch.id) } },
+    data: { status: 'expired', decidedAt: new Date() },
+  });
+  for (const ch of expirable) {
+    const recipients = [
+      ch.challengerLogin,
+      ch.opponentLogin,
+      ch.partnerLogin,
+      ch.opponentPartnerLogin,
+    ].filter(Boolean) as string[];
+    emit(recipients, { type: 'challenge:expired', payload: { id: ch.id } });
+    void markNotifsReadByRef([ch.opponentLogin, ch.opponentPartnerLogin].filter(Boolean) as string[], ch.id);
   }
   console.log(
-    `[purge] ${stale.length} pending match(es) older than ${PENDING_MATCH_TTL_HOURS}h deleted`,
+    `[expire] ${expirable.length} challenge(s) older than ${CHALLENGE_ACCEPT_TTL_HOURS}h expired`,
   );
 }
 
@@ -11711,6 +12420,142 @@ async function purgeScheduledDeletions(): Promise<void> {
     );
   }
 }
+
+// ── Street Fighter Club Sessions (public) ─────────────────────────────────
+app.get('/sf-session/current', async (c) => {
+  const now = new Date();
+  const active = await prisma.sfSession.findFirst({
+    where: {
+      isActive: true,
+      startTime: { lte: now },
+      OR: [{ endTime: null }, { endTime: { gt: now } }],
+    },
+    orderBy: { startTime: 'desc' },
+    include: { organizer: { select: { login: true, firstName: true, lastName: true, imageUrl: true } } },
+  });
+  if (active) return c.json({ session: active, status: 'active' });
+
+  const next = await prisma.sfSession.findFirst({
+    where: { isActive: true, startTime: { gt: now } },
+    orderBy: { startTime: 'asc' },
+    include: { organizer: { select: { login: true, firstName: true, lastName: true, imageUrl: true } } },
+  });
+  if (next) return c.json({ session: next, status: 'upcoming' });
+
+  return c.json({ session: null, status: 'none' });
+});
+
+// ── Admin : Sessions Street Fighter ────────────────────────────────────────
+
+app.get('/admin/sf-sessions', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireSfAdminOrAdmin(me);
+  const sessions = await prisma.sfSession.findMany({
+    orderBy: { startTime: 'desc' },
+    take: 50,
+    include: { organizer: { select: { login: true, firstName: true, lastName: true, imageUrl: true } } },
+  });
+  return c.json(sessions);
+});
+
+app.post('/admin/sf-sessions', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireSfAdminOrAdmin(me);
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = CreateSfSessionSchema.safeParse(body);
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
+  const { startTime, endTime, durationHours, description } = parsed.data;
+  let resolvedEndTime: Date | undefined;
+  if (endTime) {
+    resolvedEndTime = new Date(endTime);
+  } else if (durationHours) {
+    resolvedEndTime = new Date(new Date(startTime).getTime() + durationHours * 60 * 60 * 1000);
+  }
+  const session = await prisma.sfSession.create({
+    data: {
+      startTime: new Date(startTime),
+      endTime: resolvedEndTime ?? null,
+      organizerLogin: me,
+      description: description ?? null,
+    },
+    include: { organizer: { select: { login: true, firstName: true, lastName: true, imageUrl: true } } },
+  });
+  await logAdminAction(c, {
+    actor: me,
+    actorRole: await getUserRole(me),
+    action: 'OPEN_SF_SESSION',
+    payload: { sessionId: session.id, startTime },
+  });
+  broadcast({ type: 'data:update', payload: {} });
+  return c.json(session, 201);
+});
+
+app.patch('/admin/sf-sessions/:id', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireSfAdminOrAdmin(me);
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = UpdateSfSessionSchema.safeParse(body);
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
+  const session = await prisma.sfSession.findUnique({ where: { id } });
+  if (!session) throw new HTTPException(404, { message: 'session not found' });
+  const data: Record<string, unknown> = {};
+  if (parsed.data.endTime !== undefined) data.endTime = parsed.data.endTime ? new Date(parsed.data.endTime) : null;
+  if (parsed.data.isActive !== undefined) data.isActive = parsed.data.isActive;
+  if (parsed.data.description !== undefined) data.description = parsed.data.description;
+  const updated = await prisma.sfSession.update({
+    where: { id },
+    data,
+    include: { organizer: { select: { login: true, firstName: true, lastName: true, imageUrl: true } } },
+  });
+  if (parsed.data.isActive === false) {
+    await logAdminAction(c, {
+      actor: me,
+      actorRole: await getUserRole(me),
+      action: 'CLOSE_SF_SESSION',
+      payload: { sessionId: id },
+    });
+  }
+  broadcast({ type: 'data:update', payload: {} });
+  return c.json(updated);
+});
+
+app.delete('/admin/sf-sessions/:id', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireSfAdminOrAdmin(me);
+  const id = c.req.param('id');
+  const session = await prisma.sfSession.findUnique({ where: { id } });
+  if (!session) throw new HTTPException(404, { message: 'session not found' });
+  await prisma.sfSession.delete({ where: { id } });
+  await logAdminAction(c, {
+    actor: me,
+    actorRole: await getUserRole(me),
+    action: 'CANCEL_SF_SESSION',
+    payload: { sessionId: id },
+  });
+  broadcast({ type: 'data:update', payload: {} });
+  return c.json({ ok: true });
+});
+
+app.post('/admin/users/:login/sf-admin', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const login = c.req.param('login');
+  const body = await c.req.json().catch(() => ({}));
+  const sfAdmin = typeof body.sfAdmin === 'boolean' ? body.sfAdmin : false;
+  const user = await prisma.user.findUnique({ where: { login } });
+  if (!user) throw new HTTPException(404, { message: 'user not found' });
+  await prisma.user.update({ where: { login }, data: { sfAdmin } });
+  await logAdminAction(c, {
+    actor: me,
+    actorRole: await getUserRole(me),
+    action: 'SET_SF_ADMIN',
+    target: login,
+    payload: { sfAdmin },
+  });
+  broadcast({ type: 'data:update', payload: {} });
+  return c.json({ ok: true, sfAdmin });
+});
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -11797,9 +12642,6 @@ if (process.env.NODE_ENV !== 'test') {
       purgeOldAuditLogs().catch((err) => {
         console.error('failed to purge old audit logs', err);
       });
-      purgeStalePendingMatches().catch((err) => {
-        console.error('failed to purge stale pending matches', err);
-      });
       purgeScheduledDeletions().catch((err) => {
         console.error('failed to purge scheduled account deletions', err);
       });
@@ -11846,5 +12688,25 @@ if (process.env.NODE_ENV !== 'test') {
     setInterval(() => {
       checkSeasonSchedule().catch((err) => console.error('season schedule check failed', err));
     }, 60 * 1000);
+
+    // Cooldown de 48h : auto-validation des matchs déclarés non confirmés +
+    // expiration des défis non acceptés. Balayage toutes les 5 min (les délais
+    // sont en heures, pas besoin de précision à la minute) + une passe au boot
+    // pour rattraper ce qui a expiré pendant l'arrêt du process.
+    let staleSweepRunning = false;
+    const sweepStale = async () => {
+      if (staleSweepRunning) return;
+      staleSweepRunning = true;
+      try {
+        await autoConfirmStalePendingMatches();
+        await expireStaleChallenges();
+      } finally {
+        staleSweepRunning = false;
+      }
+    };
+    sweepStale().catch((err) => console.error('stale sweep failed', err));
+    setInterval(() => {
+      sweepStale().catch((err) => console.error('stale sweep failed', err));
+    }, 5 * 60 * 1000);
   });
 }

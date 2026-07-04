@@ -87,6 +87,11 @@ export function eloOrderBy(game: GameId): Prisma.UserOrderByWithRelationInput {
   return { [COLUMNS[game].elo]: 'desc' } as Prisma.UserOrderByWithRelationInput;
 }
 
+/** Filtre Prisma : n'inclut que les joueurs ayant disputé au moins un match dans la discipline. */
+export function playedFilter(game: GameId): Prisma.UserWhereInput {
+  return { [COLUMNS[game].matchesPlayed]: { gt: 0 } } as Prisma.UserWhereInput;
+}
+
 /**
  * Fragment d'update Prisma : pose le nouvel Elo de la discipline et (par défaut)
  * incrémente son compteur de matchs joués.

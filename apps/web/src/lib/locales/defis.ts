@@ -111,6 +111,16 @@ export const dict: Record<Lang, Dict> = {
     // Sections / headers
     'defis.activity': 'Activité en cours',
     'defis.toConfirm': 'À confirmer',
+    // Cooldown 48h (auto-validation / expiration des défis)
+    'defis.cooldown.expireIn': 'Expire dans',
+    'defis.cooldown.expired': 'Expiré',
+    'defis.cooldown.autoValidateIn': 'Auto-validé dans',
+    'defis.cooldown.autoValidating': 'Validation…',
+    // Contestation a posteriori d'un match auto-validé
+    'defis.contestable.title': 'Auto-validés · à vérifier',
+    'defis.contestable.hint': 'Validé faute de réponse sous 48 h — tu peux encore le contester',
+    'defis.contestable.contest': 'Contester',
+    'defis.toast.matchContested': 'Match contesté — litige envoyé à l’arbitrage',
     'defis.scheduledDuels': 'Duels programmés',
     'defis.waitingConfirm': 'En attente de confirmation',
     'defis.pool': 'Pool de joueurs',
@@ -189,20 +199,21 @@ export const dict: Record<Lang, Dict> = {
     'defis.mustConfirmScore': 'devra confirmer ce score pour valider la game.',
     'defis.gameDeclared': 'Game déclarée —',
     'defis.mustConfirmShort': 'doit confirmer le score',
-    'defis.chooseBothChars': 'Choisis les deux personnages',
 
     // Smash / Street Fighter set
     'defis.format': 'Format',
     'defis.gamesOf': 'Games de',
     'defis.loserSuffix': '(perdant)',
     'defis.winnerTarget': 'gagnant',
-    'defis.winnerStocks': 'Vies restantes du gagnant (game décisif)',
-    'defis.winnerStocksShort': 'Vies restantes du gagnant',
     'defis.yourChar': 'Ton perso',
     'defis.charOf': 'Perso de',
     'defis.winsTheSet': 'gagne le set',
     'defis.winsShort': 'gagne',
     'defis.me': 'moi',
+    'defis.addChars': 'Ajouter les persos',
+    'defis.charsTitle': 'Personnages',
+    'defis.optional': 'optionnel',
+    'defis.clear': 'Effacer',
 
     // Chess
     'defis.checkmated': 'a maté',
@@ -301,6 +312,7 @@ export const dict: Record<Lang, Dict> = {
 
     // Matchmaking (match aléatoire)
     'defis.random': 'Match aléatoire',
+    'defis.random.sub': 'Adversaire aléatoire instantané',
     'defis.queue.searching': "Recherche d'un adversaire…",
     'defis.queue.inQueue': 'Tu es dans la file',
     'defis.queue.cancel': 'Annuler',
@@ -410,6 +422,16 @@ export const dict: Record<Lang, Dict> = {
 
     'defis.activity': 'Current activity',
     'defis.toConfirm': 'To confirm',
+    // 48h cooldown (auto-confirm / challenge expiry)
+    'defis.cooldown.expireIn': 'Expires in',
+    'defis.cooldown.expired': 'Expired',
+    'defis.cooldown.autoValidateIn': 'Auto-confirmed in',
+    'defis.cooldown.autoValidating': 'Confirming…',
+    // Post-hoc contestation of an auto-confirmed match
+    'defis.contestable.title': 'Auto-confirmed · review',
+    'defis.contestable.hint': 'Confirmed after 48h with no reply — you can still contest it',
+    'defis.contestable.contest': 'Contest',
+    'defis.toast.matchContested': 'Match contested — dispute sent to arbitration',
     'defis.scheduledDuels': 'Scheduled duels',
     'defis.waitingConfirm': 'Awaiting confirmation',
     'defis.pool': 'Player pool',
@@ -484,19 +506,20 @@ export const dict: Record<Lang, Dict> = {
     'defis.mustConfirmScore': 'will have to confirm this score to validate the game.',
     'defis.gameDeclared': 'Game declared —',
     'defis.mustConfirmShort': 'must confirm the score',
-    'defis.chooseBothChars': 'Pick both characters',
 
     'defis.format': 'Format',
     'defis.gamesOf': 'Games of',
     'defis.loserSuffix': '(loser)',
     'defis.winnerTarget': 'winner',
-    'defis.winnerStocks': 'Winner\'s stocks left (decider game)',
-    'defis.winnerStocksShort': 'Winner\'s stocks left',
     'defis.yourChar': 'Your character',
     'defis.charOf': 'Character of',
     'defis.winsTheSet': 'wins the set',
     'defis.winsShort': 'wins',
     'defis.me': 'me',
+    'defis.addChars': 'Add characters',
+    'defis.charsTitle': 'Characters',
+    'defis.optional': 'optional',
+    'defis.clear': 'Clear',
 
     'defis.checkmated': 'checkmated',
     'defis.chessOnlyResult': 'In chess, only the result matters.',
@@ -588,6 +611,7 @@ export const dict: Record<Lang, Dict> = {
 
     // Matchmaking (random match)
     'defis.random': 'Random match',
+    'defis.random.sub': 'Instant random opponent',
     'defis.queue.searching': 'Looking for an opponent…',
     'defis.queue.inQueue': "You're in the queue",
     'defis.queue.cancel': 'Cancel',
@@ -697,6 +721,16 @@ export const dict: Record<Lang, Dict> = {
 
     'defis.activity': 'Actividad en curso',
     'defis.toConfirm': 'Por confirmar',
+    // Cooldown 48h (auto-validación / expiración de retos)
+    'defis.cooldown.expireIn': 'Expira en',
+    'defis.cooldown.expired': 'Expirado',
+    'defis.cooldown.autoValidateIn': 'Auto-validado en',
+    'defis.cooldown.autoValidating': 'Validando…',
+    // Impugnación a posteriori de un partido auto-validado
+    'defis.contestable.title': 'Auto-validados · revisar',
+    'defis.contestable.hint': 'Validado sin respuesta en 48 h — aún puedes impugnarlo',
+    'defis.contestable.contest': 'Impugnar',
+    'defis.toast.matchContested': 'Partido impugnado — disputa enviada a arbitraje',
     'defis.scheduledDuels': 'Duelos programados',
     'defis.waitingConfirm': 'A la espera de confirmación',
     'defis.pool': 'Conjunto de jugadores',
@@ -771,19 +805,20 @@ export const dict: Record<Lang, Dict> = {
     'defis.mustConfirmScore': 'deberá confirmar este marcador para validar la partida.',
     'defis.gameDeclared': 'Partida declarada —',
     'defis.mustConfirmShort': 'debe confirmar el marcador',
-    'defis.chooseBothChars': 'Elige los dos personajes',
 
     'defis.format': 'Formato',
     'defis.gamesOf': 'Partidas de',
     'defis.loserSuffix': '(perdedor)',
     'defis.winnerTarget': 'ganador',
-    'defis.winnerStocks': 'Vidas restantes del ganador (partida decisiva)',
-    'defis.winnerStocksShort': 'Vidas restantes del ganador',
     'defis.yourChar': 'Tu personaje',
     'defis.charOf': 'Personaje de',
     'defis.winsTheSet': 'gana el set',
     'defis.winsShort': 'gana',
     'defis.me': 'yo',
+    'defis.addChars': 'Añadir personajes',
+    'defis.charsTitle': 'Personajes',
+    'defis.optional': 'opcional',
+    'defis.clear': 'Borrar',
 
     'defis.checkmated': 'dio jaque mate a',
     'defis.chessOnlyResult': 'En ajedrez, solo cuenta el resultado.',
@@ -875,6 +910,7 @@ export const dict: Record<Lang, Dict> = {
 
     // Matchmaking (partida aleatoria)
     'defis.random': 'Partida aleatoria',
+    'defis.random.sub': 'Rival aleatorio al instante',
     'defis.queue.searching': 'Buscando un rival…',
     'defis.queue.inQueue': 'Estás en la cola',
     'defis.queue.cancel': 'Cancelar',

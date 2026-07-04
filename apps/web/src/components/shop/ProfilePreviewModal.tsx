@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { Avatar } from '../Avatar';
 import { BadgesRow } from '../Badges';
+import { HeroCardFrame } from '../HeroCardFrame';
+import { NO_FX } from '../../lib/profileFx';
 import { displayTitle } from '../../lib/cosmeticTitles';
 import { RARITY, resolveRarity } from '../../lib/rarity';
 import { useT } from '../../lib/i18n';
@@ -30,7 +32,6 @@ export function ProfilePreviewModal({
   onClose: () => void;
 }) {
   const t = useT();
-  const reducedMotion = useReducedMotion();
 
   // Échap + blocage du scroll de fond tant que le modal est ouvert.
   useEffect(() => {
@@ -123,47 +124,38 @@ export function ProfilePreviewModal({
 
           {/* Carte héro de profil — grande, fidèle à la vraie page profil. La bannière
               couvre tout le haut à un ratio ~2:1 (taille quasi réelle), avec le
-              contenu (titre, avatar, ELO, stats) par-dessus. */}
-          <div
-            className="relative overflow-hidden rounded-2xl border border-gold/35"
-            style={{
-              background: 'linear-gradient(180deg, #2a241c 0%, #15120e 55%, #1d1914 100%)',
-              boxShadow:
-                'inset 0 1px 0 rgba(255,215,120,0.15), inset 0 -1px 0 rgba(0,0,0,0.5), 0 12px 32px -12px rgba(255,201,74,0.25)',
-            }}
+              contenu (titre, avatar, ELO, stats) par-dessus.
+              Aperçu boutique : pas d'effet cosmétique appliqué → `NO_FX` (fond
+              neutre, pas d'aura), bordure dorée fixe, conic sans couche compositeur,
+              filet laiton resserré (`left-4 right-4`), ni grille HUD ni tuyaux. */}
+          <HeroCardFrame
+            fx={NO_FX}
+            radius="rounded-2xl"
+            gradient="flat"
+            neutralBorderClass="border-gold/35"
+            neutralBoxShadow="inset 0 1px 0 rgba(255,215,120,0.15), inset 0 -1px 0 rgba(0,0,0,0.5), 0 12px 32px -12px rgba(255,201,74,0.25)"
+            conic={{ opacity: 0.2, duration: 32, blur: 48, gpu: false }}
+            brass={{ variant: 'hairline', inset: 'left-4 right-4' }}
+            hudGrid={false}
+            // Bannière prévisualisée (fond) + voile sombre dégradé propre à l'aperçu
+            // (sans flou ni scale, voile à un seul dégradé `rgba(8,6,3,…)`).
+            banner={
+              banner ? (
+                <>
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ backgroundImage: `url(${banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                  />
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ background: 'linear-gradient(180deg, rgba(8,6,3,0.35) 0%, rgba(8,6,3,0.25) 45%, rgba(12,10,7,0.82) 100%)' }}
+                  />
+                </>
+              ) : null
+            }
           >
-            {/* Bannière équipée (fond) + voile sombre dégradé pour la lisibilité */}
-            {banner && (
-              <>
-                <div
-                  aria-hidden
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ backgroundImage: `url(${banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-                />
-                <div
-                  aria-hidden
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ background: 'linear-gradient(180deg, rgba(8,6,3,0.35) 0%, rgba(8,6,3,0.25) 45%, rgba(12,10,7,0.82) 100%)' }}
-                />
-              </>
-            )}
-
-            {/* Halo holographique conique */}
-            {!reducedMotion && (
-              <motion.div
-                aria-hidden
-                className="absolute inset-0 opacity-20 pointer-events-none"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 32, ease: 'linear', repeat: Infinity }}
-                style={{
-                  background:
-                    'conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(255,201,74,0.35) 60deg, transparent 120deg, rgba(192,138,74,0.22) 200deg, transparent 260deg, rgba(255,201,74,0.22) 340deg, transparent 360deg)',
-                  filter: 'blur(48px)',
-                }}
-              />
-            )}
-            <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-gold/55 to-transparent pointer-events-none" />
-
             {/* Zone bannière (ratio ~2:1) — réserve la hauteur pour montrer la bannière
                 quasi en entier ; le contenu s'y superpose. */}
             <div className="relative" style={{ aspectRatio: '1024 / 460' }}>
@@ -233,7 +225,7 @@ export function ProfilePreviewModal({
                 <div className="text-[9px] text-muted-2 uppercase tracking-[0.18em] font-extrabold">Campus</div>
               </div>
             </div>
-          </div>
+          </HeroCardFrame>
 
           <p className="mt-3 text-[11px] text-muted-2 leading-snug text-center">{t('shop.preview.caption')}</p>
         </motion.div>

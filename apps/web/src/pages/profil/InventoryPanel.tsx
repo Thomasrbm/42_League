@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
-import { ShieldBan, Swords, Flame, Loader2, Check, X, Crosshair, type LucideProps } from 'lucide-react';
-import { api, type ConsumablesResponse, type ConsumableKind, type ConsumableState } from '../../lib/api';
+import { ShieldBan, Swords, Flame, Loader2, Check, X, Crosshair, Upload, ImageIcon, type LucideProps } from 'lucide-react';
+import { api, type ConsumablesResponse, type ConsumableKind, type ConsumableState, type InventoryEntry } from '../../lib/api';
 import { useFlash } from '../../hooks/useFlash';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useEloBoostRemaining } from '../../components/EloBoost';
+import { CustomBannerUploaderModal } from '../../components/shop/CustomBannerUploader';
 import { SectionHeader } from './shared/SectionHeader';
 import { getGame, type Game } from '../../lib/gameMode';
 import { GAMES, GAME_META } from '../../lib/gameMeta';
@@ -56,6 +57,135 @@ function fmtLeft(ms: number): string {
   if (days >= 2) return `${days} j`;
   const hours = Math.ceil(ms / (60 * 60 * 1000));
   return `${hours} h`;
+}
+
+function BannersSection() {
+  const { show } = useFlash();
+  const { refresh } = useLeagueData();
+  const [banners, setBanners] = useState<InventoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploadTarget, setUploadTarget] = useState<InventoryEntry | null>(null);
+  const [equipping, setEquipping] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.inventory()
+      .then((rows) => setBanners(rows.filter((r) => r.item.category === 'banner')))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (banners.length === 0) return null;
+
+  async function toggleEquip(entry: InventoryEntry) {
+    setEquipping(entry.itemId);
+    try {
+      await api.equipItem(entry.itemId, !entry.equipped);
+      setBanners((prev) =>
+        prev.map((b) => ({
+          ...b,
+          equipped: b.item.category === 'banner' ? b.itemId === entry.itemId && !entry.equipped : b.equipped,
+        })),
+      );
+      void refresh();
+    } catch (err) {
+      show(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally {
+      setEquipping(null);
+    }
+  }
+
+  return (
+    <section>
+      <SectionHeader title="Bannières" />
+      <div className="space-y-2">
+        {banners.map((b) => {
+          const p = b.item.payload as Record<string, unknown> | null;
+          const isCustom = p?.allowUpload === true;
+          const userImg = typeof b.userPayload?.image === 'string' ? b.userPayload.image : null;
+          const itemImg = typeof p?.image === 'string' ? p.image : null;
+          const displayImg = userImg ?? itemImg;
+
+          return (
+            <div
+              key={b.itemId}
+              className="relative card-hud rounded-2xl overflow-hidden"
+              style={{ borderColor: b.equipped ? 'rgba(255,201,74,0.35)' : undefined }}
+            >
+              {/* Aperçu bannière */}
+              <div className="relative w-full" style={{ aspectRatio: '1024 / 256' }}>
+                {displayImg ? (
+                  <img src={displayImg} alt={b.item.name} className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-bg-2">
+                    <ImageIcon className="w-6 h-6 text-muted/30" strokeWidth={1.5} />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                <span className="absolute bottom-2 left-3 font-gaming text-sm font-extrabold text-white drop-shadow">
+                  {b.item.name}
+                </span>
+                {b.equipped && (
+                  <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold text-[#1a0d00] text-[9px] font-extrabold uppercase tracking-wide">
+                    <Check className="w-3 h-3" strokeWidth={3} />
+                    Équipée
+                  </span>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 px-3 py-2">
+                <button
+                  type="button"
+                  disabled={equipping === b.itemId}
+                  onClick={() => void toggleEquip(b)}
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wide transition-colors disabled:opacity-50 ${
+                    b.equipped
+                      ? 'bg-gold/15 border border-gold/40 text-gold'
+                      : 'bg-bg-1 border border-border/60 text-muted-2 hover:text-text'
+                  }`}
+                >
+                  {equipping === b.itemId ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2.5} />
+                  ) : b.equipped ? (
+                    <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                  ) : null}
+                  {b.equipped ? 'Équipée' : 'Équiper'}
+                </button>
+
+                {isCustom && (
+                  <button
+                    type="button"
+                    onClick={() => setUploadTarget(b)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wide border border-dashed border-gold/30 text-gold/70 hover:border-gold/60 hover:text-gold transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    {userImg ? 'Changer' : 'Uploader'}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {uploadTarget && (
+        <CustomBannerUploaderModal
+          itemId={uploadTarget.itemId}
+          itemName={uploadTarget.item.name}
+          currentImage={typeof uploadTarget.userPayload?.image === 'string' ? uploadTarget.userPayload.image : null}
+          onClose={() => setUploadTarget(null)}
+          onSaved={(dataUrl) => {
+            setBanners((prev) =>
+              prev.map((b) => b.itemId === uploadTarget.itemId ? { ...b, userPayload: { image: dataUrl } } : b),
+            );
+            setUploadTarget(null);
+            void refresh();
+          }}
+        />
+      )}
+    </section>
+  );
 }
 
 export function InventoryPanel() {
@@ -151,8 +281,10 @@ export function InventoryPanel() {
   if (!data) return null;
 
   return (
+    <>
+    <BannersSection />
     <section>
-      <SectionHeader title="Inventaire" />
+      <SectionHeader title="Consommables" />
       <div className="space-y-2.5">
         {data.items.map((c) => {
           const meta = META[c.kind];
@@ -413,5 +545,6 @@ export function InventoryPanel() {
         </div>
       )}
     </section>
+    </>
   );
 }

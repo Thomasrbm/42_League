@@ -9,6 +9,7 @@ import { clearDuelStrike, type DuelStrike } from '../lib/duelStrike';
 import { gameColor } from '../lib/gameVisuals';
 import { GAME_META } from '../lib/gameMeta';
 import { playThunder } from '../lib/thunder';
+import { makeBolt } from '../lib/lightning';
 import { haptic } from '../mobile/feedback/useHaptic';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,35 +24,6 @@ import { haptic } from '../mobile/feedback/useHaptic';
 
 const STRIKE_MS = 820; // durée de la phase foudre avant bascule VS
 const VS_MS = 2900; // durée de la phase VS avant auto-fermeture
-
-/** Construit un tracé d'éclair en zig-zag par déplacement de point médian. */
-function makeBolt(x0: number, y0: number, x1: number, y1: number, displace: number, depth: number): string {
-  // Liste de points raffinée récursivement : à chaque passe on insère un point
-  // médian décalé perpendiculairement → aspect fractal « vrai éclair ».
-  let pts: Array<[number, number]> = [
-    [x0, y0],
-    [x1, y1],
-  ];
-  for (let d = 0; d < depth; d++) {
-    const next: Array<[number, number]> = [];
-    const amp = displace / (d + 1);
-    for (let i = 0; i < pts.length - 1; i++) {
-      const [ax, ay] = pts[i]!;
-      const [bx, by] = pts[i + 1]!;
-      const mx = (ax + bx) / 2;
-      const my = (ay + by) / 2;
-      // décalage perpendiculaire au segment
-      const dx = bx - ax;
-      const dy = by - ay;
-      const len = Math.hypot(dx, dy) || 1;
-      const off = (Math.random() - 0.5) * amp;
-      next.push([ax, ay], [mx + (-dy / len) * off, my + (dx / len) * off]);
-    }
-    next.push(pts[pts.length - 1]!);
-    pts = next;
-  }
-  return 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L');
-}
 
 interface Resolved {
   login: string;

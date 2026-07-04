@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { MapPin, Crown } from 'lucide-react';
-import { EloBoostAura, EloBoostBadge, useEloBoostRemaining } from '../../components/EloBoost';
+import { EloBoostBadge } from '../../components/EloBoost';
+import { HeroCardFrame } from '../../components/HeroCardFrame';
+import { useProfileFx } from '../../hooks/useProfileFx';
 import { Panel } from '../../components/Panel';
 import { Avatar } from '../../components/Avatar';
 import { StatCard } from '../../components/StatCard';
 import { RankBadge } from '../../components/RankBadge';
 import { BadgesRow } from '../../components/Badges';
-import { CursorTooltip } from '../../components/CursorTooltip';
-import { titleTooltipContent } from '../../components/TitleTooltip';
 import { Palmares } from '../../components/Palmares';
 import { EloChart } from '../../components/EloChart';
 import { PlayerLink } from '../../components/PlayerLink';
@@ -23,6 +23,7 @@ import { ChessTrophy } from '../../components/ChessTrophy';
 import { FavoriteCharsRow } from '../../components/FavoriteCharsRow';
 import { FavoriteCharsEditor } from '../../components/FavoriteCharsEditor';
 import { favoritesForGame, type FightingGame } from '../../lib/chars';
+import { XpBar } from '../../components/XpBar';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
 import { useI18n, useT } from '../../lib/i18n';
@@ -39,7 +40,6 @@ export function ProfilDesktop() {
   const { locale } = useI18n();
   const { me, matches, playedDarts, opsMe, leaderboard, tournaments, refresh } = useLeagueData();
   const { game, isSmash } = useGameMode();
-  const reducedMotion = useReducedMotion();
   const [editGame, setEditGame] = useState<FightingGame | null>(null);
 
   const stats = useMemo(() => {
@@ -99,9 +99,11 @@ export function ProfilDesktop() {
   }
 
   const u = me.user;
-  // ELO boost window — alimente l'aura incandescente sur la carte profil.
+  // Effet cosmétique (boost ELO « EN FEU » / Apôtre de Sheldon) — alimente le
+  // cadre, l'aura et le badge de la carte profil. Dérivé une seule fois.
   const boostUntil = u.eloMultUntil ?? null;
-  const { active: boosted } = useEloBoostRemaining(boostUntil);
+  const fx = useProfileFx({ title: u.title, eloMultUntil: boostUntil });
+  const { boosted, sheldon: isSheldon } = fx;
   // Cosmétiques équipés (boutique) — profil perso.
   const titleColor = me.titleColor ?? null;
   // Titre équipé : null si aucun → « sans éclat. » GRISÉ (état NONE), pas en or.
@@ -126,79 +128,67 @@ export function ProfilDesktop() {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
       <Panel title={t('panel.profil.title')} sub={t('panel.profil.sub')} accent="user">
-      {/* Hero : avatar · identité · bloc ELO — fond doré + halo holographique animé. */}
-      <div
-        className={`relative overflow-hidden rounded-2xl mb-6 border ${boosted ? 'border-orange-500/70' : 'border-gold/35'}`}
-        style={{
-          background: boosted
-            ? 'linear-gradient(180deg, #2d1a0e 0%, #1a0e07 55%, #22100a 100%)'
-            : 'linear-gradient(180deg, #2a241c 0%, #15120e 55%, #1d1914 100%)',
-          boxShadow: boosted
-            ? 'inset 0 1px 0 rgba(255,140,60,0.25), inset 0 -1px 0 rgba(0,0,0,0.6), 0 12px 40px -8px rgba(255,80,20,0.45)'
-            : 'inset 0 1px 0 rgba(255,215,120,0.15), inset 0 -1px 0 rgba(0,0,0,0.5), 0 12px 32px -12px rgba(255,201,74,0.25)',
+      {/* Hero : avatar · identité · bloc ELO — fond doré + halo holographique animé.
+          NB carte desktop : la bordure est une CLASSE Tailwind (pas fx.frame) et
+          l'ombre un inline keyé par effet ; gradient 3-arrêts (`flat`), conic sans
+          couche compositeur, unique filet laiton en haut, ni grille HUD ni shimmer. */}
+      <HeroCardFrame
+        fx={fx}
+        radius="rounded-2xl"
+        className="mb-6"
+        gradient="flat"
+        neutralBorderClass="border-gold/35"
+        effectBorderClass={{ sheldon: 'border-green-500/70', boost: 'border-orange-500/70' }}
+        neutralBoxShadow="inset 0 1px 0 rgba(255,215,120,0.15), inset 0 -1px 0 rgba(0,0,0,0.5), 0 12px 32px -12px rgba(255,201,74,0.25)"
+        effectBoxShadow={{
+          sheldon:
+            'inset 0 1px 0 rgba(57,255,20,0.18), inset 0 -1px 0 rgba(0,0,0,0.6), 0 12px 40px -8px rgba(57,255,20,0.35)',
+          boost:
+            'inset 0 1px 0 rgba(255,140,60,0.25), inset 0 -1px 0 rgba(0,0,0,0.6), 0 12px 40px -8px rgba(255,80,20,0.45)',
         }}
+        // Conic desktop : opacité 0.20, 32 s, flou 48 px, SANS couche compositeur.
+        conic={{ opacity: 0.2, duration: 32, blur: 48, gpu: false }}
+        // Filet laiton unique en haut (dégradé), pas de tuyaux haut+bas.
+        brass={{ variant: 'hairline' }}
+        hudGrid={false}
+        // Bannière équipée (boutique) = fond de la carte + voile sombre.
+        banner={
+          equippedBanner ? (
+            <>
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none scale-105"
+                style={{
+                  backgroundImage: `url(${equippedBanner})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  // Léger flou + désaturation : la bannière reste reconnaissable mais
+                  // ses détails ne « mangent » plus le texte par-dessus.
+                  filter: 'blur(2px) saturate(0.85)',
+                }}
+              />
+              {/* Voile lisibilité : assombrissement global + dégradé renforcé en haut
+                  (titre) et en bas (stats) → contraste garanti du texte. */}
+              <div aria-hidden className="absolute inset-0 pointer-events-none bg-black/60" />
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.6) 100%)',
+                }}
+              />
+            </>
+          ) : null
+        }
       >
-        {/* Aura incandescente — visible uniquement quand le boost ELO ×2 est actif. */}
-        <EloBoostAura active={boosted} />
-        {/* Bannière équipée (boutique) = fond de la carte + voile sombre. */}
-        {equippedBanner && (
-          <>
-            <div
-              aria-hidden
-              className="absolute inset-0 pointer-events-none scale-105"
-              style={{
-                backgroundImage: `url(${equippedBanner})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                // Léger flou + désaturation : la bannière reste reconnaissable mais
-                // ses détails ne « mangent » plus le texte par-dessus.
-                filter: 'blur(2px) saturate(0.85)',
-              }}
-            />
-            {/* Voile lisibilité : assombrissement global + dégradé renforcé en haut
-                (titre) et en bas (stats) → contraste garanti du texte. */}
-            <div aria-hidden className="absolute inset-0 pointer-events-none bg-black/60" />
-            <div
-              aria-hidden
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.6) 100%)',
-              }}
-            />
-          </>
-        )}
-        {/* Halo conique animé très discret (coupé si prefers-reduced-motion). */}
-        {!reducedMotion && (
-          <motion.div
-            aria-hidden
-            className="absolute inset-0 opacity-20 pointer-events-none"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 32, ease: 'linear', repeat: Infinity }}
-            style={{
-              background:
-                'conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(255,201,74,0.35) 60deg, transparent 120deg, rgba(192,138,74,0.22) 200deg, transparent 260deg, rgba(255,201,74,0.22) 340deg, transparent 360deg)',
-              filter: 'blur(48px)',
-            }}
-          />
-        )}
-        {/* Filet laiton haut */}
-        <div className="absolute top-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-gold/55 to-transparent pointer-events-none" />
-
         {/* Titre équipé — bannière dorée centrée en HAUT de la carte. Par défaut
             « sans éclat. » quand aucun titre n'est équipé. Le sélecteur (cette vue
             est toujours soi) est une simple flèche à droite. */}
         <div className="relative z-10 pt-3.5 pb-1 flex items-center justify-center px-5">
-          <CursorTooltip
-            className="inline-flex max-w-[80%] min-w-0"
-            disabled={isTarnished}
-            content={titleTooltipContent(equippedTitle)}
-          >
           <span
-            className={`inline-flex items-center gap-1.5 min-w-0 ${
-              !isTarnished && effectiveTitleColor === 'rainbow' ? 'title-rainbow' : ''
-            }`}
-            style={isTarnished || effectiveTitleColor === 'rainbow' ? undefined : { color: effectiveTitleColor ?? '#ffc94a' }}
+            className="inline-flex items-center gap-1.5 max-w-[80%]"
+            style={isTarnished ? undefined : { color: effectiveTitleColor ?? '#ffc94a' }}
           >
             <span className={`text-lg leading-none opacity-70 ${isTarnished ? 'text-muted-2' : ''}`}>❝</span>
             <span className={`italic text-lg font-bold tracking-wide truncate ${isTarnished ? 'text-muted-2' : ''}`}>
@@ -206,7 +196,6 @@ export function ProfilDesktop() {
             </span>
             <span className={`text-lg leading-none opacity-70 ${isTarnished ? 'text-muted-2' : ''}`}>❞</span>
           </span>
-          </CursorTooltip>
           <BannerPicker className="absolute left-5" />
           <TitlePicker className="absolute right-5" />
         </div>
@@ -223,6 +212,8 @@ export function ProfilDesktop() {
               imageUrl={u.imageUrl}
               size="xl"
               className="relative ring-2 ring-gold/45 ring-offset-2 ring-offset-bg-2"
+              // La carte porte déjà l'aura complète → pas de double effet sur la PP.
+              fx={false}
             />
           </div>
 
@@ -238,7 +229,6 @@ export function ProfilDesktop() {
                     codes={me.badges ?? []}
                     extra={[...(equippedBadge ? [equippedBadge] : []), ...(me.customBadges ?? [])]}
                     size="md"
-                    richTooltip
                   />
                 </div>
               )}
@@ -279,10 +269,10 @@ export function ProfilDesktop() {
             >
               {stats.elo}
             </div>
-            {boosted && <EloBoostBadge until={boostUntil} className="mt-1.5" />}
+            {boosted && !isSheldon && <EloBoostBadge until={boostUntil} className="mt-1.5" />}
           </div>
         </div>
-      </div>
+      </HeroCardFrame>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         <StatCard value={String(stats.elo)} label={t('profil.elo')} tone="teal" />
@@ -303,6 +293,17 @@ export function ProfilDesktop() {
         <KV label={t('profil.wins')} value={String(stats.wins)} tone="win" />
         <KV label={t('profil.losses')} value={String(stats.losses)} tone="loss" />
       </div>
+
+      {/* Passe de combat : niveau + barre d'XP + accès à la page /passe */}
+      {typeof me.level === 'number' && (
+        <div className="mt-4">
+          <XpBar
+            level={me.level}
+            xpIntoLevel={me.xpIntoLevel ?? 0}
+            xpForNextLevel={me.xpForNextLevel ?? 0}
+          />
+        </div>
+      )}
 
       {/* Tournois remportés — amicaux vs officiels (coupe rouge = officiel). */}
       <div className="mt-4 grid grid-cols-2 gap-2">

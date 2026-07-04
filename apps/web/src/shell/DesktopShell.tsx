@@ -15,6 +15,7 @@ import {
   Info,
   ShoppingBag,
   Store,
+  Zap,
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
 import { CoinCount } from '../components/CoinCount';
@@ -39,6 +40,7 @@ const NAV: NavDef[] = [
   { to: '/leaderboard', labelKey: 'nav.leaderboard', Icon: BarChart3 },
   { to: '/trophies', labelKey: 'nav.trophees', Icon: Award },
   { to: '/shop', labelKey: 'nav.shop', Icon: ShoppingBag },
+  { to: '/passe', labelKey: 'nav.passe', Icon: Zap },
   { to: '/profile', labelKey: 'nav.profil', Icon: User },
   { to: '/teams', labelKey: 'nav.teams', Icon: Users },
 ];

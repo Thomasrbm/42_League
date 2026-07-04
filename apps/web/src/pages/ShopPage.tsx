@@ -10,14 +10,15 @@ import {
   Target,
   Dices,
   Gem,
-  ArrowUp,
-  ArrowDown,
   PackageOpen,
   Eye,
   ShieldBan,
   Zap,
+  Upload,
+  Crown,
   type LucideIcon,
 } from 'lucide-react';
+import { TiltCard } from '../components/TiltCard';
 import { ProfilePreviewModal } from '../components/shop/ProfilePreviewModal';
 import { MysteryRevealModal } from '../components/shop/MysteryRevealModal';
 import { QuestsPanel } from './profil/QuestsPanel';
@@ -37,13 +38,9 @@ import {
   type ShopCategory,
   type ShopItemData,
 } from '../lib/api';
+import { CustomBannerUploaderModal } from '../components/shop/CustomBannerUploader';
 import { trackEvent } from '../lib/analytics';
 import { RARITY, RARITY_ORDER, resolveRarity, type Rarity } from '../lib/rarity';
-
-/** Critères de tri proposés sous la barre de catégories. */
-type SortKey = 'name' | 'price' | 'rarity';
-type SortDir = 'asc' | 'desc';
-const SORT_KEYS: SortKey[] = ['name', 'price', 'rarity'];
 
 /** Catégories pour lesquelles « équiper » a du sens (titre / bannière actifs). */
 const EQUIPPABLE: ShopCategory[] = ['title', 'banner'];
@@ -54,11 +51,20 @@ const CATEGORY_ORDER: ShopCategory[] = ['title', 'banner', 'consumable', 'myster
 /** Catégories masquées de la boutique (achat impossible). */
 const HIDDEN_CATS: ShopCategory[] = ['badge'];
 
-/** Nombre minimum de cases affichées : la grille est comblée par des cartes
- *  placeholder « Bientôt » pour qu'elle paraisse toujours pleine, même quand le
- *  catalogue réel est vide ou peu fourni. */
-const MIN_TILES = 6;
 const PLACEHOLDER_CATS: ShopCategory[] = ['banner', 'title', 'badge'];
+
+/** Icône et libellé de chaque catégorie pour les séparateurs de section. */
+const CAT_META: Record<ShopCategory, { Icon: LucideIcon; label: string }> = {
+  title:       { Icon: Crown,       label: 'Titres' },
+  banner:      { Icon: ImageIcon,   label: 'Bannières' },
+  consumable:  { Icon: Zap,         label: 'Consommables' },
+  mystery_box: { Icon: PackageOpen, label: 'Boîtes Mystère' },
+  badge:       { Icon: Gem,         label: 'Badges' },
+};
+
+function isSheldonItem(item: ShopItemData): boolean {
+  return item.name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes('sheldon');
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Système de rareté — désormais un champ EXPLICITE de l'objet (choisi dans
@@ -245,6 +251,11 @@ function ShopItemVisual({ item, rarityHex }: { item: ShopItemData; rarityHex: st
       {item.category === 'banner' &&
         (image ? (
           <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : p.allowUpload === true ? (
+          <div className="relative flex flex-col items-center gap-1.5 px-3 text-center">
+            <Upload className="w-6 h-6 text-gold/60" strokeWidth={1.8} />
+            <span className="text-[10px] text-gold/60 font-bold uppercase tracking-wide">Image personnalisée</span>
+          </div>
         ) : (
           <ImageIcon className="relative w-7 h-7 text-muted-2" strokeWidth={1.8} />
         ))}
@@ -388,15 +399,16 @@ export function ShopPage() {
   const [items, setItems] = useState<ShopItemData[]>(shopCache?.items ?? []);
   const [owned, setOwned] = useState<Set<string>>(new Set(shopCache?.owned ?? []));
   const [equipped, setEquipped] = useState<Set<string>>(new Set(shopCache?.equipped ?? []));
+  // Entrées d'inventaire complètes — nécessaires pour lire userPayload des bannières custom.
+  const [inventoryEntries, setInventoryEntries] = useState<InventoryEntry[]>([]);
   // Skeleton uniquement au tout premier chargement (cache vide). Si on a déjà un
   // snapshot, on affiche le catalogue connu immédiatement, sans clignotement.
   const [loading, setLoading] = useState(!shopCache);
   const [busy, setBusy] = useState<string | null>(null);
-  const [activeCat, setActiveCat] = useState<ShopCategory | 'all'>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('rarity');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
   // Objet en cours de prévisualisation sur la carte de profil (modal).
   const [preview, setPreview] = useState<ShopItemData | null>(null);
+  // Bannière custom en cours d'upload (itemId → ouvre le modal d'upload).
+  const [uploadingBannerId, setUploadingBannerId] = useState<string | null>(null);
   // Révélation de Boîte Mystère : { reward } pendant l'animation, null = fermé.
   const [reveal, setReveal] = useState<{ reward: MysteryReward | null } | null>(null);
   // État mensuel des consommables (kind → achats restants ce mois). Décrémente à
@@ -404,20 +416,6 @@ export function ShopPage() {
   const [monthly, setMonthly] = useState<Record<string, { used: number; cap: number }>>(
     shopCache?.monthly ?? {},
   );
-
-  /** Clic sur un critère de tri : si déjà actif, on inverse le sens ; sinon on
-   *  bascule sur ce critère avec un sens par défaut (rareté/prix décroissants,
-   *  nom croissant — l'ordre le plus naturel pour chacun). */
-  const onSort = useCallback((key: SortKey) => {
-    setSortKey((prev) => {
-      if (prev === key) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-        return prev;
-      }
-      setSortDir(key === 'name' ? 'asc' : 'desc');
-      return key;
-    });
-  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -441,6 +439,7 @@ export function ShopPage() {
       setItems(snap.items);
       setOwned(new Set(snap.owned));
       setEquipped(new Set(snap.equipped));
+      setInventoryEntries(inventory);
       setMonthly(snap.monthly);
     } catch (err) {
       show(err instanceof Error ? err.message : t('shop.error'), 'error');
@@ -502,27 +501,32 @@ export function ShopPage() {
     [equipped, show, t, refresh],
   );
 
-  const catLabel = (c: ShopCategory) => t(`shop.cat.${c}`);
   const rarityLabel = (r: Rarity) => t(`shop.rarity.${r}`);
 
   const visibleItems = items.filter((it) => !HIDDEN_CATS.includes(it.category));
 
-  /** Catégories réellement présentes dans le catalogue, dans un ordre stable,
-   *  pour ne proposer comme filtre que des onglets non vides. */
-  const presentCats = CATEGORY_ORDER.filter((c) => visibleItems.some((it) => it.category === c));
-  const filteredItems =
-    activeCat === 'all' ? visibleItems : visibleItems.filter((it) => it.category === activeCat);
+  const sortByRarity = (a: ShopItemData, b: ShopItemData) => {
+    const rd = RARITY_ORDER.indexOf(resolveRarity(b)) - RARITY_ORDER.indexOf(resolveRarity(a));
+    return rd !== 0 ? rd : a.name.localeCompare(b.name);
+  };
 
-  /** Tri appliqué au catalogue filtré. La comparaison se fait toujours en ordre
-   *  croissant « naturel », puis on inverse selon `sortDir`. */
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    let cmp: number;
-    if (sortKey === 'name') cmp = a.name.localeCompare(b.name);
-    else if (sortKey === 'price') cmp = a.price - b.price;
-    else cmp = RARITY_ORDER.indexOf(resolveRarity(a)) - RARITY_ORDER.indexOf(resolveRarity(b));
-    return sortDir === 'asc' ? cmp : -cmp;
-  });
-  const sortLabel = (k: SortKey) => t(`shop.sort.${k}`);
+  /** mystery_box et Sheldon vont dans "Autre" — exclus des sections normales. */
+  const presentCats = CATEGORY_ORDER.filter(
+    (c) => c !== 'mystery_box' && visibleItems.some((it) => it.category === c && !isSheldonItem(it)),
+  );
+
+  const itemsByCategory = Object.fromEntries(
+    presentCats.map((cat) => [
+      cat,
+      visibleItems.filter((it) => it.category === cat && !isSheldonItem(it)).sort(sortByRarity),
+    ]),
+  ) as Record<ShopCategory, ShopItemData[]>;
+
+  /** Section "Autre" : mystery_box + items Apôtre de Sheldon. */
+  const autreItems = [
+    ...visibleItems.filter((it) => it.category === 'mystery_box'),
+    ...visibleItems.filter((it) => it.category === 'title' && isSheldonItem(it)),
+  ].sort(sortByRarity);
 
   return (
     <div className="space-y-5">
@@ -583,240 +587,356 @@ export function ShopPage() {
       {/* ── Guide « comment gagner des coins » ─────────────────────────── */}
       <EarnGuide onPick={pickEarn} />
 
-      {/* ── Barres de filtres : catégorie + tri ────────────────────────── */}
-      {!loading && visibleItems.length > 0 && (
-        <div className="space-y-2.5">
-          {/* Filtres par catégorie */}
-          {presentCats.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              {(['all', ...presentCats] as const).map((c) => {
-                const active = activeCat === c;
+      {/* ── Catalogue groupé par catégorie ─────────────────────────────── */}
+      {loading ? (
+        <div className="space-y-6">
+          {[3, 2, 2].map((count, si) => (
+            <div key={si} className="space-y-3">
+              <Skeleton className="h-5 w-32" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {Array.from({ length: count }).map((_, i) => (
+                  <Skeleton key={i} className="h-56" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {presentCats.map((cat) => {
+            const catItems = itemsByCategory[cat] ?? [];
+            const meta = CAT_META[cat];
+            const CatIcon = meta.Icon;
+            return (
+              <section key={cat}>
+                {/* Séparateur de catégorie — style SectionHeader profil */}
+                <div className="flex items-center gap-2 mb-4 px-0.5">
+                  <span className="inline-block w-1 h-3.5 bg-gradient-to-b from-gold to-gold-dim rounded-sm flex-shrink-0" />
+                  <CatIcon className="w-3.5 h-3.5 text-gold/80 flex-shrink-0" strokeWidth={2.4} />
+                  <span className="font-gaming text-[11px] uppercase tracking-[0.2em] font-extrabold text-gold/90">
+                    {meta.label}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted tabular-nums">· {catItems.length}</span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-gold/15 to-transparent ml-1" />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {catItems.map((item, idx) => {
+                    const isOwned = owned.has(item.id);
+                    const canAfford = coins >= item.price;
+                    const isEquipped = equipped.has(item.id);
+                    const showEquip = isOwned && EQUIPPABLE.includes(item.category);
+                    const isCustomBanner = isOwned && item.category === 'banner' && payloadOf(item).allowUpload === true;
+                    const invEntry = isCustomBanner ? inventoryEntries.find((e) => e.itemId === item.id) : undefined;
+                    const userBannerImg = typeof invEntry?.userPayload?.image === 'string' ? invEntry.userPayload.image : null;
+                    const itemBusy = busy === item.id;
+                    const consKind =
+                      item.category === 'consumable' && typeof payloadOf(item).kind === 'string'
+                        ? (payloadOf(item).kind as string)
+                        : null;
+                    const consMonthly = consKind ? monthly[consKind] : undefined;
+                    const consRemaining = consMonthly ? Math.max(0, consMonthly.cap - consMonthly.used) : null;
+                    const consExhausted = consRemaining !== null && consRemaining <= 0;
+                    const rarity = resolveRarity(item);
+                    const rk = RARITY[rarity];
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.22, delay: idx * 0.04 }}
+                      >
+                        <TiltCard
+                          glowHex={rk.hex}
+                          className="card-hud h-full overflow-hidden rounded-xl flex flex-col"
+                          style={{ boxShadow: `0 0 0 1px ${rk.hex}22, 0 6px 24px -8px ${rk.hex}30` }}
+                        >
+                          {/* Liseré de rareté */}
+                          <div
+                            className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                            style={{ background: `linear-gradient(90deg, transparent, ${rk.hex}cc, transparent)` }}
+                          />
+                          {/* Halo de rareté en fond */}
+                          <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{ background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${rk.hex}18 0%, transparent 70%)` }}
+                          />
+
+                          <div className="relative flex flex-col gap-3 p-4 h-full">
+                            {/* En-tête : nom + badge possédé */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-gaming text-sm font-extrabold text-text-strong leading-tight truncate">
+                                  {item.name}
+                                </div>
+                                <span
+                                  className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-[0.14em]"
+                                  style={{ color: rk.hex }}
+                                >
+                                  <Gem className="w-2.5 h-2.5" strokeWidth={2.5} />
+                                  {rarityLabel(rarity)}
+                                </span>
+                              </div>
+                              {isOwned && (
+                                <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide bg-gold/10 border border-gold/30 text-gold">
+                                  <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                                  Possédé
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Aperçu visuel */}
+                            <ShopItemVisual item={item} rarityHex={rk.hex} />
+
+                            {/* Description */}
+                            {item.description && (
+                              <p className="text-[11px] text-muted-2 leading-relaxed line-clamp-2 -mt-0.5">
+                                {item.description}
+                              </p>
+                            )}
+
+                            {/* Cap mensuel consommables */}
+                            {consRemaining !== null && (
+                              <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide tabular-nums">
+                                <span className={consExhausted ? 'text-red-400' : 'text-teal-300'}>
+                                  {consRemaining}/{consMonthly!.cap}
+                                </span>
+                                <span className="text-muted-2 font-medium">par mois</span>
+                              </div>
+                            )}
+
+                            {/* Bannière custom : upload */}
+                            {isCustomBanner && (
+                              <button
+                                type="button"
+                                onClick={() => setUploadingBannerId(item.id)}
+                                className="w-full rounded-lg border border-dashed border-gold/30 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-gold/70 hover:border-gold/60 hover:text-gold transition-colors flex items-center justify-center gap-1.5"
+                              >
+                                <Upload className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                {userBannerImg ? 'Changer mon image' : 'Uploader mon image'}
+                              </button>
+                            )}
+
+                            {/* Pied : prix + actions */}
+                            <div className="mt-auto pt-2 flex items-center justify-between gap-2 border-t border-white/5">
+                              {item.price === 0 ? (
+                                <span className="inline-flex items-center gap-1 font-gaming text-sm font-extrabold text-emerald-400">
+                                  <img src="/42coin.webp" alt="" className="w-4 h-4" />
+                                  +300
+                                </span>
+                              ) : (
+                                <CoinAmount value={item.price} className="font-gaming text-base font-extrabold text-text-strong" />
+                              )}
+
+                              <div className="flex items-center gap-1.5">
+                                {EQUIPPABLE.includes(item.category) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreview(item)}
+                                    title={t('shop.preview.title')}
+                                    className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wide border border-border/50 bg-bg-1/80 text-muted-2 hover:text-gold hover:border-gold/40 transition-colors"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                    <span className="hidden sm:inline">{t('shop.preview')}</span>
+                                  </button>
+                                )}
+
+                                {isOwned ? (
+                                  showEquip ? (
+                                    <button
+                                      type="button"
+                                      disabled={itemBusy}
+                                      onClick={() => void toggleEquip(item)}
+                                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wide transition-all disabled:opacity-60 ${
+                                        isEquipped
+                                          ? 'bg-gold/15 border border-gold/40 text-gold'
+                                          : 'bg-bg-1/80 border border-border/50 text-muted-2 hover:text-text hover:border-gold/30'
+                                      }`}
+                                    >
+                                      {isEquipped && <Check className="w-3 h-3" strokeWidth={3} />}
+                                      {isEquipped ? t('shop.equipped') : t('shop.equip')}
+                                    </button>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wide bg-gold/10 border border-gold/25 text-gold/80">
+                                      <Check className="w-3 h-3" strokeWidth={3} />
+                                      {t('shop.owned')}
+                                    </span>
+                                  )
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={!canAfford || itemBusy || consExhausted}
+                                    onClick={() => void buy(item)}
+                                    className={`inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wide transition-all disabled:opacity-60 ${
+                                      canAfford && !consExhausted
+                                        ? 'bg-gradient-to-r from-gold to-gold-dim text-bg-0 hover:shadow-gold-glow hover:brightness-110 active:scale-95'
+                                        : 'bg-bg-1/80 border border-border/50 text-muted cursor-not-allowed'
+                                    }`}
+                                  >
+                                    {(!canAfford || consExhausted) && <Lock className="w-3 h-3" strokeWidth={2.5} />}
+                                    {itemBusy
+                                      ? t('shop.buying')
+                                      : consExhausted
+                                        ? 'Épuisé'
+                                        : canAfford
+                                          ? t('shop.buy')
+                                          : t('shop.insufficient')}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </TiltCard>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+
+          {/* ── Section "Autre" : mystery_box + Apôtre de Sheldon ── */}
+          {autreItems.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4 px-0.5">
+                <span className="inline-block w-1 h-3.5 bg-gradient-to-b from-gold to-gold-dim rounded-sm flex-shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-gold/80 flex-shrink-0" strokeWidth={2.4} />
+                <span className="font-gaming text-[11px] uppercase tracking-[0.2em] font-extrabold text-gold/90">
+                  Autre
+                </span>
+                <span className="font-mono text-[10px] text-muted tabular-nums">· {autreItems.length}</span>
+                <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-gold/15 to-transparent ml-1" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {autreItems.map((item, idx) => {
+                  const isOwned = owned.has(item.id);
+                  const canAfford = coins >= item.price;
+                  const isEquipped = equipped.has(item.id);
+                  const showEquip = isOwned && EQUIPPABLE.includes(item.category);
+                  const itemBusy = busy === item.id;
+                  const rarity = resolveRarity(item);
+                  const rk = RARITY[rarity];
+                  return (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.22, delay: idx * 0.04 }}
+                    >
+                      <TiltCard
+                        glowHex={rk.hex}
+                        className="card-hud h-full overflow-hidden rounded-xl flex flex-col"
+                        style={{ boxShadow: `0 0 0 1px ${rk.hex}22, 0 6px 24px -8px ${rk.hex}30` }}
+                      >
+                        <div className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                          style={{ background: `linear-gradient(90deg, transparent, ${rk.hex}cc, transparent)` }} />
+                        <div className="absolute inset-0 pointer-events-none"
+                          style={{ background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${rk.hex}18 0%, transparent 70%)` }} />
+                        <div className="relative flex flex-col gap-3 p-4 h-full">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-gaming text-sm font-extrabold text-text-strong leading-tight truncate">{item.name}</div>
+                              <span className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-[0.14em]" style={{ color: rk.hex }}>
+                                <Gem className="w-2.5 h-2.5" strokeWidth={2.5} />{rarityLabel(rarity)}
+                              </span>
+                            </div>
+                            {isOwned && (
+                              <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide bg-gold/10 border border-gold/30 text-gold">
+                                <Check className="w-2.5 h-2.5" strokeWidth={3} />Possédé
+                              </span>
+                            )}
+                          </div>
+                          <ShopItemVisual item={item} rarityHex={rk.hex} />
+                          {item.description && (
+                            <p className="text-[11px] text-muted-2 leading-relaxed line-clamp-2 -mt-0.5">{item.description}</p>
+                          )}
+                          <div className="mt-auto pt-2 flex items-center justify-between gap-2 border-t border-white/5">
+                            {item.price === 0 ? (
+                              <span className="inline-flex items-center gap-1 font-gaming text-sm font-extrabold text-emerald-400">
+                                <img src="/42coin.webp" alt="" className="w-4 h-4" />+300
+                              </span>
+                            ) : (
+                              <CoinAmount value={item.price} className="font-gaming text-base font-extrabold text-text-strong" />
+                            )}
+                            <div className="flex items-center gap-1.5">
+                              {EQUIPPABLE.includes(item.category) && (
+                                <button type="button" onClick={() => setPreview(item)} title={t('shop.preview.title')}
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wide border border-border/50 bg-bg-1/80 text-muted-2 hover:text-gold hover:border-gold/40 transition-colors">
+                                  <Eye className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                  <span className="hidden sm:inline">{t('shop.preview')}</span>
+                                </button>
+                              )}
+                              {isOwned ? (
+                                showEquip ? (
+                                  <button type="button" disabled={itemBusy} onClick={() => void toggleEquip(item)}
+                                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wide transition-all disabled:opacity-60 ${isEquipped ? 'bg-gold/15 border border-gold/40 text-gold' : 'bg-bg-1/80 border border-border/50 text-muted-2 hover:text-text hover:border-gold/30'}`}>
+                                    {isEquipped && <Check className="w-3 h-3" strokeWidth={3} />}
+                                    {isEquipped ? t('shop.equipped') : t('shop.equip')}
+                                  </button>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wide bg-gold/10 border border-gold/25 text-gold/80">
+                                    <Check className="w-3 h-3" strokeWidth={3} />{t('shop.owned')}
+                                  </span>
+                                )
+                              ) : (
+                                <button type="button" disabled={!canAfford || itemBusy} onClick={() => void buy(item)}
+                                  className={`inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wide transition-all disabled:opacity-60 ${canAfford ? 'bg-gradient-to-r from-gold to-gold-dim text-bg-0 hover:shadow-gold-glow hover:brightness-110 active:scale-95' : 'bg-bg-1/80 border border-border/50 text-muted cursor-not-allowed'}`}>
+                                  {!canAfford && <Lock className="w-3 h-3" strokeWidth={2.5} />}
+                                  {itemBusy ? t('shop.buying') : canAfford ? t('shop.buy') : t('shop.insufficient')}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </TiltCard>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {presentCats.length === 0 && autreItems.length === 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {Array.from({ length: 3 }).map((_, i) => {
+                const cat = PLACEHOLDER_CATS[i % PLACEHOLDER_CATS.length]!;
                 return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setActiveCat(c)}
-                    className={`px-3.5 py-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.12em] border transition-colors ${
-                      active
-                        ? 'bg-gradient-to-r from-gold to-gold-dim border-gold/50 text-bg-0 shadow-gold-glow'
-                        : 'bg-bg-2 border-border/70 text-muted-2 hover:text-text hover:border-gold/30'
-                    }`}
-                  >
-                    {c === 'all' ? t('shop.cat.all') : catLabel(c)}
-                  </button>
+                  <PlaceholderCard
+                    key={`ph-${i}`}
+                    category={cat}
+                    label={CAT_META[cat]?.label ?? cat}
+                    soon={t('shop.howToEarn.soon')}
+                  />
                 );
               })}
             </div>
           )}
-
-          {/* Tri : un re-clic sur le critère actif inverse le sens. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted-2">
-              {t('shop.sort.label')}
-            </span>
-            {SORT_KEYS.map((k) => {
-              const active = sortKey === k;
-              const Arrow = sortDir === 'asc' ? ArrowUp : ArrowDown;
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => onSort(k)}
-                  aria-pressed={active}
-                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.12em] border transition-colors ${
-                    active
-                      ? 'bg-violet-500/20 border-violet-400/50 text-violet-100'
-                      : 'bg-bg-2 border-border/70 text-muted-2 hover:text-text hover:border-violet-400/30'
-                  }`}
-                >
-                  {sortLabel(k)}
-                  {active && <Arrow className="w-3.5 h-3.5" strokeWidth={2.8} />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Catalogue ──────────────────────────────────────────────────── */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-52" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {sortedItems.map((item) => {
-            const isOwned = owned.has(item.id);
-            const canAfford = coins >= item.price;
-            const isEquipped = equipped.has(item.id);
-            const showEquip = isOwned && EQUIPPABLE.includes(item.category);
-            const itemBusy = busy === item.id;
-            // Consommable : achats restants ce mois (cap mensuel).
-            const consKind =
-              item.category === 'consumable' && typeof payloadOf(item).kind === 'string'
-                ? (payloadOf(item).kind as string)
-                : null;
-            const consMonthly = consKind ? monthly[consKind] : undefined;
-            const consRemaining = consMonthly ? Math.max(0, consMonthly.cap - consMonthly.used) : null;
-            const consExhausted = consRemaining !== null && consRemaining <= 0;
-            const rarity = resolveRarity(item);
-            const rk = RARITY[rarity];
-            return (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-                whileHover={{ y: -3 }}
-                className="group relative rounded-2xl p-px transition-shadow"
-                style={{
-                  background: `linear-gradient(150deg, ${rk.border} 0%, ${rk.hex}33 38%, rgba(96,84,64,0.55) 100%)`,
-                }}
-              >
-                {/* Surface intérieure — nettement plus claire que le fond global */}
-                <div
-                  className="relative h-full overflow-hidden rounded-[15px] p-4 flex flex-col gap-3"
-                  style={{
-                    background: `linear-gradient(165deg, ${rk.hex}33 0%, rgba(72,63,50,0.96) 45%, rgba(54,47,37,0.97) 100%)`,
-                  }}
-                >
-                  <div className="absolute inset-0 hud-diag pointer-events-none opacity-25" />
-                  {/* Liseré supérieur de rareté */}
-                  <div
-                    className="absolute top-0 inset-x-0 h-px pointer-events-none"
-                    style={{ background: `linear-gradient(90deg, transparent, ${rk.hex}, transparent)` }}
-                  />
-
-                  <div className="relative flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-gaming text-sm font-extrabold text-text-strong truncate">
-                        {item.name}
-                      </div>
-                      {/* Étiquette de rareté */}
-                      <span
-                        className="mt-1 inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-[0.14em]"
-                        style={{ color: rk.hex }}
-                      >
-                        <Gem className="w-3 h-3" strokeWidth={2.5} />
-                        {rarityLabel(rarity)}
-                      </span>
-                      {item.description && (
-                        <p className="mt-1 text-xs text-muted-2 leading-snug line-clamp-2">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className="shrink-0 px-2 py-0.5 rounded-full border text-[9px] font-extrabold uppercase tracking-[0.12em]"
-                      style={{
-                        color: rk.hex,
-                        borderColor: `${rk.hex}55`,
-                        background: `${rk.hex}26`,
-                      }}
-                    >
-                      {catLabel(item.category)}
-                    </span>
-                  </div>
-
-                  {/* Aperçu visuel de l'item acheté */}
-                  <ShopItemVisual item={item} rarityHex={rk.hex} />
-
-                  {/* Consommable : achats restants ce mois (décrémente à l'achat, reset le 1er du mois) */}
-                  {consRemaining !== null && (
-                    <div className="relative -mb-0.5 flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide tabular-nums">
-                      <span className={consExhausted ? 'text-red' : 'text-teal-300'}>
-                        {consRemaining}/{consMonthly!.cap}
-                      </span>
-                      <span className="text-muted-2">par mois</span>
-                    </div>
-                  )}
-
-                  <div className="relative mt-auto flex items-center justify-between gap-2 pt-1">
-                    <CoinAmount
-                      value={item.price}
-                      className="font-gaming text-lg font-extrabold text-text-strong"
-                    />
-
-                    <div className="flex items-center gap-1.5">
-                    {/* Aperçu : uniquement pour les cosmétiques visibles sur le profil */}
-                    {EQUIPPABLE.includes(item.category) && (
-                      <button
-                        type="button"
-                        onClick={() => setPreview(item)}
-                        title={t('shop.preview.title')}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wide border border-border/60 bg-bg-1 text-muted-2 hover:text-gold hover:border-gold/40 transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5" strokeWidth={2.5} />
-                        <span className="hidden sm:inline">{t('shop.preview')}</span>
-                      </button>
-                    )}
-
-                    {isOwned ? (
-                      showEquip ? (
-                        <button
-                          type="button"
-                          disabled={itemBusy}
-                          onClick={() => void toggleEquip(item)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wide transition-colors disabled:opacity-60 ${
-                            isEquipped
-                              ? 'bg-gold/15 border border-gold/40 text-gold'
-                              : 'bg-bg-1 border border-border/60 text-muted-2 hover:text-text'
-                          }`}
-                        >
-                          {isEquipped && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
-                          {isEquipped ? t('shop.equipped') : t('shop.equip')}
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wide bg-gold/10 border border-gold/30 text-gold">
-                          <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                          {t('shop.owned')}
-                        </span>
-                      )
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={!canAfford || itemBusy || consExhausted}
-                        onClick={() => void buy(item)}
-                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wide transition-all ${
-                          canAfford && !consExhausted
-                            ? 'bg-gradient-to-r from-gold to-gold-dim text-bg-0 hover:shadow-gold-glow hover:brightness-110'
-                            : 'bg-bg-1 border border-border/60 text-muted cursor-not-allowed'
-                        } disabled:opacity-70`}
-                      >
-                        {(!canAfford || consExhausted) && <Lock className="w-3.5 h-3.5" strokeWidth={2.5} />}
-                        {itemBusy
-                          ? t('shop.buying')
-                          : consExhausted
-                            ? 'Épuisé ce mois'
-                            : canAfford
-                              ? t('shop.buy')
-                              : t('shop.insufficient')}
-                      </button>
-                    )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-          {activeCat === 'all' &&
-            Array.from({ length: Math.max(0, MIN_TILES - visibleItems.length) }).map((_, i) => {
-            const cat = PLACEHOLDER_CATS[i % PLACEHOLDER_CATS.length]!;
-            return (
-              <PlaceholderCard
-                key={`ph-${i}`}
-                category={cat}
-                label={catLabel(cat)}
-                soon={t('shop.howToEarn.soon')}
-              />
-            );
-          })}
         </div>
       )}
         </>
       )}
+
+      {/* Upload image personnalisée d'une bannière custom */}
+      {uploadingBannerId && (() => {
+        const entry = inventoryEntries.find((e) => e.itemId === uploadingBannerId);
+        const item = items.find((it) => it.id === uploadingBannerId);
+        return entry && item ? (
+          <CustomBannerUploaderModal
+            itemId={uploadingBannerId}
+            itemName={item.name}
+            currentImage={typeof entry.userPayload?.image === 'string' ? entry.userPayload.image : null}
+            onClose={() => setUploadingBannerId(null)}
+            onSaved={(dataUrl) => {
+              setInventoryEntries((prev) =>
+                prev.map((e) => e.itemId === uploadingBannerId ? { ...e, userPayload: { image: dataUrl } } : e),
+              );
+              setUploadingBannerId(null);
+              void refresh();
+            }}
+          />
+        ) : null;
+      })()}
 
       {/* Aperçu du cosmétique appliqué sur la carte de profil */}
       {preview && me && (

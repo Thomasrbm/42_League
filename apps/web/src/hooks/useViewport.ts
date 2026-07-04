@@ -32,6 +32,19 @@ export interface Viewport {
   orientation: 'portrait' | 'landscape';
 }
 
+// MediaQueryList hoistés une seule fois : `getSnapshot` est appelé à chaque
+// render des composants qui consomment le hook ; recréer un MQL à chaque appel
+// (window.matchMedia(...)) allouait inutilement. On réutilise ces objets pour la
+// lecture (.matches) ET l'abonnement (addEventListener).
+const mqlPointer =
+  typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(pointer: coarse)')
+    : null;
+const mqlStandalone =
+  typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(display-mode: standalone)')
+    : null;
+
 function readViewport(): Viewport {
   if (typeof window === 'undefined') {
     return {
@@ -47,9 +60,9 @@ function readViewport(): Viewport {
   }
   const w = window.innerWidth;
   const h = window.innerHeight;
-  const isTouch = window.matchMedia('(pointer: coarse)').matches;
+  const isTouch = mqlPointer?.matches ?? false;
   const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
+    (mqlStandalone?.matches ?? false) ||
     // iOS legacy
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
@@ -96,15 +109,13 @@ function subscribe(cb: () => void): () => void {
   if (typeof window === 'undefined') return () => {};
   window.addEventListener('resize', cb);
   window.addEventListener('orientationchange', cb);
-  const mqStandalone = window.matchMedia('(display-mode: standalone)');
-  const mqPointer = window.matchMedia('(pointer: coarse)');
-  mqStandalone.addEventListener('change', cb);
-  mqPointer.addEventListener('change', cb);
+  mqlStandalone?.addEventListener('change', cb);
+  mqlPointer?.addEventListener('change', cb);
   return () => {
     window.removeEventListener('resize', cb);
     window.removeEventListener('orientationchange', cb);
-    mqStandalone.removeEventListener('change', cb);
-    mqPointer.removeEventListener('change', cb);
+    mqlStandalone?.removeEventListener('change', cb);
+    mqlPointer?.removeEventListener('change', cb);
   };
 }
 

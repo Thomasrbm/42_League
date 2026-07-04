@@ -342,7 +342,7 @@ const RULES_FR: Record<Game, GameRules> = {
     format: {
       intro: (
         <>
-          One League est un classement ELO de <span className="text-text font-semibold">babyfoot 1 contre 1</span>.
+          42 League est un classement ELO de <span className="text-text font-semibold">babyfoot 1 contre 1</span>.
           Chaque joueur inscrit peut défier n'importe quel autre membre de sa league.
         </>
       ),
@@ -383,7 +383,7 @@ const RULES_FR: Record<Game, GameRules> = {
     format: {
       intro: (
         <>
-          One League classe ici le <span className="text-text font-semibold">Super Smash Bros. 1 contre 1</span> en
+          42 League classe ici le <span className="text-text font-semibold">Super Smash Bros. 1 contre 1</span> en
           stocks. Chaque joueur inscrit peut défier n'importe quel autre membre de sa league.
         </>
       ),

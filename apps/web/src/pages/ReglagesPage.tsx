@@ -11,12 +11,15 @@ import { useFlash } from '../hooks/useFlash';
 import { useI18n, useT, type Lang } from '../lib/i18n';
 import { getApiBase, APP_VERSION, APP_BUILD_DATE } from '../lib/config';
 import { getToken } from '../lib/storage';
+import { usePerfPref } from '../hooks/usePerf';
+import { setPerfPref, type PerfPref } from '../lib/perf';
 
 export function ReglagesPage() {
   const t = useT();
   const { lang, setLang } = useI18n();
   const { signOut, startLogin, login } = useAuth();
   const flash = useFlash();
+  const perfPref = usePerfPref();
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -87,6 +90,25 @@ export function ReglagesPage() {
               { value: 'es', label: t('settings.lang.es') },
             ]}
           />
+        </div>
+
+        {/* Qualité graphique (palier de perf adaptatif) */}
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-2 mb-2">
+            {t('settings.quality')}
+          </label>
+          <Pills<PerfPref>
+            value={perfPref}
+            onChange={setPerfPref}
+            choices={[
+              { value: 'auto', label: t('settings.quality.auto') },
+              { value: 'full', label: t('settings.quality.high') },
+              { value: 'lite', label: t('settings.quality.perf') },
+            ]}
+          />
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
+            {t('settings.quality.hint')}
+          </p>
         </div>
 
         {/* Compte */}

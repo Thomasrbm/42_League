@@ -36,7 +36,7 @@ const TYPE_LABEL: Record<CoinTxType, string> = {
   shop_consumable: 'Achat consommable',
   mystery_box: 'Mystery box',
   sheldon_reward: 'Cadeau Sheldon',
-  trophy_income: 'Revenu trophées',
+  trophy_income: 'Revenu de trophée',
   admin_grant: 'Don admin',
 };
 
@@ -74,7 +74,6 @@ const CONSUMABLE_LABEL: Record<string, string> = {
   anti_ops: 'Anti-OPS',
   elo_mult: 'ELO ×2 (EN FEU)',
   force_duel: 'Duel forcé',
-  mini_ops: 'Mini-OPS',
 };
 
 const GAME_LABEL: Record<string, string> = {
@@ -120,13 +119,8 @@ function describe(t: CoinTransaction): string {
       return `Mystery box : ${s('name') ?? 'boîte mystère'}`;
     case 'sheldon_reward':
       return `Cadeau « ${s('name') ?? 'Apôtre de Sheldon'} »`;
-    case 'trophy_income': {
-      const n = typeof m.trophies === 'number' ? m.trophies : undefined;
-      const rank = typeof m.rank === 'number' ? m.rank : null;
-      const wk = s('week');
-      const podium = rank ? ` — podium #${rank}` : '';
-      return `Revenu passif trophées${wk ? ` (${wk})` : ''}${n != null ? ` · ${n} trophée${n > 1 ? 's' : ''}` : ''}${podium}`;
-    }
+    case 'trophy_income':
+      return `Revenu de trophée${s('name') ? ` (${s('name')})` : ''}`;
     case 'admin_grant':
       return s('by') ? `Ajustement manuel par @${s('by')}` : 'Ajustement manuel';
   }

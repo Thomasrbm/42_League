@@ -86,6 +86,7 @@ export interface FormState {
   badgeLabel: string; // catégorie badge
   badgeIconName: string; // catégorie badge (nom lucide)
   bannerImage: string; // catégorie banner (data-URL)
+  bannerAllowUpload: boolean; // bannière personnalisable par le joueur
   consumableKind: string; // catégorie consumable ('anti_ops' | 'elo_mult')
 }
 
@@ -104,6 +105,7 @@ export function emptyForm(): FormState {
     badgeLabel: '',
     badgeIconName: 'Crown',
     bannerImage: '',
+    bannerAllowUpload: false,
     consumableKind: '',
   };
 }
@@ -128,6 +130,7 @@ export function formFromItem(it: ShopItemData): FormState {
     badgeLabel: typeof p.label === 'string' ? p.label : '',
     badgeIconName: typeof p.icon === 'string' ? p.icon : 'Crown',
     bannerImage: typeof p.image === 'string' ? p.image : '',
+    bannerAllowUpload: p.allowUpload === true,
     consumableKind: typeof p.kind === 'string' ? p.kind : '',
   };
 }
@@ -161,8 +164,12 @@ export function buildInput(f: FormState): ShopItemInput {
       break;
     }
     case 'banner': {
-      if (!f.bannerImage) throw new Error('Dépose une image de bannière à la bonne taille.');
-      payload = { image: f.bannerImage };
+      if (f.bannerAllowUpload) {
+        payload = { allowUpload: true };
+      } else {
+        if (!f.bannerImage) throw new Error('Dépose une image de bannière à la bonne taille.');
+        payload = { image: f.bannerImage };
+      }
       break;
     }
     case 'consumable': {
@@ -521,6 +528,10 @@ export function ItemPreview({ form }: { form: FormState }) {
               backgroundPosition: 'center',
             }}
           />
+        ) : form.bannerAllowUpload ? (
+          <div className="w-full rounded-lg border border-dashed border-violet-500/40 flex items-center justify-center py-4" style={{ aspectRatio: `${BANNER_W} / ${BANNER_H}` }}>
+            <span className="text-[10px] text-violet-400 font-mono text-center px-2">Le joueur uploadera sa propre image</span>
+          </div>
         ) : (
           <span className="text-xs text-zinc-600 font-mono">Dépose une image pour l'aperçu.</span>
         ))}
@@ -594,9 +605,22 @@ export function ItemFormFields({ form, set }: { form: FormState; set: <K extends
           </>
         )}
         {form.category === 'banner' && (
-          <div className="flex flex-col gap-1 sm:col-span-2">
-            <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Image de bannière *</span>
-            <BannerDropzone value={form.bannerImage} onChange={(v) => set('bannerImage', v)} />
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Image de bannière *</span>
+              <Toggle
+                on={form.bannerAllowUpload}
+                onToggle={() => set('bannerAllowUpload', !form.bannerAllowUpload)}
+                label="Personnalisable par le joueur"
+              />
+            </div>
+            {form.bannerAllowUpload ? (
+              <div className="rounded-lg border border-dashed border-violet-500/40 bg-violet-500/5 px-4 py-3 text-[11px] text-violet-300 font-mono">
+                Le joueur pourra uploader sa propre image depuis la boutique, son inventaire ou son profil.
+              </div>
+            ) : (
+              <BannerDropzone value={form.bannerImage} onChange={(v) => set('bannerImage', v)} />
+            )}
           </div>
         )}
 

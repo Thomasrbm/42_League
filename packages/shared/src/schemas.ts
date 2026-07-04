@@ -60,60 +60,57 @@ interface MatchScores {
 /**
  * Validation des scores selon le jeu :
  *  - babyfoot : un seul camp atteint 10 ;
- *  - smash : set Bo3/Bo5, le gagnant atteint exactement la cible (2 ou 3),
- *    le perdant en dessous, et les deux persos sont renseignés.
+ *  - smash / street fighter : set Bo3/Bo5, le gagnant atteint exactement la cible
+ *    (2 ou 3), le perdant en dessous. Les PERSOS sont OPTIONNELS : la déclaration
+ *    « score d'abord » (cf. SmashSetEditor / progressive disclosure) permet de
+ *    valider une game sans renseigner les personnages.
  */
-function makeRefiner(requireChars: boolean) {
-  return (m: MatchScores, ctx: z.RefinementCtx): void => {
-    if (m.game === 'chess') {
-      // Échecs : victoire 1-0 / 0-1, ou nulle 0-0 (les deux camps à 0).
-      const win = (m.scoreSelf === 1 && m.scoreOpponent === 0) ||
-        (m.scoreSelf === 0 && m.scoreOpponent === 1);
-      const draw = m.scoreSelf === 0 && m.scoreOpponent === 0;
-      if (!win && !draw) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'chess score must be 1-0 (win), 0-1 (loss) or 0-0 (draw)' });
-      }
+function matchScoreRefiner(m: MatchScores, ctx: z.RefinementCtx): void {
+  if (m.game === 'chess') {
+    // Échecs : victoire 1-0 / 0-1, ou nulle 0-0 (les deux camps à 0).
+    const win = (m.scoreSelf === 1 && m.scoreOpponent === 0) ||
+      (m.scoreSelf === 0 && m.scoreOpponent === 1);
+    const draw = m.scoreSelf === 0 && m.scoreOpponent === 0;
+    if (!win && !draw) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'chess score must be 1-0 (win), 0-1 (loss) or 0-0 (draw)' });
+    }
+    return;
+  }
+  if (m.game === 'smash' || m.game === 'streetfighter') {
+    // Street Fighter == Smash mécaniquement : set Bo3/Bo5. Persos non requis.
+    if (!m.bestOf) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'bestOf required for set games (3 or 5)' });
       return;
     }
-    if (m.game === 'smash' || m.game === 'streetfighter') {
-      // Street Fighter == Smash mécaniquement : set Bo3/Bo5, persos requis.
-      if (!m.bestOf) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'bestOf required for set games (3 or 5)' });
-        return;
-      }
-      const target = Math.ceil(m.bestOf / 2);
-      const hi = Math.max(m.scoreSelf, m.scoreOpponent);
-      const lo = Math.min(m.scoreSelf, m.scoreOpponent);
-      if (hi !== target) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `winner must win exactly ${target} games` });
-      }
-      if (lo < 0 || lo >= target) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'loser games must be between 0 and target-1' });
-      }
-      if (requireChars && (!m.charSelf || !m.charOpponent)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'both characters are required' });
-      }
-    } else {
-      if (!(m.scoreSelf === 10 || m.scoreOpponent === 10)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'one side must reach 10 goals' });
-      }
-      if (m.scoreSelf === 10 && m.scoreOpponent === 10) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'only one side can reach 10 goals' });
-      }
+    const target = Math.ceil(m.bestOf / 2);
+    const hi = Math.max(m.scoreSelf, m.scoreOpponent);
+    const lo = Math.min(m.scoreSelf, m.scoreOpponent);
+    if (hi !== target) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `winner must win exactly ${target} games` });
     }
-  };
+    if (lo < 0 || lo >= target) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'loser games must be between 0 and target-1' });
+    }
+  } else {
+    if (!(m.scoreSelf === 10 || m.scoreOpponent === 10)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'one side must reach 10 goals' });
+    }
+    if (m.scoreSelf === 10 && m.scoreOpponent === 10) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'only one side can reach 10 goals' });
+    }
+  }
 }
 
 export const DeclareMatchSchema = z
   .object({ opponentLogin: LoginSchema, ...matchScoreShape })
-  .superRefine(makeRefiner(true));
+  .superRefine(matchScoreRefiner);
 
 export type DeclareMatchInput = z.infer<typeof DeclareMatchSchema>;
 
 // Confirmation : pas besoin de re-fournir les persos (déjà posés par le déclarant).
 export const ConfirmMatchSchema = z
   .object(matchScoreShape)
-  .superRefine(makeRefiner(false));
+  .superRefine(matchScoreRefiner);
 
 export type ConfirmMatchInput = z.infer<typeof ConfirmMatchSchema>;
 
@@ -139,7 +136,7 @@ export type CreateChallengeInput = z.infer<typeof CreateChallengeSchema>;
 
 export const RecordResultSchema = z
   .object(matchScoreShape)
-  .superRefine(makeRefiner(true));
+  .superRefine(matchScoreRefiner);
 
 export type RecordResultInput = z.infer<typeof RecordResultSchema>;
 
@@ -168,11 +165,15 @@ export const ShopItemCreateSchema = z
   })
   .superRefine((d, ctx) => {
     if (d.category === 'banner') {
-      const img = d.payload && typeof d.payload.image === 'string' ? d.payload.image : '';
-      if (!img.startsWith('data:image/')) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'bannière : image (data-URL) requise' });
-      } else if (img.length > MAX_BANNER_DATAURL_LEN) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'bannière trop lourde (max ~700 Ko)' });
+      // allowUpload = true → bannière personnalisable par le joueur, image non requise à la création.
+      const allowUpload = d.payload?.allowUpload === true;
+      if (!allowUpload) {
+        const img = d.payload && typeof d.payload.image === 'string' ? d.payload.image : '';
+        if (!img.startsWith('data:image/')) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'bannière : image (data-URL) requise' });
+        } else if (img.length > MAX_BANNER_DATAURL_LEN) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'bannière trop lourde (max ~700 Ko)' });
+        }
       }
     }
     if (d.category === 'consumable') {
@@ -571,3 +572,20 @@ export const ContestDartsSchema = z.object({
 });
 
 export type ContestDartsInput = z.infer<typeof ContestDartsSchema>;
+
+// ─── SF Session (club sessions) ──────────────────────────────────────────────
+
+export const CreateSfSessionSchema = z.object({
+  startTime: z.string().datetime(),
+  endTime: z.string().datetime().optional(),
+  durationHours: z.number().positive().max(24).optional(),
+  description: z.string().max(300).optional(),
+});
+export type CreateSfSession = z.infer<typeof CreateSfSessionSchema>;
+
+export const UpdateSfSessionSchema = z.object({
+  endTime: z.string().datetime().optional().nullable(),
+  isActive: z.boolean().optional(),
+  description: z.string().max(300).optional(),
+});
+export type UpdateSfSession = z.infer<typeof UpdateSfSessionSchema>;

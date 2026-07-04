@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Crown, Flame, MapPin, TrendingDown, TrendingUp } from 'lucide-react';
-import { EloBoostAura, EloBoostBadge, useEloBoostRemaining } from '../../../components/EloBoost';
+import { EloBoostBadge } from '../../../components/EloBoost';
+import { HeroCardFrame } from '../../../components/HeroCardFrame';
+import { useProfileFx } from '../../../hooks/useProfileFx';
 import { Avatar } from '../../../components/Avatar';
 import { CoinCount } from '../../../components/CoinCount';
 import { FavoriteCharsRow } from '../../../components/FavoriteCharsRow';
@@ -9,8 +11,6 @@ import { FavoriteCharsEditor } from '../../../components/FavoriteCharsEditor';
 import { favoritesForGame, type FightingGame } from '../../../lib/chars';
 import { RankBadge } from '../../../components/RankBadge';
 import { Tooltip } from '../../../components/Tooltip';
-import { CursorTooltip } from '../../../components/CursorTooltip';
-import { titleTooltipContent } from '../../../components/TitleTooltip';
 import { BadgesRow } from '../../../components/Badges';
 import { AnimatedCounter } from '../../../mobile/primitives/AnimatedCounter';
 import { useLeagueData } from '../../../hooks/useLeagueData';
@@ -21,6 +21,7 @@ import { gameColor, GAME_EMOJI, GAME_LOGO_SRC } from '../../../lib/gameVisuals';
 import { displayTitle } from '../../../lib/cosmeticTitles';
 import { TitlePicker } from '../../../components/TitlePicker';
 import { BannerPicker } from '../../../components/BannerPicker';
+import { StatPlate } from '../../../components/stats/StatPlate';
 import { useT } from '../../../lib/i18n';
 import type { MeResponse } from '../../../lib/api';
 import type { ProfilStats } from '../shared/useProfilLogic';
@@ -64,7 +65,6 @@ export function ProfileHeroCard({
   const { me, leaderboard, refresh } = useLeagueData();
   const { game } = useGameMode();
   const t = useT();
-  const reducedMotion = useReducedMotion();
   // Desktop : badges en grand avec libellé. Mobile : pastilles icône-seule
   // (label dans la modale au clic) pour ne pas écraser le nom.
   const { isMobile } = useViewport();
@@ -90,8 +90,6 @@ export function ProfileHeroCard({
   const equippedTitle = displayTitle(user.login, user.title, null);
   const isTarnished = !equippedTitle;
   const titleLabel = equippedTitle ?? t('profil.title.tarnished');
-  // Marque de réputation : nb de litiges perdus (faux score / contestation abusive).
-  const disputesLost = user.disputesLost ?? (isMe ? me?.disputesLost : 0) ?? 0;
   const effectiveTitleColor = isTarnished ? null : titleColor;
 
   // Badges cross-jeux : toutes les disciplines où ce joueur est INSCRIT
@@ -120,98 +118,63 @@ export function ProfileHeroCard({
   const streakAbs = Math.abs(stats.currentStreak);
   const onWinStreak = stats.currentStreak > 0;
 
-  // ELO boost — aura incandescente quand la fenêtre 6h est active.
+  // Effet cosmétique du joueur (boost ELO « EN FEU », Apôtre de Sheldon) —
+  // dérivé une fois, partagé entre le cadre, l'aura et le badge.
   const boostUntil = user.eloMultUntil ?? null;
-  const { active: boosted } = useEloBoostRemaining(boostUntil);
+  const fx = useProfileFx({ title: user.title, eloMultUntil: boostUntil });
+  const { boosted, sheldon: isSheldon } = fx;
 
   return (
     <>
-    <motion.div
-      initial={{ opacity: 0, y: -8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      // Sans `gpu` : un `will-change: transform` permanent sur cette carte (qui
-      // contient le picker de titre + les badges) ajoute une couche compositeur
-      // de plus → décalage de hit-testing des taps sous Firefox Android.
-      className="relative overflow-hidden rounded-3xl no-select"
-      style={{
-        background: boosted
-          ? 'linear-gradient(180deg, #2d1a0e 0%, #1f0f07 18%, #180a05 50%, #1f0f07 82%, #2d1a0e 100%)'
-          : 'linear-gradient(180deg, #2a241c 0%, #1d1914 18%, #15120e 50%, #1d1914 82%, #2a241c 100%)',
-        border: boosted ? '1px solid rgba(255, 120, 30, 0.65)' : '1px solid rgba(255, 201, 74, 0.4)',
-        boxShadow: boosted
-          ? 'inset 0 1px 0 rgba(255,140,60,0.28), inset 0 -1px 0 rgba(0,0,0,0.6), 0 12px 48px -6px rgba(255,70,10,0.50)'
-          : 'inset 0 1px 0 rgba(255, 215, 120, 0.18), inset 0 -1px 0 rgba(0,0,0,0.5), 0 12px 36px -8px rgba(255, 201, 74, 0.22)',
-      }}
+    <HeroCardFrame
+      fx={fx}
+      radius="rounded-3xl"
+      // Sans `gpu` côté style : un `will-change` permanent sur cette carte (qui
+      // contient le picker de titre + les badges) décale le hit-testing des taps
+      // sous Firefox Android. Le `gpu` du conic reste interne au frame.
+      className="no-select"
+      animateIn
+      // Conic profil : 30 s (réglage propre à cette carte ; opacité/flou/gpu par défaut).
+      conic={{ duration: 30 }}
+      // Bannière équipée (boutique) = fond de la carte, par-dessus le dégradé.
+      // Voile sombre pour garder la lisibilité du contenu.
+      banner={
+        equippedBanner ? (
+          <>
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none scale-105"
+              style={{
+                backgroundImage: `url(${equippedBanner})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                // Léger flou + désaturation : la bannière reste reconnaissable mais
+                // ses détails ne « mangent » plus le texte par-dessus.
+                filter: 'blur(2px) saturate(0.85)',
+              }}
+            />
+            {/* Voile lisibilité : assombrissement global + dégradé renforcé en haut
+                (titre) et en bas (stats) → contraste garanti du texte. */}
+            <div aria-hidden className="absolute inset-0 pointer-events-none bg-black/60" />
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.6) 100%)',
+              }}
+            />
+          </>
+        ) : null
+      }
     >
-      {/* Aura incandescente ELO ×2 */}
-      <EloBoostAura active={boosted} />
-      {/* Bannière équipée (boutique) = fond de la carte, par-dessus le dégradé.
-          Voile sombre pour garder la lisibilité du contenu. */}
-      {equippedBanner && (
-        <>
-          <div
-            aria-hidden
-            className="absolute inset-0 pointer-events-none scale-105"
-            style={{
-              backgroundImage: `url(${equippedBanner})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              // Léger flou + désaturation : la bannière reste reconnaissable mais
-              // ses détails ne « mangent » plus le texte par-dessus.
-              filter: 'blur(2px) saturate(0.85)',
-            }}
-          />
-          {/* Voile lisibilité : assombrissement global + dégradé renforcé en haut
-              (titre) et en bas (stats) → contraste garanti du texte. */}
-          <div aria-hidden className="absolute inset-0 pointer-events-none bg-black/60" />
-          <div
-            aria-hidden
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.2) 65%, rgba(0,0,0,0.6) 100%)',
-            }}
-          />
-        </>
-      )}
-      {/* Tubes laiton décoratifs */}
-      <div className="absolute top-0 left-3 right-3 h-[2px] brass-pipe rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 left-3 right-3 h-[2px] brass-pipe rounded-full pointer-events-none" />
-      {/* Holographic conic — gated on prefers-reduced-motion (perf + a11y + batterie) */}
-      {!reducedMotion && (
-        <motion.div
-          aria-hidden
-          className="absolute inset-0 opacity-25 pointer-events-none gpu"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 30, ease: 'linear', repeat: Infinity }}
-          style={{
-            background:
-              'conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(255,201,74,0.35) 60deg, transparent 120deg, rgba(192,138,74,0.25) 200deg, transparent 260deg, rgba(255,201,74,0.25) 340deg, transparent 360deg)',
-            filter: 'blur(50px)',
-            willChange: 'transform',
-          }}
-        />
-      )}
-
-      {/* Grille cyber */}
-      <div
-        aria-hidden
-        className="absolute inset-0 hud-grid opacity-50 pointer-events-none"
-      />
-
       <div className="relative z-10 px-5 pt-5 pb-5">
         {/* Titre équipé — bannière dorée centrée en HAUT de la carte. Par défaut
             « sans éclat. » quand aucun titre n'est équipé. Le sélecteur (sur SON
             profil) est une flèche qui suit immédiatement la fin du titre. */}
         <div className="relative flex items-center justify-center gap-1.5 mb-4">
-          <CursorTooltip
-            className="inline-flex max-w-[80%] min-w-0"
-            disabled={isTarnished}
-            content={titleTooltipContent(equippedTitle)}
-          >
           <span
-            className={`inline-flex items-center gap-1.5 min-w-0 ${
+            className={`inline-flex items-center gap-1.5 max-w-[80%] min-w-0 ${
               !isTarnished && effectiveTitleColor === 'rainbow' ? 'title-rainbow' : ''
             }`}
             style={isTarnished || effectiveTitleColor === 'rainbow' ? undefined : { color: effectiveTitleColor ?? '#ffc94a' }}
@@ -222,7 +185,6 @@ export function ProfileHeroCard({
             </span>
             <span className={`text-base leading-none opacity-70 ${isTarnished ? 'text-muted-2' : ''}`}>❞</span>
           </span>
-          </CursorTooltip>
           {isMe && <TitlePicker className="shrink-0" />}
           {isMe && <BannerPicker className="absolute left-0" />}
         </div>
@@ -243,6 +205,8 @@ export function ProfileHeroCard({
               imageUrl={user.imageUrl}
               size="lg"
               className="relative"
+              // La carte porte déjà l'aura complète → pas de double effet sur la PP.
+              fx={false}
             />
           </div>
 
@@ -263,37 +227,17 @@ export function ProfileHeroCard({
                     size="md"
                     iconOnly={isMobile}
                     max={isMobile ? 3 : 4}
-                    richTooltip
                   />
                 </div>
               )}
             </div>
             {realName && <div className="text-[10px] text-muted-2 font-mono truncate">@{user.login}</div>}
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              {user.campus && (
-                <div className="inline-flex items-center gap-1 text-[10px] text-muted font-medium uppercase tracking-wider">
-                  <MapPin className="w-3 h-3" strokeWidth={2.5} />
-                  <span>{user.campus}</span>
-                </div>
-              )}
-              {disputesLost > 0 && (
-                <CursorTooltip
-                  className="inline-flex"
-                  content={
-                    <>
-                      <div className="text-xs font-extrabold text-red">Litiges perdus : {disputesLost}</div>
-                      <div className="mt-1 text-[11px] leading-snug text-muted-2">
-                        Score déclaré faux ou contestation jugée abusive. Plus le compteur monte, plus la sanction est lourde.
-                      </div>
-                    </>
-                  }
-                >
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red bg-red/10 border border-red/25 rounded-full px-2 py-0.5">
-                    ⚖ {disputesLost}
-                  </span>
-                </CursorTooltip>
-              )}
-            </div>
+            {user.campus && (
+              <div className="inline-flex items-center gap-1 text-[10px] text-muted mt-1 font-medium uppercase tracking-wider">
+                <MapPin className="w-3 h-3" strokeWidth={2.5} />
+                <span>{user.campus}</span>
+              </div>
+            )}
           </div>
 
           {myRank > 0 && (
@@ -326,11 +270,15 @@ export function ProfileHeroCard({
             </div>
             <div
               className="font-display text-[clamp(2.75rem,13vw,3.5rem)] font-black leading-none tabular-nums tracking-tighter text-gold-emboss"
-              style={boosted ? { textShadow: '0 1px 0 rgba(0,0,0,0.7), 0 0 28px rgba(255,100,10,0.75)' } : undefined}
+              style={
+                isSheldon
+                  ? { textShadow: '0 1px 0 rgba(0,0,0,0.7), 0 0 28px rgba(57,255,20,0.65)', color: '#8bc34a' }
+                  : boosted ? { textShadow: '0 1px 0 rgba(0,0,0,0.7), 0 0 28px rgba(255,100,10,0.75)' } : undefined
+              }
             >
               <AnimatedCounter value={stats.elo} duration={1.4} />
             </div>
-            {boosted && <EloBoostBadge until={boostUntil} className="mt-1" />}
+            {boosted && !isSheldon && <EloBoostBadge until={boostUntil} className="mt-1" />}
           </div>
 
           {/* Delta 7j */}
@@ -364,7 +312,9 @@ export function ProfileHeroCard({
           <StatPill
             label="STREAK"
             value={`${stats.currentStreak > 0 ? '+' : ''}${stats.currentStreak}`}
-            tone={onWinStreak && streakAbs >= 3 ? 'fire' : onWinStreak ? 'teal' : 'red'}
+            // Série « en feu » (≥3 V) → doré comme un gain, sinon teal (gain) /
+            // rouge (perte). Pas d'animation de braises ici (≠ carte Défis).
+            tone={onWinStreak && streakAbs >= 3 ? 'gold' : onWinStreak ? 'teal' : 'red'}
             icon={onWinStreak && streakAbs >= 3 ? <Flame className="w-3 h-3" strokeWidth={2.5} /> : undefined}
           />
         </div>
@@ -497,7 +447,7 @@ export function ProfileHeroCard({
           );
         })()}
       </div>
-    </motion.div>
+    </HeroCardFrame>
     {isMe && editGame && (
       <FavoriteCharsEditor
         games={[editGame]}
@@ -513,31 +463,24 @@ export function ProfileHeroCard({
 interface StatPillProps {
   label: string;
   value: number | string;
-  tone: 'teal' | 'red' | 'gold' | 'fire';
+  tone: 'teal' | 'red' | 'gold';
   icon?: React.ReactNode;
 }
 
-const TONE_PILL: Record<StatPillProps['tone'], string> = {
-  teal: 'text-teal',
-  red: 'text-red',
-  gold: 'text-gold',
-  fire: 'text-gold',
-};
-
+/**
+ * Pastille de stat de la carte profil mobile — fine surcouche de `StatPlate`
+ * qui fige le halo propre à ce site : `0 0 10px currentColor` (le glow épouse
+ * la couleur du ton). Le rendu reste strictement identique à l'ancien `StatPill`.
+ */
 function StatPill({ label, value, tone, icon }: StatPillProps) {
   return (
-    <div className="relative metal-plate rounded-lg px-1 py-2 flex flex-col items-center gap-0.5">
-      <div
-        className={`relative z-10 font-display text-base font-black tabular-nums leading-none flex items-center gap-1 ${TONE_PILL[tone]}`}
-        style={{ textShadow: '0 1px 0 rgba(0,0,0,0.6), 0 0 10px currentColor' }}
-      >
-        {icon}
-        <span>{value}</span>
-      </div>
-      <div className="relative z-10 text-[9px] text-muted-2 uppercase tracking-[0.16em] font-extrabold leading-none">
-        {label}
-      </div>
-    </div>
+    <StatPlate
+      label={label}
+      value={value}
+      tone={tone}
+      icon={icon}
+      textShadow="0 1px 0 rgba(0,0,0,0.6), 0 0 10px currentColor"
+    />
   );
 }
 

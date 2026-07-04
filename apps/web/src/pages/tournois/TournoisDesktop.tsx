@@ -19,7 +19,6 @@ import { TournamentCup } from '../../components/TournamentCup';
 import { SmashTrophy } from '../../components/SmashTrophy';
 import { ChessTrophy } from '../../components/ChessTrophy';
 import { PastTournamentHover } from '../../components/tournois/PastTournamentPopover';
-import { winnerTeam } from '../../lib/tournamentTeam';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useIsMobile } from '../../hooks/useViewport';
 import { useGameMode } from '../../hooks/useGameMode';
@@ -348,7 +347,7 @@ function TournoiCard({ t }: { t: Tournament }) {
         )}
 
         {t.winner && (
-          <div className="text-[10px] text-gold font-bold truncate">🏆 {winnerTeam(t)?.label ?? t.winner.login}</div>
+          <div className="text-[10px] text-gold font-bold truncate">🏆 {t.winner.login}</div>
         )}
         {t.status === 'finished' && (
           <div className="mt-1 text-[9px] font-bold text-teal/90 group-hover:text-teal transition-colors">

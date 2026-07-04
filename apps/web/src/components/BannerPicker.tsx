@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil, Check, X, Upload } from 'lucide-react';
 import { api, type InventoryEntry } from '../lib/api';
 import { useLeagueData } from '../hooks/useLeagueData';
+import { CustomBannerUploaderModal } from './shop/CustomBannerUploader';
 
 /**
  * Petit crayon (profil perso) pour choisir/retirer sa BANNIÈRE (fond de la carte
@@ -15,6 +16,7 @@ export function BannerPicker({ className }: { className?: string }) {
   const [banners, setBanners] = useState<InventoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState<InventoryEntry | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Charge l'inventaire à l'ouverture (bannières uniquement).
@@ -62,6 +64,15 @@ export function BannerPicker({ className }: { className?: string }) {
     }
   }
 
+  function isCustomBanner(entry: InventoryEntry): boolean {
+    const p = entry.item.payload;
+    return p !== null && typeof p === 'object' && !Array.isArray(p) && (p as Record<string, unknown>).allowUpload === true;
+  }
+
+  function getUserImage(entry: InventoryEntry): string | null {
+    return typeof entry.userPayload?.image === 'string' ? entry.userPayload.image : null;
+  }
+
   return (
     <div ref={rootRef} className={`inline-block ${className ?? ''}`}>
       <button
@@ -106,31 +117,49 @@ export function BannerPicker({ className }: { className?: string }) {
                 </div>
               ) : (
                 banners.map((b) => {
-                  const image =
+                  const custom = isCustomBanner(b);
+                  const userImg = getUserImage(b);
+                  const itemImg =
                     b.item.payload && typeof b.item.payload === 'object' && !Array.isArray(b.item.payload)
                       ? (b.item.payload as Record<string, unknown>).image
                       : undefined;
+                  const displayImg = userImg ?? (typeof itemImg === 'string' ? itemImg : null);
                   return (
-                    <button
-                      key={b.itemId}
-                      type="button"
-                      onClick={() => void applyBanner(b)}
-                      className="relative block w-full overflow-hidden rounded-lg border border-border hover:border-gold/60 transition-colors"
-                      style={{ aspectRatio: '1024 / 512' }}
-                    >
-                      {typeof image === 'string' && (
-                        <img src={image} alt={b.item.name} className="absolute inset-0 w-full h-full object-cover" />
-                      )}
-                      <span className="absolute inset-0 bg-black/30" />
-                      <span className="absolute bottom-1 left-1.5 text-[10px] font-bold text-white drop-shadow">
-                        {b.item.name}
-                      </span>
-                      {b.equipped && (
-                        <span className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-gold text-[#1a0d00]">
-                          <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                    <div key={b.itemId} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => void applyBanner(b)}
+                        className="relative block w-full overflow-hidden rounded-lg border border-border hover:border-gold/60 transition-colors"
+                        style={{ aspectRatio: '1024 / 512' }}
+                      >
+                        {displayImg ? (
+                          <img src={displayImg} alt={b.item.name} className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-2 italic">
+                            Aucune image
+                          </span>
+                        )}
+                        <span className="absolute inset-0 bg-black/30" />
+                        <span className="absolute bottom-1 left-1.5 text-[10px] font-bold text-white drop-shadow">
+                          {b.item.name}
                         </span>
+                        {b.equipped && (
+                          <span className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-gold text-[#1a0d00]">
+                            <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                          </span>
+                        )}
+                      </button>
+                      {custom && (
+                        <button
+                          type="button"
+                          onClick={() => setUploading(b)}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gold/30 py-1 text-[10px] font-bold text-gold/70 hover:border-gold/60 hover:text-gold transition-colors"
+                        >
+                          <Upload className="w-3 h-3" strokeWidth={2.5} />
+                          {userImg ? 'Changer mon image' : 'Uploader mon image'}
+                        </button>
                       )}
-                    </button>
+                    </div>
                   );
                 })
               )}
@@ -138,6 +167,23 @@ export function BannerPicker({ className }: { className?: string }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {uploading && (
+        <CustomBannerUploaderModal
+          itemId={uploading.itemId}
+          itemName={uploading.item.name}
+          currentImage={getUserImage(uploading)}
+          onClose={() => setUploading(null)}
+          onSaved={(dataUrl) => {
+            setBanners((prev) =>
+              prev.map((b) =>
+                b.itemId === uploading.itemId ? { ...b, userPayload: { image: dataUrl } } : b,
+              ),
+            );
+            void refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

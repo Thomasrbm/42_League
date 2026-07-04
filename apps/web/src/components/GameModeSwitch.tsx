@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useGameMode } from '../hooks/useGameMode';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useT } from '../lib/i18n';
 import type { Game } from '../lib/gameMode';
 import { GAMES, GAME_META as META } from '../lib/gameMeta';
+import { api, type SfSessionCurrent } from '../lib/api';
 
 /** Applique `data-game` sur <html> pour le thème conditionnel. */
 export function useGameModeTheme(): void {
@@ -33,9 +35,15 @@ export function GameModeSwitch() {
   useGameModeTheme();
   const [open, setOpen] = useState(false);
   const m = META[game];
+  const navigate = useNavigate();
+  const [sfStatus, setSfStatus] = useState<SfSessionCurrent | null>(null);
 
   // Ferme le panneau au clavier (Échap), en plus du clic backdrop.
   useEscapeKey(open, () => setOpen(false));
+
+  useEffect(() => {
+    api.getSfSessionCurrent().then(setSfStatus).catch(() => {});
+  }, []);
 
   const pick = (g: Game) => {
     setGame(g);
@@ -99,31 +107,64 @@ export function GameModeSwitch() {
                 {GAMES.map((g) => {
                   const gm = META[g];
                   const sel = g === game;
+                  const isSf = g === 'streetfighter';
+                  const sfBlocked = isSf && sfStatus !== null && sfStatus.status !== 'active';
+
+                  const sfTooltipText = sfStatus
+                    ? sfStatus.status === 'active'
+                      ? 'Session en cours !'
+                      : sfStatus.status === 'upcoming' && sfStatus.session
+                      ? `Prochaine session : ${new Date(sfStatus.session.startTime).toLocaleDateString('fr-FR', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}`
+                      : 'Aucune session programmée'
+                    : undefined;
+
                   return (
                     <motion.button
                       key={g}
                       type="button"
-                      onClick={() => pick(g)}
+                      title={sfBlocked ? sfTooltipText : undefined}
+                      onClick={() => {
+                        if (sfBlocked) {
+                          setOpen(false);
+                          navigate('/sf-session');
+                          return;
+                        }
+                        pick(g);
+                      }}
                       variants={{ hidden: { opacity: 0, y: 12, scale: 0.9 }, show: { opacity: 1, y: 0, scale: 1 } }}
                       transition={{ type: 'spring', stiffness: 440, damping: 26 }}
-                      whileHover={{ y: -2 }}
+                      whileHover={sfBlocked ? {} : { y: -2 }}
                       whileTap={{ scale: 0.94 }}
                       className="relative flex flex-col items-center gap-1.5 rounded-xl py-2.5"
                       style={{
                         background: sel ? gm.bgColor : 'rgba(255,255,255,0.03)',
                         border: `1.5px solid ${sel ? gm.borderColor : 'rgba(255,255,255,0.07)'}`,
                         boxShadow: sel ? `0 0 16px -5px ${gm.glowColor}` : 'none',
+                        opacity: sfBlocked ? 0.45 : 1,
+                        filter: sfBlocked ? 'grayscale(0.8)' : 'none',
+                        cursor: sfBlocked ? 'pointer' : undefined,
+                        transition: 'opacity 0.3s, filter 0.3s',
                       }}
                     >
-                      <span className="grid h-8 w-8 place-items-center" style={{ color: sel ? gm.color : 'rgba(255,255,255,0.45)' }}>{gm.icon(sel, 28)}</span>
-                      {/* Libellé court, identique quelle que soit la langue (Baby / Smash / Échecs / SF). */}
+                      <span
+                        className="grid h-8 w-8 place-items-center"
+                        style={{ color: sel ? gm.color : 'rgba(255,255,255,0.45)' }}
+                      >
+                        {gm.icon(sel, 28)}
+                      </span>
                       <span
                         className="w-full text-center text-[10px] font-extrabold uppercase tracking-wider leading-none whitespace-nowrap"
-                        style={{ color: sel ? gm.color : 'rgba(255,255,255,0.5)' }}
+                        style={{ color: sfBlocked ? 'rgba(255,255,255,0.25)' : sel ? gm.color : 'rgba(255,255,255,0.5)' }}
                       >
-                        {gm.shortLabel}
+                        {sfBlocked ? 'Fermé' : gm.shortLabel}
                       </span>
-                      {sel && (
+                      {sel && !sfBlocked && (
                         <motion.span
                           layoutId="gm-switch-dot"
                           className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full"

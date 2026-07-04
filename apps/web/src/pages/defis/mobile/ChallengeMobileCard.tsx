@@ -9,6 +9,7 @@ import { fmtRelative } from '../../../lib/format';
 import { useI18n, useT } from '../../../lib/i18n';
 import { useOpsStatus } from '../../../hooks/useOpsStatus';
 import { challengeCancelState } from '../shared/useDefisLogic';
+import { Cooldown } from '../shared/Cooldown';
 
 type Kind = 'incoming' | 'outgoing' | 'accepted';
 
@@ -107,6 +108,16 @@ export function ChallengeMobileCard({
           <Clock className="w-3 h-3" strokeWidth={2.5} />
           <span>{when.text}</span>
         </div>
+        {/* Cooldown 48h : un défi reçu non accepté sous ce délai expire (sans pénalité). */}
+        {kind === 'incoming' && (
+          <div className="mt-1">
+            <Cooldown
+              from={challenge.createdAt}
+              label={t('defis.cooldown.expireIn')}
+              expiredLabel={t('defis.cooldown.expired')}
+            />
+          </div>
+        )}
       </div>
 
       {kind === 'incoming' && (

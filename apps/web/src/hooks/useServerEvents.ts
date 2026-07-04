@@ -30,7 +30,7 @@ import { getToken } from '../lib/storage';
  * bord visible (ex. animation) qu'on ne veut déclencher QUE sur un vrai event.
  */
 export function useServerEvents(
-  onEvent: () => void,
+  onEvent: (event?: { type: string; data: unknown }) => void,
   types: string[],
   {
     enabled = true,
@@ -38,7 +38,7 @@ export function useServerEvents(
     fireOnReopen = true,
   }: { enabled?: boolean; debounceMs?: number; fireOnReopen?: boolean } = {},
 ) {
-  const cbRef = useRef(onEvent);
+  const cbRef = useRef<(event?: { type: string; data: unknown }) => void>(onEvent);
   useEffect(() => {
     cbRef.current = onEvent;
   }, [onEvent]);
@@ -57,9 +57,9 @@ export function useServerEvents(
     let reconnect: ReturnType<typeof setTimeout> | undefined;
     let backoffMs = 1000;
 
-    const fire = () => {
+    const fire = (event?: { type: string; data: unknown }) => {
       if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => cbRef.current(), debounceMs);
+      debounce = setTimeout(() => cbRef.current(event), debounceMs);
     };
 
     const scheduleReconnect = () => {
@@ -91,7 +91,18 @@ export function useServerEvents(
         backoffMs = 1000; // connexion saine → on réinitialise le backoff.
       });
       for (const type of typesKey.split(',')) {
-        es.addEventListener(type, fire);
+        es.addEventListener(type, (e) => {
+          let data: unknown = undefined;
+          const raw = (e as MessageEvent).data;
+          if (typeof raw === 'string' && raw.length > 0) {
+            try {
+              data = JSON.parse(raw);
+            } catch {
+              data = raw;
+            }
+          }
+          fire({ type, data });
+        });
       }
       es.onerror = () => {
         // EventSource tenterait de rejouer la MÊME URL (token bientôt expiré) :

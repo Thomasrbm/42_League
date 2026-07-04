@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Swords, Target, Users, X, Zap } from 'lucide-react';
+import { Clock, Plus, Swords, Target, Users, X, Zap } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PullToRefresh } from '../../mobile/primitives/PullToRefresh';
 import { HeroPlayerCard } from './mobile/HeroPlayerCard';
@@ -13,6 +13,7 @@ import { ChallengeRecordSheet } from './mobile/ChallengeRecordSheet';
 import { BigActionButton } from './mobile/BigActionButton';
 import { OpponentBubble } from './mobile/OpponentBubble';
 import { PendingMatchCard } from './mobile/PendingMatchCard';
+import { ContestableMatchCard } from './mobile/ContestableMatchCard';
 import { ChallengeMobileCard } from './mobile/ChallengeMobileCard';
 import { MatchmakingButton } from '../../components/MatchmakingButton';
 import { useDefisLogic } from './shared/useDefisLogic';
@@ -34,6 +35,7 @@ export function DefisMobile() {
     ffaWaiting,
     dartsToConfirm,
     dartsWaiting,
+    contestableMatches,
     others,
     recentOpponents,
     opponentCounts,
@@ -46,6 +48,7 @@ export function DefisMobile() {
     confirmDarts,
     contestDarts,
     cancelDartsDeclaration,
+    contestMatch,
     requestAmicableCancel,
     respondAmicableCancel,
   } = useDefisLogic();
@@ -146,6 +149,23 @@ export function DefisMobile() {
             <div className="space-y-2.5">
               {pendingToConfirm.map((p) => (
                 <PendingMatchCard key={p.id} match={p} myLogin={myLogin} onDone={refresh} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Matchs auto-validés (48h sans réponse) encore contestables */}
+        {contestableMatches.length > 0 && (
+          <section>
+            <SectionHeader
+              icon={<Clock className="w-3.5 h-3.5 text-amber-400" strokeWidth={2.5} />}
+              title={t('defis.contestable.title')}
+              badge={contestableMatches.length}
+              tone="gold"
+            />
+            <div className="space-y-2.5">
+              {contestableMatches.map((m) => (
+                <ContestableMatchCard key={m.id} match={m} onContest={contestMatch} />
               ))}
             </div>
           </section>

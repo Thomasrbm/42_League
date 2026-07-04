@@ -4,6 +4,7 @@ import { Search, X, LocateFixed } from 'lucide-react';
 import { PullToRefresh } from '../../mobile/primitives/PullToRefresh';
 import { StaggerList, StaggerItem } from '../../mobile/motion/StaggerList';
 import { RankingScopeToggle } from './RankingScopeToggle';
+import { CampusScopeToggle, useCampusScope, filterByCampus, hasCampusInfo } from './campusScope';
 import { Podium } from './mobile/Podium';
 import { PlayerRankCard } from './mobile/PlayerRankCard';
 import { LeaderboardScatter, RankingViewToggle, GradesNavButton, type RankingView, type LeaderboardScatterHandle } from './LeaderboardScatter';
@@ -33,6 +34,9 @@ export function LeaderboardMobile() {
     [matches, activeSeasonId],
   );
   const myLogin = me?.login;
+  // Cloisonnement par campus (cf. campusScope) : par défaut le joueur ne voit que
+  // son campus ; « Inter-campus » (ouvert à tous) lève le filtre.
+  const { scope: campusScope, setScope: setCampusScope, myCampus } = useCampusScope();
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<RankingView>('list');
 
@@ -96,7 +100,7 @@ export function LeaderboardMobile() {
       elo: s.elo,
       imageUrl: imgByLogin.get(s.login) ?? null,
       matchesPlayed: s.wins + s.losses,
-      campus: null,
+      campus: s.campus ?? null,
     }));
   }, [standings, imgByLogin]);
 
@@ -135,14 +139,25 @@ export function LeaderboardMobile() {
   // Tri par rang officiel (ELO) — comme la vue desktop. En saison passée, on
   // affiche le classement figé (mêmes composants, photos grisées).
   const sortedLeaderboard = useMemo(() => {
-    if (viewingPast) return [...pastEntries].sort((a, b) => a.rank - b.rank);
-    // LIVE : seuls les joueurs avec ≥ 1 partie cette saison (ELO de base 1000
-    // insuffisant). Rangs re-numérotés en contigu par ELO décroissant.
-    return leaderboard
-      .filter((u) => (u.matchesPlayed ?? 0) > 0)
-      .sort((a, b) => a.rank - b.rank)
-      .map((u, i) => ({ ...u, rank: i + 1 }));
-  }, [viewingPast, pastEntries, leaderboard]);
+    // Base triée par rang officiel (ELO). En live, seuls les joueurs avec ≥ 1
+    // partie cette saison (l'ELO de base 1000 ne suffit pas à figurer au classement).
+    const base = viewingPast
+      ? [...pastEntries].sort((a, b) => a.rank - b.rank)
+      : leaderboard.filter((u) => (u.matchesPlayed ?? 0) > 0).sort((a, b) => a.rank - b.rank);
+    // Cloisonnement campus puis re-numérotation contiguë (classement de campus → #1).
+    return filterByCampus(base, campusScope, myCampus).map((u, i) => ({ ...u, rank: i + 1 }));
+  }, [viewingPast, pastEntries, leaderboard, campusScope, myCampus]);
+
+  // G.O.A.T live : pool complet du campus (cross-saison), pas seulement les classés.
+  const goatLiveLeaderboard = useMemo(
+    () => filterByCampus(leaderboard, campusScope, myCampus),
+    [leaderboard, campusScope, myCampus],
+  );
+
+  // Snapshot antérieur au tagging campus affiché en « Mon campus » → on a montré le
+  // classement global faute de campus connu : on le signale.
+  const campusLegacySnapshot =
+    viewingPast && campusScope === 'mine' && !!myCampus && !hasCampusInfo(pastEntries);
 
   // Top 3 par rang → podium (or / argent / bronze cohérents avec l'ELO).
   const top3 = sortedLeaderboard.slice(0, 3);
@@ -212,7 +227,11 @@ export function LeaderboardMobile() {
               exit={{ opacity: 0, x: -18 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             >
-              <TeamLeaderboard />
+              <TeamLeaderboard
+                campusScope={campusScope}
+                onCampusScopeChange={setCampusScope}
+                myCampus={myCampus}
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -240,6 +259,18 @@ export function LeaderboardMobile() {
               ))}
             </select>
           </div>
+        )}
+
+        {/* Sélecteur de campus : Mon campus / Inter-campus (cloisonnement) */}
+        {myCampus && (
+          <div className="px-2">
+            <CampusScopeToggle value={campusScope} onChange={setCampusScope} myCampus={myCampus} className="!w-full sm:!w-full" />
+          </div>
+        )}
+        {campusLegacySnapshot && (
+          <p className="text-[11px] text-amber-400/80 text-center leading-snug px-2">
+            {t('lb.campus.legacyNote')}
+          </p>
         )}
 
         {/* ── Banner GAME — live uniquement, avant même le podium ───────── */}
@@ -278,7 +309,11 @@ export function LeaderboardMobile() {
         ) : viewMode === 'goat' && seasonHasMatches ? (
           <>
             {myRank && <WhereAmIButton onClick={scrollToMe} label={t('lb.whereAmI')} />}
-            {viewingPast ? <GoatView leaderboard={pastEntries} matches={seasonMatches} /> : <GoatView />}
+            {viewingPast ? (
+              <GoatView leaderboard={sortedLeaderboard} matches={seasonMatches} />
+            ) : (
+              <GoatView leaderboard={goatLiveLeaderboard} matches={allMatches} />
+            )}
           </>
         ) : sortedLeaderboard.length === 0 ? (
           <div className="text-center text-muted-2 py-10 text-sm">
@@ -347,7 +382,10 @@ export function LeaderboardMobile() {
               const targetedBy = viewingPast ? undefined : allOps.find((o) => o.targetLogin === entry.login);
               return (
                 <StaggerItem key={entry.login}>
-                  <div id={isMe ? 'lb-me-row' : undefined} className="scroll-mt-24">
+                  <div
+                    id={isMe ? 'lb-me-row' : undefined}
+                    className="scroll-mt-24 cv-row"
+                  >
                     <PlayerRankCard
                       entry={entry}
                       wins={wl.wins}
