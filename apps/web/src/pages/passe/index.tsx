@@ -11,7 +11,6 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  Star,
   type LucideIcon,
 } from 'lucide-react';
 import { Panel } from '../../components/Panel';
@@ -24,7 +23,7 @@ import { RARITY, resolveRarity } from '../../lib/rarity';
 
 const BLUE = '#38bdf8';
 const GOLD = '#ffc94a';
-const TIER_W = 190;
+const TIER_W = 196;
 
 /** Icône de chaque consommable (mêmes accents que la boutique). */
 const CONSUMABLE_ICON: Record<string, LucideIcon> = {
@@ -144,9 +143,9 @@ function rewardView(tier: BattlePassTierView, t: (k: string) => string) {
 
 /**
  * Une colonne de la frise (= un palier), look « passe de combat Fortnite » :
- * grosse carte-récompense sertie d'une bordure lumineuse et d'un halo de rareté,
- * numéro de palier en filigrane, nœud circulaire épais posé sur un rail néon, et
- * balisage spectaculaire (anneaux pulsés + étincelles) sur le palier courant.
+ * grosse carte-récompense presque carrée dont le FOND arbore la couleur de rareté,
+ * numéro de palier coloré en filigrane, nœud circulaire épais posé sur un rail néon.
+ * Le palier courant est balisé par un badge et un unique anneau pulsé sobre.
  */
 function TierColumn({
   tier,
@@ -174,87 +173,82 @@ function TierColumn({
   return (
     <motion.div
       ref={colRef}
-      className="group relative shrink-0 snap-center flex flex-col items-center pt-4 select-none"
+      // pt uniforme sur TOUTES les colonnes → alignement vertical strict.
+      className="group relative shrink-0 snap-center flex flex-col items-center pt-6 select-none"
       style={{ width: TIER_W }}
       initial={lite ? false : { opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.45, ease: 'easeOut' }}
     >
-      {/* Badge doré « palier actuel » flottant */}
-      {isCurrent && (
-        <motion.div
-          className="absolute -top-1 z-30 flex flex-col items-center"
-          initial={lite ? false : { opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: delay + 0.2 }}
-        >
-          <span
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-display font-extrabold uppercase tracking-[0.16em] text-bg-0"
-            style={{
-              background: `linear-gradient(135deg, ${GOLD}, #ffe6a3)`,
-              boxShadow: `0 0 18px ${GOLD}, 0 4px 12px -4px ${GOLD}`,
-            }}
-          >
-            <Crown className="w-3 h-3" strokeWidth={2.8} />
-            {t('battlepass.jumpToCurrent')}
-          </span>
-        </motion.div>
-      )}
+      {/* Récompense (carte au-dessus du rail) — presque carrée, fond coloré */}
+      <div className="relative w-full px-1.5">
+        {/* Badge doré « palier actuel » : absolu, chevauche la carte (n'ajoute AUCUN décalage) */}
+        {isCurrent && (
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30">
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-display font-extrabold uppercase tracking-[0.16em] text-bg-0 whitespace-nowrap"
+              style={{
+                background: `linear-gradient(135deg, ${GOLD}, #ffe6a3)`,
+                boxShadow: `0 0 18px ${GOLD}, 0 4px 12px -4px ${GOLD}`,
+              }}
+            >
+              <Crown className="w-3 h-3" strokeWidth={2.8} />
+              {t('battlepass.jumpToCurrent')}
+            </span>
+          </div>
+        )}
 
-      {/* Récompense (carte au-dessus du rail) */}
-      <div className="w-full px-2" style={{ marginTop: isCurrent ? 20 : 0 }}>
         <motion.div
-          className="shine relative rounded-3xl border-2 p-3.5 flex flex-col items-center gap-2 text-center min-h-[172px] justify-center overflow-hidden"
+          className="shine relative rounded-3xl border-2 p-5 flex flex-col items-center justify-center gap-2.5 text-center w-full min-h-[200px] overflow-hidden"
           whileHover={lite ? undefined : { y: -8, scale: 1.05 }}
           transition={{ type: 'spring', stiffness: 360, damping: 22 }}
           style={{
-            borderColor: unlocked ? `${rw.hex}cc` : `${rw.hex}33`,
+            // Bordure épaisse et bien saturée dans la couleur de rareté.
+            borderColor: unlocked ? rw.hex : 'rgba(125,115,95,0.28)',
+            // FOND coloré (façon Fortnite) : la couleur de rareté remplit la carte.
             background: unlocked
-              ? `linear-gradient(160deg, ${rw.hex}33 0%, ${rw.hex}12 55%, rgba(12,10,8,0.55) 100%)`
-              : 'rgba(21,18,14,0.6)',
+              ? `linear-gradient(160deg, ${rw.hex}66 0%, ${rw.hex}40 60%, ${rw.hex}2b 100%)`
+              : 'rgba(20,18,15,0.88)',
             boxShadow: unlocked
-              ? `0 10px 32px -12px ${rw.hex}, 0 0 22px -8px ${rw.hex}, inset 0 1px 0 rgba(255,255,255,0.08)`
-              : 'none',
-            opacity: unlocked ? 1 : 0.55,
+              ? `0 12px 36px -12px ${rw.hex}, 0 0 30px -6px ${rw.hex}, inset 0 1px 0 rgba(255,255,255,0.1)`
+              : 'inset 0 1px 0 rgba(255,255,255,0.03)',
           }}
         >
-          {/* Numéro de palier en filigrane */}
+          {/* Numéro de palier en filigrane, coloré dans la rareté */}
           <span
-            className="absolute -bottom-3 right-1 font-display font-black leading-none pointer-events-none select-none tabular-nums"
+            className="absolute -bottom-4 right-1 font-display font-black leading-none pointer-events-none select-none tabular-nums"
             style={{
-              fontSize: 78,
-              color: unlocked ? `${rw.hex}1f` : 'rgba(125,115,95,0.08)',
-              textShadow: unlocked ? `0 0 20px ${rw.hex}22` : 'none',
+              fontSize: 88,
+              color: unlocked ? `${rw.hex}55` : 'rgba(125,115,95,0.1)',
+              textShadow: unlocked ? `0 0 24px ${rw.hex}55` : 'none',
             }}
           >
             {tier.tier}
           </span>
 
-          {/* Liseré de rareté en haut */}
+          {/* Liseré de rareté en haut, épais (6px) et vif */}
           <span
-            className="absolute top-0 left-0 right-0 h-[4px]"
-            style={{
-              background: unlocked
-                ? `linear-gradient(90deg, transparent, ${rw.hex}, transparent)`
-                : `${rw.hex}44`,
-            }}
+            className="absolute top-0 left-0 right-0 h-[6px]"
+            style={{ background: unlocked ? rw.hex : 'rgba(125,115,95,0.3)' }}
           />
           {/* Halo de rareté derrière la carte */}
           {unlocked && !lite && (
             <span
-              className="absolute -top-8 left-1/2 -translate-x-1/2 w-28 h-28 rounded-full blur-3xl pointer-events-none"
-              style={{ background: `${rw.hex}55` }}
+              className="absolute -top-8 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full blur-3xl pointer-events-none"
+              style={{ background: `${rw.hex}66` }}
             />
           )}
 
-          {/* Médaillon d'icône */}
+          {/* Médaillon d'icône (grand, centré) */}
           <span
-            className="relative w-16 h-16 rounded-2xl flex items-center justify-center border-2"
+            className="relative w-20 h-20 rounded-2xl flex items-center justify-center border-2"
             style={{
-              borderColor: unlocked ? `${rw.hex}88` : `${rw.hex}44`,
-              background: `radial-gradient(circle at 50% 35%, ${rw.hex}33, ${rw.hex}0d)`,
+              borderColor: unlocked ? rw.hex : 'rgba(125,115,95,0.35)',
+              background: unlocked
+                ? `radial-gradient(circle at 50% 35%, ${rw.hex}59, ${rw.hex}1a)`
+                : 'radial-gradient(circle at 50% 35%, rgba(125,115,95,0.18), rgba(125,115,95,0.05))',
               boxShadow: unlocked
-                ? `0 0 22px -4px ${rw.hex}, inset 0 0 14px -6px ${rw.hex}`
+                ? `0 0 26px -4px ${rw.hex}, inset 0 0 16px -6px ${rw.hex}`
                 : 'none',
             }}
           >
@@ -262,12 +256,12 @@ function TierColumn({
           </span>
 
           <span
-            className="relative text-[9px] font-display font-extrabold uppercase tracking-[0.14em]"
+            className="relative text-[10px] font-display font-extrabold uppercase tracking-[0.14em]"
             style={{ color: unlocked ? rw.hex : '#8a7d65' }}
           >
             {rw.tag}
           </span>
-          <span className="relative text-[12.5px] font-bold text-text-strong leading-tight line-clamp-2">
+          <span className="relative text-[13px] font-bold text-text-strong leading-tight line-clamp-2">
             {rw.name}
           </span>
 
@@ -303,36 +297,14 @@ function TierColumn({
           />
         )}
 
-        {/* Palier courant : 3 anneaux pulsés + 6 étincelles */}
+        {/* Palier courant : un unique anneau pulsé, sobre et robuste */}
         {isCurrent && !lite && (
-          <>
-            {[0, 0.5, 1].map((d, i) => (
-              <motion.span
-                key={`ring-${i}`}
-                className="absolute z-0 w-14 h-14 rounded-full border-2"
-                style={{ borderColor: GOLD }}
-                animate={{ scale: [1, 2.1], opacity: [0.6, 0] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut', delay: d }}
-              />
-            ))}
-            {Array.from({ length: 6 }).map((_, i) => {
-              const angle = (i / 6) * Math.PI * 2;
-              return (
-                <motion.span
-                  key={`spark-${i}`}
-                  className="absolute z-0 rounded-full"
-                  style={{ width: 4, height: 4, background: GOLD, boxShadow: `0 0 6px ${GOLD}` }}
-                  animate={{
-                    x: [0, Math.cos(angle) * 34],
-                    y: [0, Math.sin(angle) * 34],
-                    opacity: [0.9, 0],
-                    scale: [1, 0.2],
-                  }}
-                  transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut', delay: i * 0.12 }}
-                />
-              );
-            })}
-          </>
+          <motion.span
+            className="absolute z-0 w-14 h-14 rounded-full border-2 pointer-events-none"
+            style={{ borderColor: GOLD }}
+            animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
+          />
         )}
 
         {/* Nœud */}
@@ -557,8 +529,8 @@ export function PassePage() {
         <div className="card-hud rounded-3xl p-4 overflow-hidden">
           <div className="flex gap-0">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="shrink-0 px-2" style={{ width: TIER_W }}>
-                <Skeleton className="h-[172px] rounded-3xl" />
+              <div key={i} className="shrink-0 px-1.5" style={{ width: TIER_W }}>
+                <Skeleton className="h-[200px] rounded-3xl" />
               </div>
             ))}
           </div>
@@ -623,52 +595,6 @@ export function PassePage() {
           </div>
         </div>
       )}
-
-      {/* ── Section bonus « Passe Premium » (décorative) ───────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl border-2 border-gold/25 bg-gradient-to-br from-gold/10 via-bg-2 to-bg-0 p-5">
-        <div className="absolute inset-0 hud-diag pointer-events-none opacity-20" />
-        <div className="absolute -right-8 -top-10 w-48 h-48 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
-        {!lite &&
-          [0, 1, 2].map((i) => (
-            <motion.span
-              key={i}
-              className="absolute"
-              style={{ left: `${20 + i * 28}%`, top: '30%', color: GOLD }}
-              animate={{ opacity: [0.2, 0.8, 0.2], scale: [0.8, 1.1, 0.8] }}
-              transition={{ duration: 2.4 + i * 0.5, repeat: Infinity, ease: 'easeInOut', delay: i * 0.4 }}
-            >
-              <Star className="w-3 h-3 fill-current" strokeWidth={0} />
-            </motion.span>
-          ))}
-
-        <div className="relative flex items-center gap-4">
-          <div
-            className="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center border-2"
-            style={{
-              borderColor: `${GOLD}66`,
-              background: `radial-gradient(circle at 50% 35%, ${GOLD}33, ${GOLD}0d)`,
-              boxShadow: `0 0 22px -6px ${GOLD}`,
-            }}
-          >
-            <Crown className="w-7 h-7 text-gold drop-shadow" strokeWidth={2} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="font-display text-sm font-black uppercase tracking-[0.14em] text-gold">
-              Passe Premium
-            </div>
-            <p className="text-[12px] text-muted-2 mt-0.5 leading-snug">
-              Débloque des paliers exclusifs, des skins rares et des multiplicateurs d'XP.
-              <span className="text-gold/80 font-semibold"> Bientôt disponible.</span>
-            </p>
-          </div>
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[10px] font-display font-extrabold uppercase tracking-wide text-bg-0 shrink-0"
-            style={{ background: `linear-gradient(135deg, ${GOLD}, #ffe6a3)`, boxShadow: `0 4px 16px -4px ${GOLD}` }}
-          >
-            <Sparkles className="w-3.5 h-3.5" strokeWidth={2.6} />
-            Premium
-          </span>
-        </div>
-      </div>
     </div>
   );
 }
