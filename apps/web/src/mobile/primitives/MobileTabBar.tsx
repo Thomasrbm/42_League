@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  Home as HomeIcon,
   Swords,
   Trophy,
   BarChart3,
@@ -39,6 +40,7 @@ const TABS: TabDef[] = [
 
 /** Destinations de la sheet « Plus » (règle aussi les pages orphelines du mobile). */
 const MORE: TabDef[] = [
+  { to: '/', labelKey: 'nav.home', Icon: HomeIcon },
   { to: '/profile', labelKey: 'nav.profil', Icon: User },
   { to: '/trophies', labelKey: 'nav.trophees', Icon: Award },
   { to: '/shop', labelKey: 'nav.shop', Icon: ShoppingBag },

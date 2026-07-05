@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
+  Home,
   Swords,
   Trophy,
   BarChart3,
@@ -39,6 +40,7 @@ interface NavDef {
 }
 
 const NAV: NavDef[] = [
+  { to: '/', labelKey: 'nav.home', Icon: Home },
   { to: '/challenges', labelKey: 'nav.defis', Icon: Swords },
   { to: '/tournaments', labelKey: 'nav.tournois', Icon: Trophy },
   { to: '/leaderboard', labelKey: 'nav.leaderboard', Icon: BarChart3 },
@@ -286,6 +288,7 @@ function NavItem({ to, label, Icon, badge = 0, collapsed = false }: NavItemProps
   return (
     <NavLink
       to={to}
+      end={to === '/'}
       title={collapsed ? label : undefined}
       className={({ isActive }) =>
         `relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold tracking-wide group transition-colors duration-150 ${
