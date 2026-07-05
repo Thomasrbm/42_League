@@ -52,7 +52,8 @@ export function TauntOverlay() {
   );
 }
 
-function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => void }) {
+/** Scène seule (versus → émote) — exportée pour l'aperçu du GOD panel. */
+export function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => void }) {
   const t = useT();
   const { me } = useLeagueData();
   const [phase, setPhase] = useState<'vs' | 'emote'>('vs');

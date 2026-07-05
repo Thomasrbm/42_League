@@ -835,19 +835,14 @@ export function PassePage() {
         </div>
       ) : (
         <div className="relative">
-          {/* Compteur global + indice de scroll */}
-          <div className="flex items-end justify-between mb-2 px-1">
-            <div
-              className="font-gaming font-black italic uppercase text-lg sm:text-xl text-white tracking-[0.1em] tabular-nums"
-              style={{ transform: 'skewX(-8deg)' }}
-            >
-              <span className="text-[#2cc3ff]">{claimedCount}</span>
-              <span className="text-[#54648c]">/{tiles.length}</span>{' '}
-              <span className="text-[13px] sm:text-[15px] text-[#7fa4ff]">{t('battlepass.claimed')}</span>
-            </div>
-            <div className="hidden sm:block text-[10px] uppercase tracking-[0.16em] text-[#54648c] font-bold">
-              {t('battlepass.dragHint')}
-            </div>
+          {/* Compteur global, centré au-dessus de la piste */}
+          <div
+            className="text-center mb-2 font-gaming font-black italic uppercase text-lg sm:text-xl text-white tracking-[0.1em] tabular-nums"
+            style={{ transform: 'skewX(-8deg)' }}
+          >
+            <span className="text-[#2cc3ff]">{claimedCount}</span>
+            <span className="text-[#54648c]">/{tiles.length}</span>{' '}
+            <span className="text-[13px] sm:text-[15px] text-[#7fa4ff]">{t('battlepass.claimed')}</span>
           </div>
 
           {/* Flèches par-dessus les bords, façon sélecteur Fortnite */}
