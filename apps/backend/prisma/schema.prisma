@@ -162,8 +162,25 @@ model User {
   tauntEmote                String?                 @map("taunt_emote")
   tauntsSent                EmoteTaunt[]            @relation("tauntWinner")
   tauntsReceived            EmoteTaunt[]            @relation("tauntLoser")
+  pushSubscriptions         PushSubscription[]      @relation("userPushSubs")
 
   @@map("users")
+}
+
+// Abonnement Web Push d'un appareil (un utilisateur peut en avoir plusieurs).
+// Nettoyé automatiquement quand l'endpoint meurt (404/410 à l'envoi).
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userLogin String   @map("user_login")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation("userPushSubs", fields: [userLogin], references: [login], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userLogin])
+  @@map("push_subscription")
 }
 
 // Narguage post-match : à la fin d'un 1v1, le vainqueur « tag » le perdant.

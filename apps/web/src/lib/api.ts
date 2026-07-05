@@ -2177,6 +2177,15 @@ export const api = {
   /** Marque un narguage comme vu (après la cinématique). */
   tauntSeen: (id: string) =>
     request<{ ok: true }>(`/me/taunts/${encodeURIComponent(id)}/seen`, { method: 'POST' }),
+  // ── Web Push ───────────────────────────────────────────────────────────────
+  /** Clé publique VAPID (null si le serveur n'a pas le push configuré). */
+  pushVapidKey: () => request<{ enabled: boolean; key: string | null }>('/push/vapid-key'),
+  /** Enregistre l'abonnement push de cet appareil. */
+  pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    request<{ ok: true }>('/me/push/subscribe', { method: 'POST', body: JSON.stringify(sub) }),
+  /** Désabonne cet appareil. */
+  pushUnsubscribe: (endpoint: string) =>
+    request<{ ok: true }>('/me/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
   // ── « Je suis chaud » (dispo 30 min) ───────────────────────────────────────
   /** Joueurs actuellement chauds pour jouer (non expirés). */
   hotList: () => request<HotPlayer[]>('/hot'),

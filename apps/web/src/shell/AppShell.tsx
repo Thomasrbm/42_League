@@ -18,6 +18,7 @@ const LevelUpOverlay     = lazy(() => import('../components/LevelUpOverlay').the
 const RewardUnlockOverlay = lazy(() => import('../components/RewardUnlockOverlay').then(m => ({ default: m.RewardUnlockOverlay })));
 const TauntOverlay       = lazy(() => import('../components/TauntOverlay').then(m => ({ default: m.TauntOverlay })));
 const XpGainToast        = lazy(() => import('../components/XpGainToast').then(m => ({ default: m.XpGainToast })));
+const AppBadge           = lazy(() => import('../components/AppBadge').then(m => ({ default: m.AppBadge })));
 
 interface AppShellProps {
   children: ReactNode;
@@ -72,6 +73,8 @@ export function AppShell({ children }: AppShellProps) {
         <TauntOverlay />
         {/* Feedback immédiat des gains d'XP (+N XP + barre du niveau) */}
         <XpGainToast />
+        {/* Compteur sur l'icône de la PWA installée (App Badging API) */}
+        <AppBadge />
       </Suspense>
     </>
   );

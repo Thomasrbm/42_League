@@ -3,6 +3,7 @@ import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { HTTPException } from 'hono/http-exception';
 import { randomUUID, createHash } from 'node:crypto';
+import webpush from 'web-push';
 import { z } from 'zod';
 import {
   DeclareMatchSchema,
@@ -405,6 +406,52 @@ function toPublicUser<T extends Record<string, unknown>>(
   return clone as Omit<T, (typeof PUBLIC_USER_OMIT)[number]>;
 }
 
+// ── Web Push ─────────────────────────────────────────────────────────────
+// Notifications quand l'app est FERMÉE. Activé seulement si les clés VAPID
+// sont posées en env (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT).
+// Best effort : un push raté ne casse jamais l'action métier ; un endpoint
+// mort (404/410) est purgé au passage.
+
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? '';
+const pushEnabled = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (pushEnabled) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT ?? 'mailto:contact@42league.app',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY,
+  );
+} else {
+  console.log('[push] VAPID keys absentes — Web Push désactivé');
+}
+
+async function sendWebPush(tos: string[], n: { title: string; body?: string; link?: string }): Promise<void> {
+  if (!pushEnabled || tos.length === 0) return;
+  try {
+    const subs = await prisma.pushSubscription.findMany({ where: { userLogin: { in: tos } } });
+    if (subs.length === 0) return;
+    const payload = JSON.stringify({ title: n.title, body: n.body ?? '', link: n.link ?? '/' });
+    await Promise.allSettled(
+      subs.map(async (s) => {
+        try {
+          await webpush.sendNotification(
+            { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+            payload,
+            { TTL: 60 * 60 },
+          );
+        } catch (err) {
+          const status = (err as { statusCode?: number }).statusCode;
+          if (status === 404 || status === 410) {
+            await prisma.pushSubscription.delete({ where: { id: s.id } }).catch(() => {});
+          }
+        }
+      }),
+    );
+  } catch {
+    /* best effort */
+  }
+}
+
 // ── Notifications in-app ──────────────────────────────────────────────────
 // Crée une notification et pousse un signal SSE 'notification' pour rafraîchir
 // la cloche instantanément (le front poll aussi toutes les 30s en secours).
@@ -426,6 +473,7 @@ async function notify(to: string, n: NotifInput): Promise<void> {
       data: { id: randomUUID(), recipientLogin: to, type: n.type, title: n.title, body: n.body ?? null, link: n.link ?? null, game: n.game ?? null, refId: n.refId ?? null },
     });
     emit([to], { type: 'notification', payload: {} });
+    void sendWebPush([to], n);
   } catch {
     /* noop — best effort */
   }
@@ -438,6 +486,7 @@ async function notifyMany(tos: string[], n: NotifInput): Promise<void> {
       data: tos.map((to) => ({ id: randomUUID(), recipientLogin: to, type: n.type, title: n.title, body: n.body ?? null, link: n.link ?? null, game: n.game ?? null, refId: n.refId ?? null })),
     });
     emit(tos, { type: 'notification', payload: {} });
+    void sendWebPush(tos, n);
   } catch {
     /* noop */
   }
@@ -10516,6 +10565,55 @@ app.delete('/admin/battlepass/tiers/:tier', async (c) => {
     throw new HTTPException(400, { message: 'tier invalide' });
   }
   await prisma.battlePassTier.delete({ where: { tier } }).catch(() => {});
+  return c.json({ ok: true });
+});
+
+// ── Web Push : abonnements ────────────────────────────────────────────────────
+
+const PushSubscribeSchema = z.object({
+  endpoint: z.string().url().max(1000),
+  keys: z.object({ p256dh: z.string().min(1).max(300), auth: z.string().min(1).max(100) }),
+});
+
+// GET /push/vapid-key — clé publique pour l'abonnement côté navigateur.
+app.get('/push/vapid-key', async (c) => {
+  await getCurrentLogin(c);
+  return c.json({ enabled: pushEnabled, key: VAPID_PUBLIC_KEY || null });
+});
+
+// POST /me/push/subscribe — enregistre l'abonnement de CET appareil.
+// Upsert par endpoint : un appareil qui change de compte est réattribué.
+app.post('/me/push/subscribe', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  if (!pushEnabled) {
+    throw new HTTPException(503, { message: 'notifications push non configurées' });
+  }
+  const body = await c.req.json().catch(() => null);
+  const parsed = PushSubscribeSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: 'abonnement invalide' });
+  }
+  const { endpoint, keys } = parsed.data;
+  await prisma.pushSubscription.upsert({
+    where: { endpoint },
+    update: { userLogin: login, p256dh: keys.p256dh, auth: keys.auth },
+    create: { userLogin: login, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+  });
+  return c.json({ ok: true });
+});
+
+// DELETE /me/push/subscribe — désabonne CET appareil (le sien uniquement).
+app.delete('/me/push/subscribe', async (c) => {
+  const login = await getCurrentLogin(c);
+  const body = await c.req.json().catch(() => null);
+  const endpoint = typeof (body as { endpoint?: unknown })?.endpoint === 'string'
+    ? (body as { endpoint: string }).endpoint
+    : null;
+  if (!endpoint) {
+    throw new HTTPException(400, { message: 'endpoint requis' });
+  }
+  await prisma.pushSubscription.deleteMany({ where: { endpoint, userLogin: login } });
   return c.json({ ok: true });
 });
 

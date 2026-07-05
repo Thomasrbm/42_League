@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Panel } from '../components/Panel';
 import { GameModesSettings } from '../components/GameModesSettings';
@@ -16,6 +16,7 @@ import { getToken } from '../lib/storage';
 import { usePerfPref } from '../hooks/usePerf';
 import { setPerfPref, type PerfPref } from '../lib/perf';
 import { setAutoCinematics, useAutoCinematics } from '../lib/cinematics';
+import { disablePush, enablePush, getPushState, pushSupported, type PushState } from '../lib/push';
 
 /** Émotes de victoire proposées — MÊME liste que TAUNT_EMOTES côté backend. */
 const TAUNT_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'];
@@ -32,6 +33,33 @@ export function ReglagesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Notifications push : état de CET appareil.
+  const [pushState, setPushState] = useState<PushState>('unsupported');
+  const [pushBusy, setPushBusy] = useState(false);
+  useEffect(() => {
+    void getPushState().then(setPushState);
+  }, []);
+
+  async function togglePush() {
+    setPushBusy(true);
+    try {
+      if (pushState === 'on') {
+        await disablePush();
+        setPushState('off');
+        flash.show(t('settings.push.disabled'));
+      } else {
+        await enablePush();
+        setPushState('on');
+        flash.show(t('settings.push.enabled'));
+      }
+    } catch (err) {
+      flash.show(err instanceof Error ? err.message : t('settings.push.error'));
+      void getPushState().then(setPushState);
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   // Émote choisie localement (retour instantané) — sinon celle du profil.
   const [localEmote, setLocalEmote] = useState<string | null>(null);
   const tauntEmote = localEmote ?? me?.user?.tauntEmote ?? TAUNT_EMOTES[0];
@@ -133,6 +161,31 @@ export function ReglagesPage() {
             {t('settings.quality.hint')}
           </p>
         </div>
+
+        {/* Notifications push (app fermée) */}
+        {pushSupported() && (
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-2 mb-2">
+              {t('settings.push')}
+            </label>
+            {pushState === 'denied' ? (
+              <p className="text-[11px] leading-relaxed text-muted-2/70">{t('settings.push.denied')}</p>
+            ) : (
+              <>
+                <Button
+                  variant={pushState === 'on' ? 'ghost' : 'primary'}
+                  loading={pushBusy}
+                  onClick={() => void togglePush()}
+                >
+                  {pushState === 'on' ? t('settings.push.disable') : t('settings.push.enable')}
+                </Button>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
+                  {t('settings.push.hint')}
+                </p>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Cinématiques automatiques (level-up, récompenses, rage, réactions) */}
         <div>

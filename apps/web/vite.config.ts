@@ -74,6 +74,8 @@ export default defineConfig(({ mode }) => {
           // téléchargées à la demande, cachées ensuite. Les petites icônes du
           // manifest restent précachées via includeAssets.
           globPatterns: ['**/*.{js,css,html,svg,ico,woff2}'],
+          // Handlers Web Push (affichage + clic) injectés dans le SW généré.
+          importScripts: ['sw-push.js'],
           // Ne pas mettre en cache les appels API (cookies-based auth, données live).
           navigateFallbackDenylist: [/^\/api/],
           runtimeCaching: [

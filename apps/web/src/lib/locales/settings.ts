@@ -28,6 +28,18 @@ export const dict: Record<Lang, Dict> = {
     'settings.quality.high': 'Élevée',
     'settings.quality.perf': 'Performance',
 
+    // Réglages — notifications push
+    'settings.push': 'Notifications push',
+    'settings.push.enable': 'Activer sur cet appareil',
+    'settings.push.disable': 'Désactiver sur cet appareil',
+    'settings.push.enabled': 'Notifications activées — tu seras prévenu même app fermée.',
+    'settings.push.disabled': 'Notifications désactivées sur cet appareil.',
+    'settings.push.denied':
+      'Les notifications sont bloquées par le navigateur. Autorise-les dans les réglages du site pour les activer.',
+    'settings.push.error': 'Impossible d’activer les notifications.',
+    'settings.push.hint':
+      'Défis reçus, scores à valider, matchs de tournoi : prévenu même quand l’app est fermée.',
+
     // Réglages — cinématiques automatiques
     'settings.cinematics': 'Cinématiques automatiques',
     'settings.cinematics.on': 'Activées',
@@ -71,6 +83,17 @@ export const dict: Record<Lang, Dict> = {
     'settings.quality.high': 'High',
     'settings.quality.perf': 'Performance',
 
+    'settings.push': 'Push notifications',
+    'settings.push.enable': 'Enable on this device',
+    'settings.push.disable': 'Disable on this device',
+    'settings.push.enabled': 'Notifications on — you’ll be pinged even with the app closed.',
+    'settings.push.disabled': 'Notifications disabled on this device.',
+    'settings.push.denied':
+      'Notifications are blocked by the browser. Allow them in the site settings to enable.',
+    'settings.push.error': 'Could not enable notifications.',
+    'settings.push.hint':
+      'Challenges received, scores to confirm, tournament matches: pinged even when the app is closed.',
+
     'settings.cinematics': 'Automatic cinematics',
     'settings.cinematics.on': 'Enabled',
     'settings.cinematics.off': 'Disabled',
@@ -109,6 +132,17 @@ export const dict: Record<Lang, Dict> = {
     'settings.quality.auto': 'Auto',
     'settings.quality.high': 'Alta',
     'settings.quality.perf': 'Rendimiento',
+
+    'settings.push': 'Notificaciones push',
+    'settings.push.enable': 'Activar en este dispositivo',
+    'settings.push.disable': 'Desactivar en este dispositivo',
+    'settings.push.enabled': 'Notificaciones activadas — te avisaremos incluso con la app cerrada.',
+    'settings.push.disabled': 'Notificaciones desactivadas en este dispositivo.',
+    'settings.push.denied':
+      'El navegador bloquea las notificaciones. Permítelas en los ajustes del sitio para activarlas.',
+    'settings.push.error': 'No se pudieron activar las notificaciones.',
+    'settings.push.hint':
+      'Desafíos recibidos, resultados por confirmar, partidos de torneo: aviso incluso con la app cerrada.',
 
     'settings.cinematics': 'Cinemáticas automáticas',
     'settings.cinematics.on': 'Activadas',
