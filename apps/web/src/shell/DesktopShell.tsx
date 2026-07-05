@@ -30,6 +30,7 @@ import { GAME_META } from '../lib/gameMeta';
 import { pickRating } from '../lib/gameStats';
 import { useT } from '../lib/i18n';
 import { UniverseTransition } from '../components/UniverseTransition';
+import { CommandPalette } from '../components/CommandPalette';
 
 interface NavDef {
   to: string;
@@ -254,6 +255,9 @@ export function DesktopShell({ children }: DesktopShellProps) {
           )}
         </div>
       </aside>
+
+      {/* Palette de commande Cmd/Ctrl+K (desktop) */}
+      <CommandPalette />
 
       {/* ─── Main ────────────────────────────────────────────────────── */}
       <main ref={mainRef} className="flex-1 min-w-0 relative overflow-y-auto custom-scrollbar">
