@@ -38,12 +38,12 @@ const BACKGROUNDS: Record<HeroGradient, Record<'sheldon' | 'boost' | 'neutral', 
     boost:
       'linear-gradient(180deg, #2d1a0e 0%, #1f0f07 18%, #180a05 50%, #1f0f07 82%, #2d1a0e 100%)',
     neutral:
-      'linear-gradient(180deg, #2a241c 0%, #1d1914 18%, #15120e 50%, #1d1914 82%, #2a241c 100%)',
+      'linear-gradient(180deg, #1f2836 0%, #151b26 18%, #0f141c 50%, #151b26 82%, #1f2836 100%)',
   },
   flat: {
     sheldon: 'linear-gradient(180deg, #0e1e0e 0%, #071007 55%, #0a140a 100%)',
     boost: 'linear-gradient(180deg, #2d1a0e 0%, #1a0e07 55%, #22100a 100%)',
-    neutral: 'linear-gradient(180deg, #2a241c 0%, #15120e 55%, #1d1914 100%)',
+    neutral: 'linear-gradient(180deg, #1f2836 0%, #0f141c 55%, #151b26 100%)',
   },
 };
 

@@ -4733,7 +4733,7 @@ function ItemsAdminTab() {
                   <span
                     key={b.code}
                     className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold border"
-                    style={{ color: b.color ?? '#a89880', borderColor: `${b.color ?? '#a89880'}55`, background: `${b.color ?? '#a89880'}1a` }}
+                    style={{ color: b.color ?? '#a9b6c9', borderColor: `${b.color ?? '#a9b6c9'}55`, background: `${b.color ?? '#a9b6c9'}1a` }}
                   >
                     <Icon className="w-3.5 h-3.5" strokeWidth={2.5} />
                     {b.label}

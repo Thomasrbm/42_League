@@ -86,7 +86,7 @@ function TeamHeroCard({ team, nameOverride, onRenamed }: {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       className="relative overflow-hidden rounded-3xl"
       style={{
-        background: 'linear-gradient(180deg, #2a241c 0%, #1d1914 18%, #15120e 50%, #1d1914 82%, #2a241c 100%)',
+        background: 'linear-gradient(180deg, #1f2836 0%, #151b26 18%, #0f141c 50%, #151b26 82%, #1f2836 100%)',
         border: '1px solid rgba(255,201,74,0.38)',
         boxShadow: 'inset 0 1px 0 rgba(255,215,120,0.16), 0 12px 36px -8px rgba(255,201,74,0.20)',
       }}

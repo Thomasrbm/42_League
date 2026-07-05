@@ -79,7 +79,7 @@ function StepButton({ direction, disabled, tone, onStep }: StepButtonProps) {
 
   const activeColor = tone === 'neg' ? 'rgba(232,38,60,0.22)' : tone === 'pos' ? 'rgba(255,193,50,0.22)' : 'rgba(120,108,90,0.18)';
   const glowColor  = tone === 'neg' ? 'rgba(232,38,60,0.55)'  : tone === 'pos' ? 'rgba(255,193,50,0.55)'  : 'rgba(120,108,90,0.40)';
-  const textColor  = tone === 'neg' ? '#ff6878' : tone === 'pos' ? '#ffd34a' : '#a8a094';
+  const textColor  = tone === 'neg' ? '#ff6878' : tone === 'pos' ? '#ffd34a' : '#a7b1c2';
 
   return (
     <button
@@ -226,7 +226,7 @@ export function AbacusSlider({ value, onChange, min = -10, max = 9 }: AbacusSlid
           className="absolute top-1/2 left-7 right-7 h-[6px] -translate-y-1/2 rounded-full"
           style={{
             background:
-              'linear-gradient(to bottom, #0c0a08 0%, #3a3022 18%, #7d7468 45%, #a8a094 52%, #7d7468 60%, #2a241c 82%, #0c0a08 100%)',
+              'linear-gradient(to bottom, #090b10 0%, #26303f 18%, #7c8698 45%, #a7b1c2 52%, #7c8698 60%, #1f2836 82%, #090b10 100%)',
             boxShadow:
               '0 1px 0 rgba(255,247,228,0.16) inset, 0 -1px 0 rgba(0,0,0,0.65) inset, 0 8px 14px rgba(0,0,0,0.6), 0 0 22px rgba(255,201,74,0.08)',
           }}
@@ -237,7 +237,7 @@ export function AbacusSlider({ value, onChange, min = -10, max = 9 }: AbacusSlid
             key={side}
             className={`absolute top-1/2 ${side} w-2 h-3 -translate-y-1/2 rounded-sm`}
             style={{
-              background: 'linear-gradient(to bottom, #3a3022, #0c0a08 60%, #1d1914)',
+              background: 'linear-gradient(to bottom, #26303f, #090b10 60%, #151b26)',
               boxShadow: 'inset 0 1px 0 rgba(255,215,120,0.18), 0 2px 4px rgba(0,0,0,0.55)',
             }}
           />

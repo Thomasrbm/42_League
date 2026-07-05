@@ -212,7 +212,7 @@ export function GradesPage() {
                 {/* Pastille palier — Grand Master abrégé en « GM » pour tenir dans la case */}
                 <div
                   className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded-full font-gaming text-[9px] font-extrabold uppercase tracking-wider whitespace-nowrap ring-2 ring-bg-1 max-w-[120%]"
-                  style={{ background: displayTier.color, color: '#15120e' }}
+                  style={{ background: displayTier.color, color: '#0f141c' }}
                 >
                   <TierIcon tierKey={displayTier.key} label={displayTier.label} className="w-3 h-3 flex-shrink-0 ring-1 ring-black/20" />
                   <span className="truncate">
@@ -493,7 +493,7 @@ function FriseTrack({
         >
           <span
             className="absolute -top-1 left-1/2 -translate-x-1/2 text-[8px] font-gaming font-extrabold uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded"
-            style={{ background: `${myTierColor ?? '#ffc94a'}`, color: '#15120e' }}
+            style={{ background: `${myTierColor ?? '#ffc94a'}`, color: '#0f141c' }}
           >
             Toi
           </span>
@@ -578,7 +578,7 @@ function TierCard({
       {isMine && (
         <span
           className="absolute top-1.5 right-1.5 text-[7px] font-gaming font-extrabold uppercase tracking-widest px-1 py-0.5 rounded"
-          style={{ background: tier.color, color: '#15120e' }}
+          style={{ background: tier.color, color: '#0f141c' }}
         >
           Toi
         </span>

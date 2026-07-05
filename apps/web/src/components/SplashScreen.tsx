@@ -115,7 +115,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       className="fixed inset-0 z-[9999] overflow-hidden"
       style={{
         background:
-          'radial-gradient(ellipse 120% 65% at 50% -5%, #0a2020 0%, #0c0a08 50%, #0c0a08 100%)',
+          'radial-gradient(ellipse 120% 65% at 50% -5%, #0a2020 0%, #090b10 50%, #090b10 100%)',
         cursor: 'pointer',
         userSelect: 'none',
         WebkitUserSelect: 'none',

@@ -23,7 +23,7 @@ export interface BadgeRenderDef {
 function defFromEquipped(b: EquippedBadge): BadgeRenderDef {
   return {
     label: b.label,
-    color: b.color ?? '#a89880',
+    color: b.color ?? '#a9b6c9',
     icon: badgeIcon(b.icon),
     obtain: 'Badge cosmétique disponible en boutique.',
   };

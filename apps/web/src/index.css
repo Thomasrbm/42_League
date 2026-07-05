@@ -126,7 +126,7 @@
        `background-attachment: fixed` du body ne peint pas la zone du home
        indicator → le blanc par défaut du WebView ressortait (bande blanche en
        bas). Cette base sombre garantit qu'aucun blanc ne transparaît. */
-    background-color: #0b0907;
+    background-color: #090b10;
     /* Verrou : seul <main> scrolle dans le shell mobile. html/body restent
        figés sur le viewport pour éviter le « double scroll » où l'utilisateur
        pouvait descendre sous le contenu. */
@@ -137,17 +137,17 @@
   body {
     margin: 0;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    /* Fond global "salle de jeu RPG" :
-       1. radial vignette dorée au centre — chaleur du HUD
-       2. radial vignette ambrée en bas — sol lumineux
-       3. base anthracite chaud
+    /* Fond global « Onyx Arena » :
+       1. radial vignette dorée au centre — renforcée : c'est elle qui flashe
+       2. radial vignette dorée en bas — sol lumineux
+       3. base anthracite FROIDE (gris-bleu) : fond neutre qui fait claquer l'or
        4. micro-grid technique très discret */
     background:
-      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255, 201, 74, 0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 100% 60% at 50% 110%, rgba(192, 138, 74, 0.06) 0%, transparent 55%),
-      linear-gradient(180deg, #100d09 0%, #0b0907 100%);
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255, 201, 74, 0.11) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 60% at 50% 110%, rgba(255, 201, 74, 0.05) 0%, transparent 55%),
+      linear-gradient(180deg, #10141c 0%, #090b10 100%);
     background-attachment: fixed;
-    color: #ede4d3;
+    color: #e9eef6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow: hidden;
@@ -251,15 +251,15 @@
     scroll-behavior: smooth;
   }
 
-  /* Glass effect — réchauffé vers du brun chaud, accent doré. */
+  /* Glass effect — anthracite froid, accent doré. */
   .glass {
-    background: rgba(21, 18, 14, 0.78);
+    background: rgba(15, 20, 28, 0.78);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
 
   .glass-strong {
-    background: rgba(12, 10, 8, 0.88);
+    background: rgba(9, 11, 16, 0.88);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
   }
@@ -405,18 +405,18 @@
 
   /* ─── Nouvelles utilities premium ──────────────────────────────────── */
 
-  /* Plaque d'acier brossé — pour les stat cards (W/L/WR%/STREAK). */
+  /* Plaque d'acier brossé — pour les stat cards (W/L/WR%/STREAK). Refroidie gris-bleu. */
   .metal-plate {
     background:
       linear-gradient(
         180deg,
-        #2e2a22 0%,
-        #221d17 22%,
-        #1a1612 50%,
-        #221d17 78%,
-        #2e2a22 100%
+        #2a303c 0%,
+        #1d222c 22%,
+        #161a22 50%,
+        #1d222c 78%,
+        #2a303c 100%
       );
-    border: 1px solid #3a3022;
+    border: 1px solid #26303f;
     box-shadow:
       inset 0 1px 0 rgba(255, 215, 120, 0.12),
       inset 0 -1px 0 rgba(0, 0, 0, 0.5),

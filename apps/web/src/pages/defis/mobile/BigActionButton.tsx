@@ -15,7 +15,7 @@ interface BigActionButtonProps {
 }
 
 const TONE_BG: Record<Tone, string> = {
-  amber: 'linear-gradient(135deg, #2a241c 0%, #1d1914 60%, #15120e 100%)',
+  amber: 'linear-gradient(135deg, #1f2836 0%, #151b26 60%, #0f141c 100%)',
   gold: 'linear-gradient(135deg, #2c2519 0%, #1f1a12 55%, #161209 100%)',
   red: 'linear-gradient(135deg, #2a1818 0%, #1d1111 60%, #150a0a 100%)',
 };

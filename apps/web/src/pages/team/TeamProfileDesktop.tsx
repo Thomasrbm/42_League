@@ -113,7 +113,7 @@ export function TeamProfileDesktop({ team }: TeamProfileDesktopProps) {
           <div
             className="relative overflow-hidden rounded-2xl mb-6 border border-gold/35"
             style={{
-              background: 'linear-gradient(180deg, #2a241c 0%, #15120e 55%, #1d1914 100%)',
+              background: 'linear-gradient(180deg, #1f2836 0%, #0f141c 55%, #151b26 100%)',
               boxShadow: 'inset 0 1px 0 rgba(255,215,120,0.15), 0 12px 32px -12px rgba(255,201,74,0.25)',
             }}
           >
@@ -126,7 +126,7 @@ export function TeamProfileDesktop({ team }: TeamProfileDesktopProps) {
                 <div className="absolute right-0 top-0">
                   <PlayerAvatar login={team.player2Login} imageUrl={team.player2ImageUrl} size={56} />
                 </div>
-                <div style={{ position: 'absolute', left: 0, top: 4, outline: '2px solid #15120e', borderRadius: '50%' }}>
+                <div style={{ position: 'absolute', left: 0, top: 4, outline: '2px solid #0f141c', borderRadius: '50%' }}>
                   <PlayerAvatar login={team.player1Login} imageUrl={team.player1ImageUrl} size={56} />
                 </div>
               </div>
