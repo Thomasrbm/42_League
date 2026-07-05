@@ -295,12 +295,21 @@ function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileVie
 
 // ─── Icône de récompense (objet Lucide ou pièce 42) ─────────────────────────
 
-function RewardIcon({ tile, className }: { tile: TileView; className: string }) {
+function RewardIcon({
+  tile,
+  className,
+  color,
+}: {
+  tile: TileView;
+  className: string;
+  /** Couleur de l'icône — blanc sur les tuiles pleines, rareté sur fond sombre. */
+  color?: string;
+}) {
   if (tile.Icon === 'coin') {
     return <img src="/42coin.webp" alt="" className={`${className} object-contain drop-shadow`} />;
   }
   const Icon = tile.Icon;
-  return <Icon className={className} strokeWidth={2} style={{ color: tile.hex }} />;
+  return <Icon className={className} strokeWidth={2} style={{ color: color ?? tile.hex }} />;
 }
 
 // ─── Cinématique de claim (rayons rotatifs + zoom, façon Fortnite) ──────────
@@ -464,31 +473,33 @@ function TierTile({
       whileTap={claimable ? { scale: 0.97 } : undefined}
       transition={{ type: 'spring', stiffness: 380, damping: 24 }}
       style={{
-        // Fond façon Fortnite : nuit bleutée + lueur de rareté qui monte du bas.
+        // Fond façon Fortnite : la CASE est remplie de sa couleur de rareté
+        // (pleine en haut, fondu vers la nuit en bas où vit le texte). Les
+        // paliers verrouillés gardent une teinte résiduelle de leur rareté.
         background: unlocked
-          ? `radial-gradient(130% 95% at 50% 108%, ${hex}66 0%, ${hex}24 42%, #0c1731 78%), #0c1731`
-          : '#0a1226',
-        border: claimable ? '2px solid transparent' : `2px solid ${unlocked ? `${hex}88` : '#1d2b4d'}`,
-        boxShadow: unlocked && !claimable ? `inset 0 0 34px -18px ${hex}` : undefined,
+          ? `radial-gradient(140% 110% at 50% 0%, ${hex} 0%, ${hex}b0 42%, #0e1c3d 100%)`
+          : `radial-gradient(140% 110% at 50% 0%, ${hex}3d 0%, #0b152e 72%)`,
+        border: claimable ? '2px solid transparent' : `2px solid ${unlocked ? hex : '#1d2b4d'}`,
+        boxShadow: unlocked && !claimable ? `0 10px 26px -14px ${hex}, inset 0 1px 0 rgba(255,255,255,0.18)` : undefined,
         // Liseré jaune pulsé (animation CSS alternate → boucle parfaitement fluide).
         animation: claimable && !lite ? 'bpPulse 1.1s ease-in-out infinite alternate' : undefined,
         ...(claimable && lite ? { border: `2px solid ${YELLOW}` } : null),
       }}
     >
-      {/* Lueur derrière l'icône */}
+      {/* Lueur blanche derrière l'icône (la couleur, c'est déjà la case) */}
       {unlocked && (
         <span
           className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 w-3/4 aspect-square rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, ${hex}52, transparent 68%)`, filter: 'blur(6px)' }}
+          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.38), transparent 66%)', filter: 'blur(7px)' }}
         />
       )}
 
-      {/* Numéro de palier : plaque penchée en haut à gauche */}
+      {/* Numéro de palier : plaque sombre penchée en haut à gauche (lisible sur case colorée) */}
       <span
         className="absolute top-0 left-0 px-3 py-1 font-gaming font-black italic text-base sm:text-lg tabular-nums leading-none"
         style={{
-          background: unlocked ? hex : '#22335c',
-          color: unlocked ? '#0a1228' : '#7d8db4',
+          background: unlocked ? 'rgba(8,15,36,0.82)' : '#22335c',
+          color: unlocked ? '#ffffff' : '#7d8db4',
           clipPath: 'polygon(0 0, 100% 0, 82% 100%, 0 100%)',
           paddingRight: 18,
         }}
@@ -522,14 +533,18 @@ function TierTile({
           opacity: claimed ? 0.55 : 1,
         }}
       >
-        <RewardIcon tile={tile} className="w-14 h-14 sm:w-16 sm:h-16" />
+        <RewardIcon
+          tile={tile}
+          className="w-14 h-14 sm:w-16 sm:h-16"
+          color={unlocked ? '#ffffff' : tile.hex}
+        />
       </span>
 
       {/* Bas de tuile : rareté + nom */}
       <span className={`absolute inset-x-0 bottom-0 px-2.5 ${claimable ? 'pb-8' : 'pb-2.5'} flex flex-col gap-0.5`}>
         <span
           className="text-[9px] font-gaming font-black italic uppercase tracking-[0.16em]"
-          style={{ color: unlocked ? hex : '#54648c' }}
+          style={{ color: unlocked ? 'rgba(255,255,255,0.92)' : '#54648c', textShadow: unlocked ? '0 1px 3px rgba(0,0,0,0.6)' : undefined }}
         >
           {tile.tag}
         </span>
@@ -619,6 +634,19 @@ export function PassePage() {
     if (!sc) return;
     sc.scrollBy({ left: delta * sc.clientWidth * 0.85, behavior: 'smooth' });
   }, []);
+
+  // Position de scroll de la piste (0..1) + part visible — pilote la barre du bas.
+  const [scrollPos, setScrollPos] = useState({ pos: 0, size: 1 });
+  const onTrackScroll = useCallback(() => {
+    const sc = scrollerRef.current;
+    if (!sc || sc.scrollWidth === 0) return;
+    setScrollPos({ pos: sc.scrollLeft / sc.scrollWidth, size: sc.clientWidth / sc.scrollWidth });
+  }, []);
+  useEffect(() => {
+    onTrackScroll();
+    window.addEventListener('resize', onTrackScroll);
+    return () => window.removeEventListener('resize', onTrackScroll);
+  }, [onTrackScroll, loading]);
 
   const claimables = useMemo(() => tiles.filter((tl) => tl.claimable), [tiles]);
 
@@ -793,9 +821,9 @@ export function PassePage() {
 
       {/* ── Piste des récompenses : UNE ligne, scroll horizontal ───────────── */}
       {loading ? (
-        <div className="flex gap-3 overflow-hidden">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="shrink-0" style={{ width: TILE_W }}>
+        <div className="grid grid-rows-2 grid-flow-col gap-3 overflow-hidden">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} style={{ width: TILE_W }}>
               <Skeleton className="w-full aspect-[4/5] rounded-xl" />
             </div>
           ))}
@@ -808,9 +836,14 @@ export function PassePage() {
       ) : (
         <div className="relative">
           {/* Compteur global + indice de scroll */}
-          <div className="flex items-center justify-between mb-2 px-1">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7fa4ff] tabular-nums">
-              {claimedCount}/{tiles.length} · {t('battlepass.claimed')}
+          <div className="flex items-end justify-between mb-2 px-1">
+            <div
+              className="font-gaming font-black italic uppercase text-lg sm:text-xl text-white tracking-[0.1em] tabular-nums"
+              style={{ transform: 'skewX(-8deg)' }}
+            >
+              <span className="text-[#2cc3ff]">{claimedCount}</span>
+              <span className="text-[#54648c]">/{tiles.length}</span>{' '}
+              <span className="text-[13px] sm:text-[15px] text-[#7fa4ff]">{t('battlepass.claimed')}</span>
             </div>
             <div className="hidden sm:block text-[10px] uppercase tracking-[0.16em] text-[#54648c] font-bold">
               {t('battlepass.dragHint')}
@@ -841,20 +874,39 @@ export function PassePage() {
           <div className="pointer-events-none absolute left-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(90deg, #0b1836, transparent)' }} />
           <div className="pointer-events-none absolute right-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(270deg, #0b1836, transparent)' }} />
 
+          {/* 2 lignes, remplissage colonne par colonne. Le padding intérieur
+              laisse la place au zoom du hover (plus de tuile rognée aux bords). */}
           <div
             ref={scrollerRef}
-            className="flex gap-3 overflow-x-auto overflow-y-hidden snap-x scroll-px-4 px-1 pb-2 pt-1 cursor-grab scrollbar-none select-none"
+            onScroll={onTrackScroll}
+            className="grid grid-rows-2 grid-flow-col gap-3 overflow-x-auto overflow-y-hidden snap-x scroll-px-6 px-4 py-4 cursor-grab scrollbar-none select-none"
           >
             {tiles.map((tile) => (
               <div
                 key={tile.tier}
                 ref={data && tile.tier === data.level ? (el) => (currentTileRef.current = el) : undefined}
-                className="shrink-0 snap-start"
+                className="snap-start"
                 style={{ width: TILE_W }}
               >
                 <TierTile tile={tile} lite={lite} onClaim={claimOne} t={t} />
               </div>
             ))}
+          </div>
+
+          {/* Barre de position du scroll (part visible + avancement) */}
+          <div
+            className="mt-1 mx-1 h-2 rounded-full overflow-hidden"
+            style={{ background: '#101f42', border: '1px solid #27407c' }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, scrollPos.size * 100)}%`,
+                marginLeft: `${Math.min(100, scrollPos.pos * 100)}%`,
+                background: 'linear-gradient(90deg, #1a86ff, #2cc3ff)',
+                boxShadow: '0 0 10px rgba(44,195,255,0.75)',
+              }}
+            />
           </div>
         </div>
       )}
