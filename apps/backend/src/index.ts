@@ -10519,6 +10519,74 @@ app.delete('/admin/battlepass/tiers/:tier', async (c) => {
   return c.json({ ok: true });
 });
 
+// ── « Je suis chaud » : disponibilité éphémère pour jouer (30 min) ───────────
+// Volontairement EN MÉMOIRE (perdu au redéploiement, assumé) : c'est de la
+// présence, pas de la donnée. login → { game, until }.
+
+const HOT_DURATION_MS = 30 * 60 * 1000;
+const hotPlayers = new Map<string, { game: string; until: number }>();
+
+function pruneHotPlayers(): void {
+  const now = Date.now();
+  for (const [login, h] of hotPlayers) {
+    if (h.until <= now) hotPlayers.delete(login);
+  }
+}
+
+const HotGameSchema = z.object({
+  game: z.enum(['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes']),
+});
+
+// GET /hot — joueurs actuellement « chauds » (non expirés), plus anciens d'abord.
+app.get('/hot', async (c) => {
+  await getCurrentLogin(c);
+  pruneHotPlayers();
+  const logins = [...hotPlayers.keys()];
+  const users = logins.length
+    ? await prisma.user.findMany({
+        where: { login: { in: logins } },
+        select: { login: true, firstName: true, lastName: true, imageUrl: true },
+      })
+    : [];
+  const byLogin = new Map(users.map((u) => [u.login, u]));
+  return c.json(
+    [...hotPlayers.entries()]
+      .sort((a, b) => a[1].until - b[1].until)
+      .map(([login, h]) => ({
+        login,
+        game: h.game,
+        until: new Date(h.until).toISOString(),
+        firstName: byLogin.get(login)?.firstName ?? null,
+        lastName: byLogin.get(login)?.lastName ?? null,
+        imageUrl: byLogin.get(login)?.imageUrl ?? null,
+      })),
+  );
+});
+
+// POST /me/hot — se déclare chaud pour 30 min sur un jeu (ré-appel = prolonge).
+app.post('/me/hot', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const body = await c.req.json().catch(() => null);
+  const parsed = HotGameSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: 'jeu invalide' });
+  }
+  pruneHotPlayers();
+  const until = Date.now() + HOT_DURATION_MS;
+  hotPlayers.set(login, { game: parsed.data.game, until });
+  broadcast({ type: 'hot:update', payload: {} });
+  return c.json({ ok: true, until: new Date(until).toISOString() });
+});
+
+// DELETE /me/hot — se retire de la liste.
+app.delete('/me/hot', async (c) => {
+  const login = await getCurrentLogin(c);
+  hotPlayers.delete(login);
+  broadcast({ type: 'hot:update', payload: {} });
+  return c.json({ ok: true });
+});
+
 // ── Émotes de narguage (fin de 1v1 : le vainqueur nargue le perdant) ─────────
 
 /** Émotes proposées au joueur (PUT /me/taunt-emote). La première est le défaut. */

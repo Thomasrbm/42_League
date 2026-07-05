@@ -584,6 +584,16 @@ export interface MeResponse {
   } | null;
 }
 
+/** Joueur « chaud » : dispo pour jouer pendant 30 min (cf. GET /hot). */
+export interface HotPlayer {
+  login: string;
+  game: Game;
+  until: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  imageUrl: string | null;
+}
+
 /** Narguage en attente : le vainqueur d'un 1v1 nargue le perdant à sa prochaine connexion. */
 export interface TauntData {
   id: string;
@@ -2167,6 +2177,14 @@ export const api = {
   /** Marque un narguage comme vu (après la cinématique). */
   tauntSeen: (id: string) =>
     request<{ ok: true }>(`/me/taunts/${encodeURIComponent(id)}/seen`, { method: 'POST' }),
+  // ── « Je suis chaud » (dispo 30 min) ───────────────────────────────────────
+  /** Joueurs actuellement chauds pour jouer (non expirés). */
+  hotList: () => request<HotPlayer[]>('/hot'),
+  /** Se déclare chaud 30 min sur un jeu (ré-appel = prolonge). */
+  hotSet: (game: Game) =>
+    request<{ ok: true; until: string }>('/me/hot', { method: 'POST', body: JSON.stringify({ game }) }),
+  /** Se retire de la liste. */
+  hotClear: () => request<{ ok: true }>('/me/hot', { method: 'DELETE' }),
   /** Choisit son émote de victoire (montrée aux joueurs battus). */
   setTauntEmote: (emote: string) =>
     request<{ ok: true; emote: string }>('/me/taunt-emote', {

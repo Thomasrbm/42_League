@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
 import { EmptyState } from '../components/EmptyState';
+import { HotPlayers } from '../components/HotPlayers';
 import { OnlineBadge } from '../components/OnlineBadge';
 import { PlayerLink } from '../components/PlayerLink';
 import { useLeagueData } from '../hooks/useLeagueData';
@@ -182,6 +183,9 @@ export function HomePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:items-start">
         <div className="space-y-4">
+          {/* Dispo pour jouer (30 min) */}
+          <HotPlayers />
+
           {/* Tournoi en avant */}
           {featuredTournament && (
             <Link
