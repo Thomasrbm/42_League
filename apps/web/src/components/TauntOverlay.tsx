@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Avatar } from './Avatar';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { useT } from '../lib/i18n';
 import { GAME_META, type GameMeta } from '../lib/gameMeta';
@@ -84,6 +85,8 @@ export function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => 
   }, [phase, done]);
 
   const advance = () => (phase === 'vs' ? setPhase('emote') : done());
+  // Échap = passer (même geste que le clic).
+  useEscapeKey(true, advance);
 
   // Particules déterministes pour l'explosion de l'émote.
   const sparks = Array.from({ length: 12 }, (_, i) => {

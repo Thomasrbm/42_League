@@ -9,6 +9,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
+import { useT } from '../lib/i18n';
 
 export interface ConfirmOptions {
   title: string;
@@ -31,6 +32,7 @@ interface ActiveConfirm {
 }
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const t = useT();
   const [active, setActive] = useState<ActiveConfirm | null>(null);
   const okRef = useRef<HTMLButtonElement | null>(null);
 
@@ -89,7 +91,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 onClick={() => finish(false)}
                 className="font-extrabold text-xs uppercase tracking-wider px-4 py-2 rounded-lg border border-border text-muted-2 hover:text-gold hover:border-gold/50 hover:bg-gold/5 transition-all"
               >
-                {active.opts.cancelLabel ?? 'Annuler'}
+                {active.opts.cancelLabel ?? t('confirm.cancel')}
               </button>
               <button
                 ref={okRef}
@@ -101,7 +103,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                     : 'bg-gradient-to-b from-[#ffa83a] to-[#c5520a] text-[#1a0d00] border-[#ffc966]/60 hover:brightness-105 hover:shadow-[0_0_18px_rgba(255,128,32,0.5)]')
                 }
               >
-                <span className="relative z-10">{active.opts.confirmLabel ?? 'Confirmer'}</span>
+                <span className="relative z-10">{active.opts.confirmLabel ?? t('confirm.ok')}</span>
               </button>
             </div>
           </div>

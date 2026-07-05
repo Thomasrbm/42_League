@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Skeleton } from '../../mobile/primitives/Skeleton';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useFlash } from '../../hooks/useFlash';
 import { useT } from '../../lib/i18n';
 import { useIsLite } from '../../hooks/usePerf';
@@ -340,6 +341,8 @@ function ClaimFx({
     const id = setTimeout(finish, duration);
     return () => clearTimeout(id);
   }, [finish, duration]);
+  // Échap = passer (même geste que le clic).
+  useEscapeKey(true, finish);
 
   // 14 particules déterministes projetées en étoile.
   const sparks = Array.from({ length: 14 }, (_, i) => {

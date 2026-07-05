@@ -50,7 +50,10 @@ export default {
         // Vert utilisé pour le badge TOP %.
         accent: '#7fd66e',
 
-        muted: '#7d6e54',
+        // #7d6e54 ne passait pas le contraste AA (3.3–4.0:1 sur les fonds
+        // sombres) alors qu'il porte du texte de 9-11px partout. #988768 garde
+        // la teinte bronze mais atteint ≥4.6:1 sur bg-0…bg-3.
+        muted: '#988768',
         'muted-2': '#a89880',
         text: '#ede4d3',
         'text-strong': '#fff7e4',

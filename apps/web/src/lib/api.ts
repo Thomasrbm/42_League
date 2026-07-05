@@ -1056,6 +1056,15 @@ export interface SfSessionCurrent {
 
 export class AuthError extends Error {}
 
+/** Erreur API avec message humain (déjà affichable) + statut HTTP pour les appelants. */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -1080,7 +1089,31 @@ async function request<T>(
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}${body ? ` — ${body}` : ''}`);
+    // Le backend renvoie des messages humains (HTTPException) : on les affiche
+    // tels quels. Sinon, repli générique par famille de statut — on ne montre
+    // JAMAIS de « 409 Conflict — … » brut à l'utilisateur.
+    let msg = body.trim();
+    if (msg.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(msg) as { message?: unknown };
+        if (typeof parsed.message === 'string') msg = parsed.message;
+      } catch {
+        /* corps non-JSON : on garde le texte */
+      }
+    }
+    if (!msg || msg.length > 200 || /<[a-z!/]/i.test(msg)) {
+      msg =
+        res.status >= 500
+          ? 'Erreur serveur — réessaie dans un instant.'
+          : res.status === 403
+            ? 'Action non autorisée.'
+            : res.status === 404
+              ? 'Introuvable.'
+              : res.status === 429
+                ? 'Trop de requêtes — patiente un peu.'
+                : 'Requête impossible.';
+    }
+    throw new ApiError(msg, res.status);
   }
   return (await res.json()) as T;
 }

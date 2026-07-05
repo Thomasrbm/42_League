@@ -14,7 +14,8 @@ export function Toast() {
             : 'glass-strong border-gold/60 text-text-strong shadow-gold-glow')
         }
         onClick={clear}
-        role="status"
+        role={isError ? 'alert' : 'status'}
+        aria-live={isError ? 'assertive' : 'polite'}
       >
         <span
           aria-hidden
