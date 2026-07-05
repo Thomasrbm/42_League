@@ -15,6 +15,7 @@ import { getApiBase, APP_VERSION, APP_BUILD_DATE } from '../lib/config';
 import { getToken } from '../lib/storage';
 import { usePerfPref } from '../hooks/usePerf';
 import { setPerfPref, type PerfPref } from '../lib/perf';
+import { setAutoCinematics, useAutoCinematics } from '../lib/cinematics';
 
 /** Émotes de victoire proposées — MÊME liste que TAUNT_EMOTES côté backend. */
 const TAUNT_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'];
@@ -26,6 +27,7 @@ export function ReglagesPage() {
   const flash = useFlash();
   const perfPref = usePerfPref();
   const { me, refresh } = useLeagueData();
+  const autoCine = useAutoCinematics();
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -129,6 +131,24 @@ export function ReglagesPage() {
           />
           <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
             {t('settings.quality.hint')}
+          </p>
+        </div>
+
+        {/* Cinématiques automatiques (level-up, récompenses, rage, réactions) */}
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-2 mb-2">
+            {t('settings.cinematics')}
+          </label>
+          <Pills<'on' | 'off'>
+            value={autoCine ? 'on' : 'off'}
+            onChange={(v) => setAutoCinematics(v === 'on')}
+            choices={[
+              { value: 'on', label: t('settings.cinematics.on') },
+              { value: 'off', label: t('settings.cinematics.off') },
+            ]}
+          />
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
+            {t('settings.cinematics.hint')}
           </p>
         </div>
 

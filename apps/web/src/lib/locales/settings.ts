@@ -28,6 +28,13 @@ export const dict: Record<Lang, Dict> = {
     'settings.quality.high': 'Élevée',
     'settings.quality.perf': 'Performance',
 
+    // Réglages — cinématiques automatiques
+    'settings.cinematics': 'Cinématiques automatiques',
+    'settings.cinematics.on': 'Activées',
+    'settings.cinematics.off': 'Désactivées',
+    'settings.cinematics.hint':
+      'Level-up, récompense débloquée, rage, réactions… Les animations liées à tes actions directes (et le narguage) restent.',
+
     // Réglages — émote de victoire (narguage post-1v1)
     'settings.tauntEmote': 'Émote de victoire',
     'settings.tauntEmote.hint':
@@ -64,6 +71,12 @@ export const dict: Record<Lang, Dict> = {
     'settings.quality.high': 'High',
     'settings.quality.perf': 'Performance',
 
+    'settings.cinematics': 'Automatic cinematics',
+    'settings.cinematics.on': 'Enabled',
+    'settings.cinematics.off': 'Disabled',
+    'settings.cinematics.hint':
+      'Level-up, reward unlocked, rage, reactions… Animations tied to your direct actions (and taunts) stay.',
+
     'settings.tauntEmote': 'Victory emote',
     'settings.tauntEmote.hint':
       'Shown to the player you beat in a 1v1, on their next visit (after the versus screen).',
@@ -96,6 +109,12 @@ export const dict: Record<Lang, Dict> = {
     'settings.quality.auto': 'Auto',
     'settings.quality.high': 'Alta',
     'settings.quality.perf': 'Rendimiento',
+
+    'settings.cinematics': 'Cinemáticas automáticas',
+    'settings.cinematics.on': 'Activadas',
+    'settings.cinematics.off': 'Desactivadas',
+    'settings.cinematics.hint':
+      'Subida de nivel, recompensa, rabia, reacciones… Las animaciones de tus acciones directas (y las burlas) se mantienen.',
 
     'settings.tauntEmote': 'Emote de victoria',
     'settings.tauntEmote.hint':

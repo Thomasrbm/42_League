@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
-import { ShieldBan, Swords, Flame, Loader2, Check, X, Crosshair, Upload, ImageIcon, type LucideProps } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { ShieldBan, Swords, Flame, Loader2, Check, X, Crosshair, Upload, ImageIcon, ChevronDown, Package, type LucideIcon, type LucideProps } from 'lucide-react';
 import { api, type ConsumablesResponse, type ConsumableKind, type ConsumableState, type InventoryEntry } from '../../lib/api';
 import { useFlash } from '../../hooks/useFlash';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useEloBoostRemaining } from '../../components/EloBoost';
 import { CustomBannerUploaderModal } from '../../components/shop/CustomBannerUploader';
-import { SectionHeader } from './shared/SectionHeader';
 import { getGame, type Game } from '../../lib/gameMode';
 import { GAMES, GAME_META } from '../../lib/gameMeta';
 
@@ -59,6 +58,59 @@ function fmtLeft(ms: number): string {
   return `${hours} h`;
 }
 
+/**
+ * Rangement cliquable de l'inventaire : en-tête avec icône + compteur, contenu
+ * replié par défaut. Rend l'inventaire lisible même avec beaucoup d'items.
+ */
+function Folder({
+  title,
+  count,
+  Icon,
+  color,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  count: number;
+  Icon: LucideIcon;
+  color: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="card-hud rounded-2xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left tap-transparent"
+      >
+        <span
+          className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center border"
+          style={{ color, background: `${color}14`, borderColor: `${color}40` }}
+        >
+          <Icon className="w-5 h-5" strokeWidth={2.2} />
+        </span>
+        <span className="flex-1 font-gaming text-sm font-extrabold text-text-strong uppercase tracking-wide">
+          {title}
+        </span>
+        <span
+          className="text-[11px] font-extrabold tabular-nums px-2 py-0.5 rounded-full"
+          style={{ color, background: `${color}1a` }}
+        >
+          {count}
+        </span>
+        <ChevronDown
+          className={`w-4 h-4 text-muted-2 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          strokeWidth={2.5}
+        />
+      </button>
+      {open && <div className="px-3 pb-3">{children}</div>}
+    </section>
+  );
+}
+
 function BannersSection() {
   const { show } = useFlash();
   const { refresh } = useLeagueData();
@@ -96,9 +148,10 @@ function BannersSection() {
   }
 
   return (
-    <section>
-      <SectionHeader title="Bannières" />
-      <div className="space-y-2">
+    <Folder title="Bannières" count={banners.length} Icon={ImageIcon} color="#ffc94a">
+      {/* Vignettes compactes : 2 colonnes → 4 bannières visibles d'un coup.
+          Tap sur la vignette = équiper/déséquiper. */}
+      <div className="grid grid-cols-2 gap-2">
         {banners.map((b) => {
           const p = b.item.payload as Record<string, unknown> | null;
           const isCustom = p?.allowUpload === true;
@@ -109,61 +162,54 @@ function BannersSection() {
           return (
             <div
               key={b.itemId}
-              className="relative card-hud rounded-2xl overflow-hidden"
-              style={{ borderColor: b.equipped ? 'rgba(255,201,74,0.35)' : undefined }}
+              className="relative rounded-xl overflow-hidden border transition-colors"
+              style={{
+                borderColor: b.equipped ? 'rgba(255,201,74,0.65)' : 'rgba(255,255,255,0.08)',
+                boxShadow: b.equipped ? '0 0 14px -4px rgba(255,201,74,0.5)' : undefined,
+              }}
             >
-              {/* Aperçu bannière */}
-              <div className="relative w-full" style={{ aspectRatio: '1024 / 256' }}>
+              <button
+                type="button"
+                disabled={equipping === b.itemId}
+                onClick={() => void toggleEquip(b)}
+                title={b.equipped ? `${b.item.name} — équipée` : `Équiper ${b.item.name}`}
+                className="block w-full relative tap-transparent"
+                style={{ aspectRatio: '1024 / 256' }}
+              >
                 {displayImg ? (
-                  <img src={displayImg} alt={b.item.name} className="absolute inset-0 w-full h-full object-cover" />
+                  <img src={displayImg} alt={b.item.name} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-bg-2">
-                    <ImageIcon className="w-6 h-6 text-muted/30" strokeWidth={1.5} />
-                  </div>
+                  <span className="absolute inset-0 flex items-center justify-center bg-bg-2">
+                    <ImageIcon className="w-5 h-5 text-muted/30" strokeWidth={1.5} />
+                  </span>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <span className="absolute bottom-2 left-3 font-gaming text-sm font-extrabold text-white drop-shadow">
+                <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                <span className="absolute bottom-1 left-2 right-6 font-gaming text-[10px] font-extrabold text-white drop-shadow truncate text-left">
                   {b.item.name}
                 </span>
                 {b.equipped && (
-                  <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold text-[#1a0d00] text-[9px] font-extrabold uppercase tracking-wide">
-                    <Check className="w-3 h-3" strokeWidth={3} />
-                    Équipée
+                  <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
+                    <Check className="w-3 h-3 text-[#1a0d00]" strokeWidth={3.5} />
                   </span>
                 )}
-              </div>
+                {equipping === b.itemId && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/45">
+                    <Loader2 className="w-4 h-4 animate-spin text-white" strokeWidth={2.5} />
+                  </span>
+                )}
+              </button>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2 px-3 py-2">
+              {isCustom && (
                 <button
                   type="button"
-                  disabled={equipping === b.itemId}
-                  onClick={() => void toggleEquip(b)}
-                  className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wide transition-colors disabled:opacity-50 ${
-                    b.equipped
-                      ? 'bg-gold/15 border border-gold/40 text-gold'
-                      : 'bg-bg-1 border border-border/60 text-muted-2 hover:text-text'
-                  }`}
+                  onClick={() => setUploadTarget(b)}
+                  aria-label={userImg ? 'Changer l’image' : 'Uploader une image'}
+                  title={userImg ? 'Changer l’image' : 'Uploader une image'}
+                  className="absolute top-1 left-1 w-6 h-6 rounded-md bg-black/55 border border-gold/40 flex items-center justify-center text-gold/80 hover:text-gold transition-colors"
                 >
-                  {equipping === b.itemId ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2.5} />
-                  ) : b.equipped ? (
-                    <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                  ) : null}
-                  {b.equipped ? 'Équipée' : 'Équiper'}
+                  <Upload className="w-3 h-3" strokeWidth={2.6} />
                 </button>
-
-                {isCustom && (
-                  <button
-                    type="button"
-                    onClick={() => setUploadTarget(b)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wide border border-dashed border-gold/30 text-gold/70 hover:border-gold/60 hover:text-gold transition-colors"
-                  >
-                    <Upload className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    {userImg ? 'Changer' : 'Uploader'}
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           );
         })}
@@ -184,7 +230,7 @@ function BannersSection() {
           }}
         />
       )}
-    </section>
+    </Folder>
   );
 }
 
@@ -280,11 +326,12 @@ export function InventoryPanel() {
 
   if (!data) return null;
 
+  const totalConsumables = data.items.reduce((sum, c) => sum + c.quantity, 0);
+
   return (
-    <>
+    <div className="space-y-3">
     <BannersSection />
-    <section>
-      <SectionHeader title="Consommables" />
+    <Folder title="Consommables" count={totalConsumables} Icon={Package} color="#2dd4bf" defaultOpen>
       <div className="space-y-2.5">
         {data.items.map((c) => {
           const meta = META[c.kind];
@@ -544,7 +591,7 @@ export function InventoryPanel() {
           </div>
         </div>
       )}
-    </section>
-    </>
+    </Folder>
+    </div>
   );
 }
