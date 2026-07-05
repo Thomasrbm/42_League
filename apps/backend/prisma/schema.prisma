@@ -488,6 +488,9 @@ model TournamentEntry {
   // 2v2 : nom d'équipe optionnel, affiché à la place de « @cap & @partner ».
   teamName     String?  @map("team_name")
   joinedAt     DateTime @default(now()) @map("joined_at")
+  // Check-in « je suis là » avant le lancement — null = pas (encore) pointé.
+  // Remis à null si le joueur re-clique ; sans effet une fois le tournoi lancé.
+  checkedInAt  DateTime? @map("checked_in_at")
 
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [login], references: [login])

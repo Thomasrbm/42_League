@@ -934,6 +934,8 @@ export interface TournamentEntry {
   /** 2v2 : nom d'équipe optionnel (affiché à la place de « @cap & @partner »). */
   teamName?: string | null;
   joinedAt: string;
+  /** Check-in « je suis là » avant lancement — null = pas pointé. */
+  checkedInAt?: string | null;
   user?: { login: string; imageUrl: string | null; elo: number };
   /** 2v2 : utilisateur coéquipier résolu (avatar/elo) pour l'affichage des paires. */
   partner?: { login: string; imageUrl: string | null; elo: number } | null;
@@ -1658,6 +1660,12 @@ export const api = {
         }),
       },
     ),
+  /** Check-in « je suis là » (present=false pour retirer son pointage). */
+  tournamentCheckin: (id: string, present: boolean) =>
+    request<{ ok: true; checkedIn: boolean }>(`/tournaments/${encodeURIComponent(id)}/checkin`, {
+      method: 'POST',
+      body: JSON.stringify({ present }),
+    }),
   leaveTournament: (id: string) =>
     request<{ id: string; left: true }>(
       `/tournaments/${encodeURIComponent(id)}/leave`,

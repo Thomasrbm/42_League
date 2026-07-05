@@ -6220,6 +6220,33 @@ app.post('/tournaments/:id/leave', async (c) => {
   return c.json({ id, left: true });
 });
 
+// Check-in « je suis là » : un inscrit (capitaine ou coéquipier 2v2) pointe sa
+// présence avant le lancement — l'organisateur voit qui est vraiment là au lieu
+// de lancer un bracket avec des absents. Re-cliquer retire le pointage. Le
+// broadcastOnMutation du préfixe /tournaments/* pousse la maj à tous.
+app.post('/tournaments/:id/checkin', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const present = (body as { present?: unknown }).present !== false;
+  const t = await prisma.tournament.findUnique({ where: { id }, select: { status: true } });
+  if (!t) throw new HTTPException(404, { message: 'tournament not found' });
+  if (t.status !== 'registration') {
+    throw new HTTPException(409, { message: 'le check-in est clos (tournoi lancé)' });
+  }
+  const entry = await prisma.tournamentEntry.findFirst({
+    where: { tournamentId: id, OR: [{ login: me }, { partnerLogin: me }] },
+  });
+  if (!entry) {
+    throw new HTTPException(403, { message: 'tu n’es pas inscrit à ce tournoi' });
+  }
+  await prisma.tournamentEntry.update({
+    where: { tournamentId_login: { tournamentId: id, login: entry.login } },
+    data: { checkedInAt: present ? new Date() : null },
+  });
+  return c.json({ ok: true, checkedIn: present });
+});
+
 // Organisateur/admin : retire un inscrit (en 2v2, l'inscription EST l'équipe → tout
 // le duo est retiré) en cas d'erreur de saisie. Uniquement en phase d'inscription.
 // `login` = login du CAPITAINE (clé de l'inscription). Rembourse les paris ouverts
