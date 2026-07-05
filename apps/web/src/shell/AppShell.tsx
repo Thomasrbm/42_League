@@ -17,6 +17,7 @@ const RankUpOverlay      = lazy(() => import('../components/RankUpOverlay').then
 const LevelUpOverlay     = lazy(() => import('../components/LevelUpOverlay').then(m => ({ default: m.LevelUpOverlay })));
 const RewardUnlockOverlay = lazy(() => import('../components/RewardUnlockOverlay').then(m => ({ default: m.RewardUnlockOverlay })));
 const TauntOverlay       = lazy(() => import('../components/TauntOverlay').then(m => ({ default: m.TauntOverlay })));
+const XpGainToast        = lazy(() => import('../components/XpGainToast').then(m => ({ default: m.XpGainToast })));
 
 interface AppShellProps {
   children: ReactNode;
@@ -69,6 +70,8 @@ export function AppShell({ children }: AppShellProps) {
         <RewardUnlockOverlay />
         {/* Narguage post-défaite : écran versus puis émote du vainqueur, à la connexion */}
         <TauntOverlay />
+        {/* Feedback immédiat des gains d'XP (+N XP + barre du niveau) */}
+        <XpGainToast />
       </Suspense>
     </>
   );

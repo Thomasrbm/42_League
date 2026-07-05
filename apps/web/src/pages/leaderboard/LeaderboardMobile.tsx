@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, LocateFixed } from 'lucide-react';
 import { PullToRefresh } from '../../mobile/primitives/PullToRefresh';
+import { Skeleton } from '../../mobile/primitives/Skeleton';
 import { StaggerList, StaggerItem } from '../../mobile/motion/StaggerList';
 import { RankingScopeToggle } from './RankingScopeToggle';
 import { CampusScopeToggle, useCampusScope, filterByCampus, hasCampusInfo } from './campusScope';
@@ -73,6 +74,8 @@ export function LeaderboardMobile() {
   }, [seasonId, game]);
   const pastSeasons = seasons.filter((s) => !s.isActive);
   const viewingPast = standings !== null;
+  // Snapshot d'une saison passée en cours de chargement → skeletons (pas de pop-in).
+  const loadingSeason = seasonId !== '' && standings === null;
 
   // Matchs de la saison affichée. La BETA précède le tagging par seasonId → 0
   // match rattaché : on la détecte ainsi (seasonHasMatches=false) pour masquer la
@@ -295,7 +298,13 @@ export function LeaderboardMobile() {
           <GradesNavButton />
         </div>
 
-        {viewMode === 'graph' ? (
+        {loadingSeason ? (
+          <div className="space-y-2 px-1">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 rounded-2xl" />
+            ))}
+          </div>
+        ) : viewMode === 'graph' ? (
           <>
             {myRank && <WhereAmIButton onClick={scrollToMe} label={t('lb.whereAmI')} />}
             <LeaderboardScatter

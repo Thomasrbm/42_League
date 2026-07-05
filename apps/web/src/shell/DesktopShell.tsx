@@ -134,9 +134,14 @@ export function DesktopShell({ children }: DesktopShellProps) {
         <div className={`relative border-b border-gold/20 ${collapsed ? 'px-2 py-4' : 'px-5 py-5'}`}>
           <NavLink to="/" className="flex flex-col gap-1.5 group" aria-label="42 League">
             {collapsed ? (
-              <span className="font-display text-xl font-black text-gold text-center leading-none drop-shadow-[0_2px_8px_rgba(255,201,74,0.25)]">
-                42
-              </span>
+              <img
+                src="/mini-96.webp"
+                alt="ONE League"
+                width={96}
+                height={96}
+                className="w-10 h-10 mx-auto rounded-lg select-none drop-shadow-[0_2px_8px_rgba(255,201,74,0.25)]"
+                draggable={false}
+              />
             ) : (
               <>
                 <img

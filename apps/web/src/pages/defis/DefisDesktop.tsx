@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, Swords, X, Clock, Zap, Users, Target } from 'lucide-react';
+import { EmptyState } from '../../components/EmptyState';
 import { Panel } from '../../components/Panel';
 import { Avatar } from '../../components/Avatar';
 import { SheldonApostleAura, SHELDON_COLORS, isSheldonTitle } from '../../components/SheldonApostle';
@@ -798,7 +799,7 @@ function PlayerPool({ players, leaderboard: _lb, game: _game, onChallenge, onDec
       </div>
 
       {players.length === 0 ? (
-        <div className="text-center text-muted-2 py-8 text-sm">{t('defis.empty')}</div>
+        <EmptyState Icon={Users} title={t('defis.empty')} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
           {filtered.map((u) => (

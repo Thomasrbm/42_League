@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown, Flame, Snowflake, Skull, LocateFixed } from 'lu
 import { api, type Season, type SeasonStanding, type LeaderboardEntry, type PlayedMatch } from '../../lib/api';
 import { Panel } from '../../components/Panel';
 import { PlayerLink } from '../../components/PlayerLink';
+import { Skeleton } from '../../mobile/primitives/Skeleton';
 import { Avatar } from '../../components/Avatar';
 import { OnlineBadge } from '../../components/OnlineBadge';
 import { Tooltip } from '../../components/Tooltip';
@@ -274,6 +275,8 @@ export function LeaderboardDesktop() {
   }, [seasonId, game]);
 
   const viewingPast = standings !== null;
+  // Snapshot d'une saison passée en cours de chargement → skeletons (pas de pop-in).
+  const loadingSeason = seasonId !== '' && standings === null;
 
   // Matchs de la saison affichée : en saison passée, on ne garde que ceux taggés
   // de son seasonId. La saison BETA précède le tagging → 0 match rattaché : on la
@@ -545,7 +548,13 @@ export function LeaderboardDesktop() {
             {t('lb.campus.legacyNote')}
           </p>
         )}
-        {scopedEntries.length === 0 ? (
+        {loadingSeason ? (
+          <div className="space-y-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 rounded-xl" />
+            ))}
+          </div>
+        ) : scopedEntries.length === 0 ? (
           <div className="text-center text-muted-2 py-10">
             {viewingPast ? t('lb.snapshot.empty') : t('lb.unranked.empty')}
           </div>
