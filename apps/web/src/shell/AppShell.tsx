@@ -10,7 +10,6 @@ import { GameOnboarding } from '../components/GameOnboarding';
 const NotifBanner        = lazy(() => import('../components/NotifBanner').then(m => ({ default: m.NotifBanner })));
 const OpsRevealOverlay   = lazy(() => import('../components/OpsRevealOverlay').then(m => ({ default: m.OpsRevealOverlay })));
 const AnnouncementPopup  = lazy(() => import('../components/AnnouncementPopup').then(m => ({ default: m.AnnouncementPopup })));
-const GameTransitionOverlay = lazy(() => import('../components/GameTransitionOverlay').then(m => ({ default: m.GameTransitionOverlay })));
 const MatchmakingOverlay = lazy(() => import('../components/MatchmakingOverlay').then(m => ({ default: m.MatchmakingOverlay })));
 const DuelStrikeOverlay  = lazy(() => import('../components/DuelStrikeOverlay').then(m => ({ default: m.DuelStrikeOverlay })));
 const ContestRageOverlay = lazy(() => import('../components/ContestRageOverlay').then(m => ({ default: m.ContestRageOverlay })));
@@ -53,8 +52,9 @@ export function AppShell({ children }: AppShellProps) {
       <Suspense>
         {/* Annonces générales (admin) — popup « une seule fois » à la connexion */}
         <AnnouncementPopup />
-        {/* Overlay cinématique de changement d'univers — pointer-events-none */}
-        <GameTransitionOverlay />
+        {/* Une SEULE cinématique de changement d'univers : le ballet de tuiles
+            (UniverseTransition dans les shells). L'ancien GameTransitionOverlay
+            doublait l'animation à chaque switch — retiré. */}
         {/* Overlay VERSUS global */}
         <MatchmakingOverlay />
         {/* Réaction « rage » plein écran quand une game est contestée */}

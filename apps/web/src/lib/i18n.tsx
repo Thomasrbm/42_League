@@ -37,6 +37,10 @@ const fr: Dict = {
   'nav.shopgod': 'Shop GOD',
   'nav.historique': 'Historique',
   'nav.reglages': 'Réglages',
+  'nav.goat': 'G.O.A.T',
+  'nav.more': 'Plus',
+  'nav.collapse': 'Réduire',
+  'nav.expand': 'Agrandir',
   'nav.god': 'GOD',
   'auth.notConnected': 'non connecté',
 
@@ -252,6 +256,10 @@ const en: Dict = {
   'nav.shopgod': 'Shop GOD',
   'nav.historique': 'History',
   'nav.reglages': 'Settings',
+  'nav.goat': 'G.O.A.T',
+  'nav.more': 'More',
+  'nav.collapse': 'Collapse',
+  'nav.expand': 'Expand',
   'nav.god': 'GOD',
   'auth.notConnected': 'not signed in',
 
@@ -467,6 +475,10 @@ const es: Dict = {
   'nav.shopgod': 'Shop GOD',
   'nav.historique': 'Historial',
   'nav.reglages': 'Ajustes',
+  'nav.goat': 'G.O.A.T',
+  'nav.more': 'Más',
+  'nav.collapse': 'Contraer',
+  'nav.expand': 'Expandir',
   'nav.god': 'GOD',
   'auth.notConnected': 'no conectado',
 

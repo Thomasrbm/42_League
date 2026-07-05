@@ -23,9 +23,11 @@ interface UniverseTransitionProps {
 }
 
 // ─── Réglages ────────────────────────────────────────────────────────────────
-const EXIT_DUR = 380;
-const ENTER_DUR = 480;
-const REVEAL_HOLD = 300; // durée où les blocs sont hors-champ (backdrop exposée)
+// Durées volontairement courtes : changer d'univers est une action FRÉQUENTE
+// (comparer deux classements) — la transition doit rester sous ~700 ms au total.
+const EXIT_DUR = 260;
+const ENTER_DUR = 320;
+const REVEAL_HOLD = 120; // durée où les blocs sont hors-champ (backdrop exposée)
 const MAX_TILES = 42;
 const EXIT_EASE = 'cubic-bezier(0.7, 0, 0.84, 0)'; // accélère vers les bords
 const ENTER_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'; // décélère, settle premium
