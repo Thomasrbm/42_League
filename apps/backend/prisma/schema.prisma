@@ -1044,9 +1044,9 @@ model XpTransaction {
   @@map("xp_transaction")
 }
 
-// Palier configuré du passe de combat (tier == niveau). La récompense est
-// accordée automatiquement quand le joueur atteint le niveau correspondant
-// (cf. reconcileBattlePassTx). `rewardKind` pilote le champ utilisé.
+// Palier configuré du passe de combat (tier == niveau). Atteindre le niveau
+// DÉBLOQUE le palier ; la récompense est remise quand le joueur la réclame
+// (cf. claimBattlePassTierTx). `rewardKind` pilote le champ utilisé.
 model BattlePassTier {
   tier           Int       @id
   rewardKind     String    @map("reward_kind") // 'item' | 'coins' | 'consumable' | 'none'
@@ -1060,8 +1060,8 @@ model BattlePassTier {
   @@map("battle_pass_tier")
 }
 
-// Trace l'octroi d'un palier à un joueur — garantit l'idempotence de
-// reconcileBattlePassTx (un palier accordé une seule fois, jamais en double).
+// Trace la réclamation d'un palier par un joueur — garantit l'idempotence de
+// claimBattlePassTierTx (un palier réclamé une seule fois, jamais en double).
 model BattlePassClaim {
   userLogin String   @map("user_login")
   tier      Int

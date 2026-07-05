@@ -10425,6 +10425,52 @@ app.get('/me/battlepass', async (c) => {
   });
 });
 
+// POST /me/battlepass/claim/:tier — réclame la récompense d'un palier atteint.
+// 400 palier invalide, 403 palier non atteint, 409 déjà réclamé.
+app.post('/me/battlepass/claim/:tier', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const tier = Number(c.req.param('tier'));
+  if (!Number.isInteger(tier) || tier < 1 || tier > BATTLE_PASS_MAX_TIERS) {
+    throw new HTTPException(400, { message: 'palier invalide' });
+  }
+  const user = await prisma.user.findUnique({ where: { login }, select: { xp: true } });
+  const { level } = levelFromXp(user?.xp ?? 0);
+  if (tier > level) {
+    throw new HTTPException(403, { message: 'palier non atteint' });
+  }
+  const claimed = await prisma.$transaction((tx) => claimBattlePassTierTx(tx, login, tier));
+  if (!claimed) {
+    throw new HTTPException(409, { message: 'palier déjà réclamé' });
+  }
+  return c.json({ ok: true, tier });
+});
+
+// POST /me/battlepass/claim-all — réclame d'un coup tous les paliers atteints
+// non réclamés (ordre croissant). Renvoie la liste des paliers réclamés.
+app.post('/me/battlepass/claim-all', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const user = await prisma.user.findUnique({ where: { login }, select: { xp: true } });
+  const { level } = levelFromXp(user?.xp ?? 0);
+  const claims = await prisma.battlePassClaim.findMany({
+    where: { userLogin: login },
+    select: { tier: true },
+  });
+  const done = new Set(claims.map((cl) => cl.tier));
+  const todo: number[] = [];
+  for (let t = 1; t <= Math.min(level, BATTLE_PASS_MAX_TIERS); t++) {
+    if (!done.has(t)) todo.push(t);
+  }
+  const tiers: number[] = [];
+  await prisma.$transaction(async (tx) => {
+    for (const t of todo) {
+      if (await claimBattlePassTierTx(tx, login, t)) tiers.push(t);
+    }
+  });
+  return c.json({ ok: true, tiers });
+});
+
 // GET /admin/battlepass/tiers — tous les paliers configurés (admin).
 app.get('/admin/battlepass/tiers', async (c) => {
   const me = await getCurrentLogin(c);
@@ -10950,8 +10996,9 @@ async function awardMatchEconomyTx(
 //
 // L'XP est cumulative à vie (User.xp, jamais reset). Le niveau dérive de l'XP
 // via une courbe purement serveur — le front n'affiche que ce que l'API renvoie.
-// 1 niveau = 1 palier (BattlePassTier) ; atteindre un niveau accorde la
-// récompense du palier correspondant (reconcileBattlePassTx, idempotent).
+// 1 niveau = 1 palier (BattlePassTier) ; atteindre un niveau DÉBLOQUE le palier,
+// que le joueur réclame ensuite via POST /me/battlepass/claim/:tier (ou
+// claim-all). L'octroi est idempotent grâce à BattlePassClaim.
 
 /** Nombre de paliers affichés sur la piste du passe (échelle complète 1..N). */
 const BATTLE_PASS_MAX_TIERS = 100;
@@ -11074,61 +11121,84 @@ async function awardMatchExperienceTx(
     }
     const amount = Math.max(0, Math.round(xp * decayFactor));
     if (amount > 0) {
-      await grantXpTx(tx, p.login, amount, {
+      const next = await grantXpTx(tx, p.login, amount, {
         type: 'match',
         meta: { game, won: isDraw ? null : p.won },
       });
+      // Signale les paliers franchis grâce à cet apport d'XP (le joueur devra
+      // les RÉCLAMER lui-même via POST /me/battlepass/claim/:tier).
+      if (next != null) {
+        const prevLevel = levelFromXp(next - amount).level;
+        const newLevel = levelFromXp(next).level;
+        await notifyBattlePassTiersTx(tx, p.login, prevLevel, newLevel);
+      }
     }
-    // Accorde immédiatement les paliers franchis grâce à cet apport d'XP.
-    await reconcileBattlePassTx(tx, p.login);
   }
 }
 
 /**
- * Octroie automatiquement, dans l'ordre croissant, les paliers de passe de
- * combat dont le niveau est atteint (tier <= level) et pas encore réclamés.
- * Idempotent grâce à BattlePassClaim. Émet `battlepass:tier` si des paliers ont
- * été accordés. À appeler dans la même transaction que le gain d'XP.
+ * Émet `battlepass:tier` pour les paliers nouvellement FRANCHIS porteurs d'une
+ * récompense configurée. N'accorde RIEN : depuis le passage au claim manuel,
+ * la récompense n'est remise que par claimBattlePassTierTx (routes de claim).
  */
-async function reconcileBattlePassTx(tx: Prisma.TransactionClient, login: string): Promise<void> {
-  const user = await tx.user.findUnique({ where: { login }, select: { xp: true } });
-  if (!user) return;
-  const { level } = levelFromXp(user.xp);
-  const [tiers, claims] = await Promise.all([
-    tx.battlePassTier.findMany({ where: { tier: { lte: level } }, orderBy: { tier: 'asc' } }),
-    tx.battlePassClaim.findMany({ where: { userLogin: login }, select: { tier: true } }),
-  ]);
-  const claimed = new Set(claims.map((c) => c.tier));
-  const granted: number[] = [];
-  for (const t of tiers) {
-    if (claimed.has(t.tier)) continue;
-    switch (t.rewardKind) {
-      case 'item':
-        if (t.itemId) await grantItemTx(tx, login, t.itemId, false);
-        break;
-      case 'coins':
-        if (t.coins && t.coins > 0)
-          await grantCoinsTx(tx, login, t.coins, { type: 'battlepass_tier', refId: String(t.tier) });
-        break;
-      case 'consumable':
-        if (t.consumableKind) {
-          await tx.consumableInventory.upsert({
-            where: { userLogin_kind: { userLogin: login, kind: t.consumableKind } },
-            update: { quantity: { increment: 1 } },
-            create: { userLogin: login, kind: t.consumableKind, quantity: 1 },
-          });
-        }
-        break;
-      case 'none':
-      default:
-        break;
-    }
-    await tx.battlePassClaim.create({ data: { userLogin: login, tier: t.tier } });
-    granted.push(t.tier);
+async function notifyBattlePassTiersTx(
+  tx: Prisma.TransactionClient,
+  login: string,
+  prevLevel: number,
+  newLevel: number,
+): Promise<void> {
+  if (newLevel <= prevLevel) return;
+  const tiers = await tx.battlePassTier.findMany({
+    where: { tier: { gt: prevLevel, lte: newLevel }, rewardKind: { not: 'none' } },
+    orderBy: { tier: 'asc' },
+    select: { tier: true },
+  });
+  if (tiers.length > 0) {
+    emit([login], { type: 'battlepass:tier', payload: { tiers: tiers.map((t) => t.tier) } });
   }
-  if (granted.length > 0) {
-    emit([login], { type: 'battlepass:tier', payload: { tiers: granted } });
+}
+
+/**
+ * Réclame un palier : enregistre le claim (idempotence par la PK
+ * BattlePassClaim) PUIS remet la récompense configurée, le tout dans la même
+ * transaction. Renvoie false si le palier était déjà réclamé. Le contrôle
+ * « palier atteint » est fait par l'appelant (routes de claim).
+ */
+async function claimBattlePassTierTx(
+  tx: Prisma.TransactionClient,
+  login: string,
+  tier: number,
+): Promise<boolean> {
+  const existing = await tx.battlePassClaim.findUnique({
+    where: { userLogin_tier: { userLogin: login, tier } },
+  });
+  if (existing) return false;
+  // Le claim d'abord : en cas de course, la contrainte unique fait échouer la
+  // transaction AVANT toute remise de récompense (aucun double octroi possible).
+  await tx.battlePassClaim.create({ data: { userLogin: login, tier } });
+  const t = await tx.battlePassTier.findUnique({ where: { tier } });
+  switch (t?.rewardKind) {
+    case 'item':
+      if (t.itemId) await grantItemTx(tx, login, t.itemId, false);
+      break;
+    case 'coins':
+      if (t.coins && t.coins > 0)
+        await grantCoinsTx(tx, login, t.coins, { type: 'battlepass_tier', refId: String(tier) });
+      break;
+    case 'consumable':
+      if (t.consumableKind) {
+        await tx.consumableInventory.upsert({
+          where: { userLogin_kind: { userLogin: login, kind: t.consumableKind } },
+          update: { quantity: { increment: 1 } },
+          create: { userLogin: login, kind: t.consumableKind, quantity: 1 },
+        });
+      }
+      break;
+    default:
+      // Palier sans récompense configurée : le claim vaut simple pointage.
+      break;
   }
+  return true;
 }
 
 // ─── Paris : règlement / remboursement (volet C) ─────────────────────────────

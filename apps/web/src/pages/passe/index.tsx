@@ -45,15 +45,14 @@ import { resolveRarity, type Rarity } from '../../lib/rarity';
 // « TOUT RÉCUPÉRER » en tête de page enchaîne toutes les récompenses avec la
 // cinématique de claim (rayons rotatifs + zoom de l'objet).
 //
-// ⚠ Le backend n'expose pas (encore) d'endpoint de claim manuel : la
-// récupération est simulée côté client (localStorage) sur des récompenses
-// FACTICES injectées quand un palier n'a pas de récompense configurée.
-// Brancher `claimTier()` sur la vraie API quand elle existera.
+// La récupération est RÉELLE : POST /me/battlepass/claim/:tier et
+// /me/battlepass/claim-all (la récompense n'est plus auto-accordée côté
+// serveur). Les paliers sans récompense configurée affichent une récompense
+// FACTICE (visuel seulement) mais leur claim est enregistré pareil.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const YELLOW = '#ffe234';
 const PAGE_SIZE = 10;
-const FAKE_CLAIMED_LS = 'bp.fakeClaimed.v1';
 
 /** Palette de rareté façon Fortnite (locale à la page — la boutique garde la sienne). */
 const FN_HEX: Record<Rarity | 'coins' | 'consumable' | 'none', string> = {
@@ -137,8 +136,6 @@ interface TileView {
   unlocked: boolean;
   claimed: boolean;
   claimable: boolean;
-  /** Récompense factice (claim simulé côté client). */
-  fake: boolean;
   name: string;
   /** Libellé de rareté / type affiché sous le nom. */
   tag: string;
@@ -153,11 +150,7 @@ const RARITY_TAG: Record<Rarity, string> = {
   legendary: 'Légendaire',
 };
 
-function buildTiles(
-  data: BattlePassResponse,
-  fakeClaimed: Set<number>,
-  t: (k: string) => string,
-): TileView[] {
+function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileView[] {
   // Aucun palier configuré → piste 100% factice de 60 paliers pour la démo.
   const source: BattlePassTierView[] =
     data.tiers.length > 0
@@ -181,7 +174,6 @@ function buildTiles(
           unlocked: tier.unlocked,
           claimed,
           claimable: tier.unlocked && !claimed,
-          fake: false,
           name: `${tier.coins ?? 0}`,
           tag: t('battlepass.reward.coins'),
           hex: FN_HEX.coins,
@@ -196,7 +188,6 @@ function buildTiles(
           unlocked: tier.unlocked,
           claimed,
           claimable: tier.unlocked && !claimed,
-          fake: false,
           name: t(`battlepass.consumable.${tier.consumableKind}`),
           tag: t('battlepass.reward.consumable'),
           hex: FN_HEX.consumable,
@@ -212,7 +203,6 @@ function buildTiles(
         unlocked: tier.unlocked,
         claimed,
         claimable: tier.unlocked && !claimed,
-        fake: false,
         name: tier.item!.name,
         tag: RARITY_TAG[rarity],
         hex: FN_HEX[rarity],
@@ -220,9 +210,9 @@ function buildTiles(
       };
     }
 
-    // Palier sans récompense configurée → récompense factice, claim local.
+    // Palier sans récompense configurée → visuel factice, mais claim réel.
     const fk = fakeRewardFor(tier.tier);
-    const claimed = fakeClaimed.has(tier.tier);
+    const claimed = !!tier.claimedAt;
     const isCoins = fk.kind === 'coins';
     const isConsumable = fk.kind === 'consumable';
     return {
@@ -231,7 +221,6 @@ function buildTiles(
       unlocked: tier.unlocked,
       claimed,
       claimable: tier.unlocked && !claimed,
-      fake: true,
       name: isConsumable ? t(`battlepass.consumable.${fk.consumableKind}`) : fk.name,
       tag: isCoins
         ? t('battlepass.reward.coins')
@@ -527,18 +516,10 @@ export function PassePage() {
   const [dir, setDir] = useState(1);
   const autoPageDone = useRef(false);
 
-  // Claims simulés (récompenses factices) — persistés localement.
-  const [fakeClaimed, setFakeClaimed] = useState<Set<number>>(() => {
-    try {
-      const raw = localStorage.getItem(FAKE_CLAIMED_LS);
-      return new Set(raw ? (JSON.parse(raw) as number[]) : []);
-    } catch {
-      return new Set();
-    }
-  });
-
   // File de la cinématique de claim (claim unitaire = 1 élément).
   const [fxQueue, setFxQueue] = useState<TileView[]>([]);
+  // Verrou pendant l'appel API de claim (évite le double-clic).
+  const claiming = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -555,10 +536,7 @@ export function PassePage() {
     void load();
   }, [load]);
 
-  const tiles = useMemo(
-    () => (data ? buildTiles(data, fakeClaimed, t) : []),
-    [data, fakeClaimed, t],
-  );
+  const tiles = useMemo(() => (data ? buildTiles(data, t) : []), [data, t]);
 
   const pages = useMemo(() => {
     const out: TileView[][] = [];
@@ -576,32 +554,44 @@ export function PassePage() {
 
   const claimables = useMemo(() => tiles.filter((tl) => tl.claimable), [tiles]);
 
-  /** Marque un palier récupéré. Factice → localStorage ; réel → à brancher sur l'API. */
-  const markClaimed = useCallback((tile: TileView) => {
-    setFakeClaimed((prev) => {
-      const next = new Set(prev);
-      next.add(tile.tier);
+  /** Claim unitaire : API d'abord, cinématique uniquement si le serveur accepte. */
+  const claimOne = useCallback(
+    async (tile: TileView) => {
+      if (claiming.current) return;
+      claiming.current = true;
       try {
-        localStorage.setItem(FAKE_CLAIMED_LS, JSON.stringify([...next]));
-      } catch {
-        /* stockage indisponible : l'état reste en mémoire */
+        await api.battlePassClaimTier(tile.tier);
+        setFxQueue([tile]);
+      } catch (err) {
+        show(err instanceof Error ? err.message : t('battlepass.claim'), 'error');
+      } finally {
+        claiming.current = false;
+        void load();
       }
-      return next;
-    });
-  }, []);
+    },
+    [load, show, t],
+  );
 
-  const claimOne = useCallback((tile: TileView) => setFxQueue([tile]), []);
-  const claimAll = useCallback(() => {
-    if (claimables.length > 0) setFxQueue(claimables);
-  }, [claimables]);
+  /** Claim groupé : le serveur réclame tout, la cinématique enchaîne les paliers acceptés. */
+  const claimAll = useCallback(async () => {
+    if (claiming.current || claimables.length === 0) return;
+    claiming.current = true;
+    try {
+      const res = await api.battlePassClaimAll();
+      const ok = new Set(res.tiers);
+      const played = claimables.filter((tl) => ok.has(tl.tier));
+      if (played.length > 0) setFxQueue(played);
+    } catch (err) {
+      show(err instanceof Error ? err.message : t('battlepass.claimAll'), 'error');
+    } finally {
+      claiming.current = false;
+      void load();
+    }
+  }, [claimables, load, show, t]);
 
   const onFxDone = useCallback(() => {
-    setFxQueue((q) => {
-      const head = q[0];
-      if (head) markClaimed(head);
-      return q.slice(1);
-    });
-  }, [markClaimed]);
+    setFxQueue((q) => q.slice(1));
+  }, []);
 
   const goPage = useCallback(
     (delta: number) => {

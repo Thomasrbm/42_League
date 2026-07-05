@@ -2096,6 +2096,12 @@ export const api = {
     }),
   // ── Passe de combat (XP) ────────────────────────────────────────────────────
   battlePass: () => request<BattlePassResponse>('/me/battlepass'),
+  /** Réclame la récompense d'un palier atteint (403 non atteint, 409 déjà réclamé). */
+  battlePassClaimTier: (tier: number) =>
+    request<{ ok: true; tier: number }>(`/me/battlepass/claim/${tier}`, { method: 'POST' }),
+  /** Réclame d'un coup tous les paliers atteints non réclamés. */
+  battlePassClaimAll: () =>
+    request<{ ok: true; tiers: number[] }>('/me/battlepass/claim-all', { method: 'POST' }),
   adminBattlePassTiers: () => request<BattlePassTierAdmin[]>('/admin/battlepass/tiers'),
   adminSetBattlePassTier: (tier: number, input: Omit<BattlePassTierAdmin, 'tier'>) =>
     request<BattlePassTierAdmin>(`/admin/battlepass/tiers/${tier}`, {
