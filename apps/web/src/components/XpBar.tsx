@@ -60,7 +60,11 @@ export function XpBar({
       {withLink && (
         <Link
           to="/passe"
-          className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-[#7dd3fc]/30 bg-[#38bdf8]/10 py-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#7dd3fc] transition-colors hover:bg-[#38bdf8]/15 tap-transparent"
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[12px] font-extrabold uppercase tracking-[0.16em] text-[#0a1228] transition-transform hover:scale-[1.02] active:scale-[0.98] tap-transparent"
+          style={{
+            background: 'linear-gradient(160deg, #fff566, #ffe234 45%, #ffae00)',
+            boxShadow: '0 0 18px rgba(255,226,52,0.45), 0 8px 22px -10px rgba(255,174,0,0.7)',
+          }}
         >
           {t('battlepass.profileBtn')}
           <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />

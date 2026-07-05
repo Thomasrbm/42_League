@@ -12,12 +12,13 @@ import { LeaderboardScatter, RankingViewToggle, GradesNavButton, type RankingVie
 import { GoatView } from '../GoatPage';
 import { LeaderboardBanner } from '../../components/LeaderboardBanner';
 import { TeamLeaderboard } from './TeamLeaderboard';
+import { XpLeaderboard } from './XpLeaderboard';
 import { api, type Season, type SeasonStanding, type LeaderboardEntry } from '../../lib/api';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
 import { useT } from '../../lib/i18n';
 
-type LeaderboardTab = 'personal' | 'teams';
+type LeaderboardTab = 'personal' | 'teams' | 'xp';
 
 export function LeaderboardMobile() {
   const t = useT();
@@ -41,17 +42,19 @@ export function LeaderboardMobile() {
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<RankingView>('list');
 
-  // Onglets — le classement Équipes n'est disponible qu'en Babyfoot.
+  // Onglets — le classement Équipes n'est disponible qu'en Babyfoot ; le
+  // ladder XP est cross-jeux et survit au changement d'univers.
   const showTeamsTab = game === 'babyfoot';
   const [activeTab, setActiveTab] = useState<LeaderboardTab>('personal');
-  // Réinitialise sur l'onglet personnel si on change de jeu.
   useEffect(() => {
-    if (game !== 'babyfoot') setActiveTab('personal');
+    if (game !== 'babyfoot' && activeTab === 'teams') setActiveTab('personal');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game]);
 
   const tabChoices = [
     { value: 'personal' as LeaderboardTab, label: t('lb.tab.solo') },
     ...(showTeamsTab ? [{ value: 'teams' as LeaderboardTab, label: t('lb.tab.teams') }] : []),
+    { value: 'xp' as LeaderboardTab, label: 'XP' },
   ];
 
   // Saison affichée : '' = en cours (live), sinon snapshot d'une saison passée.
@@ -211,18 +214,26 @@ export function LeaderboardMobile() {
   return (
     <PullToRefresh onRefresh={refresh}>
       <div className="space-y-5">
-        {/* Onglets Personnel / Équipes */}
-        {showTeamsTab && (
-          <RankingScopeToggle
-            value={activeTab}
-            onChange={setActiveTab}
-            choices={tabChoices}
-          />
-        )}
+        {/* Onglets Solo / Équipes / XP */}
+        <RankingScopeToggle
+          value={activeTab}
+          onChange={setActiveTab}
+          choices={tabChoices}
+        />
 
         {/* ── Transition entre onglets ────────────────────────────────────── */}
         <AnimatePresence mode="wait" initial={false}>
-          {activeTab === 'teams' ? (
+          {activeTab === 'xp' ? (
+            <motion.div
+              key="xp"
+              initial={{ opacity: 0, x: 18 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -18 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <XpLeaderboard myLogin={myLogin} />
+            </motion.div>
+          ) : activeTab === 'teams' ? (
             <motion.div
               key="teams"
               initial={{ opacity: 0, x: 18 }}

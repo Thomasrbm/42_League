@@ -1,5 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useGameMode } from '../hooks/useGameMode';
+import type { Game } from '../lib/gameMode';
+import { GAME_META } from '../lib/gameMeta';
 import { setTransitionPhase } from '../lib/universeTransition';
 
 /**
@@ -31,6 +34,12 @@ const REVEAL_HOLD = 120; // durée où les blocs sont hors-champ (backdrop expos
 const MAX_TILES = 42;
 const EXIT_EASE = 'cubic-bezier(0.7, 0, 0.84, 0)'; // accélère vers les bords
 const ENTER_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'; // décélère, settle premium
+
+// ── Stinger « logo de l'univers » (affiché en chevauchement de la fin) ──
+const LOGO_OVERLAP = 150; // le logo entre pendant que les dernières tuiles se posent
+const LOGO_HOLD = 820; // durée d'affichage avant le fade out (~700-900 ms visé)
+const LOGO_HOLD_REDUCED = 550; // reduced motion : apparition simple, plus courte
+const LOGO_SIZE = 112; // px
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
@@ -84,6 +93,26 @@ export function UniverseTransition({ children }: UniverseTransitionProps) {
   const timersRef = useRef<number[]>([]);
   const tilesRef = useRef<HTMLElement[]>([]);
 
+  // Logo de l'univers cible affiché plein centre à la fin de la transition.
+  // Timers SÉPARÉS de timersRef : cleanup() est appelé à idleAt, or le timer
+  // qui masque le logo doit survivre à la fin de l'anim des tuiles.
+  const [logoGame, setLogoGame] = useState<Game | null>(null);
+  const logoTimersRef = useRef<number[]>([]);
+  const reducedRef = useRef(false);
+
+  const clearLogoTimers = () => {
+    logoTimersRef.current.forEach((t) => window.clearTimeout(t));
+    logoTimersRef.current = [];
+  };
+
+  /** Programme l'apparition du logo à `showAt` ms, puis son fade out. */
+  const scheduleLogo = (target: Game, showAt: number, hold: number) => {
+    clearLogoTimers();
+    setLogoGame(null); // masque un éventuel logo encore visible (switch rapide)
+    logoTimersRef.current.push(window.setTimeout(() => setLogoGame(target), Math.max(0, showAt)));
+    logoTimersRef.current.push(window.setTimeout(() => setLogoGame(null), Math.max(0, showAt) + hold));
+  };
+
   const cleanup = () => {
     animsRef.current.forEach((a) => a.cancel());
     animsRef.current = [];
@@ -106,9 +135,12 @@ export function UniverseTransition({ children }: UniverseTransitionProps) {
     cleanup(); // annule une transition précédente non terminée
 
     // Reduced motion → simple bascule de la backdrop, pas de ballet.
-    if (prefersReducedMotion()) {
+    reducedRef.current = prefersReducedMotion();
+    if (reducedRef.current) {
       setTransitionPhase('reveal');
       timersRef.current.push(window.setTimeout(() => setTransitionPhase('idle'), REVEAL_HOLD));
+      // Apparition simple du logo à la fin de la bascule, sans animation.
+      scheduleLogo(game, REVEAL_HOLD, LOGO_HOLD_REDUCED);
       return;
     }
 
@@ -118,6 +150,7 @@ export function UniverseTransition({ children }: UniverseTransitionProps) {
     if (tiles.length === 0) {
       setTransitionPhase('reveal');
       timersRef.current.push(window.setTimeout(() => setTransitionPhase('idle'), REVEAL_HOLD));
+      scheduleLogo(game, REVEAL_HOLD, LOGO_HOLD);
       return;
     }
     tilesRef.current = tiles;
@@ -201,14 +234,72 @@ export function UniverseTransition({ children }: UniverseTransitionProps) {
         cleanup();
       }, idleAt),
     );
+
+    // Stinger : le logo entre en chevauchement de la fin de la recomposition.
+    scheduleLogo(game, idleAt - LOGO_OVERLAP, LOGO_HOLD);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game]);
 
   useEffect(() => () => {
     cleanup();
+    clearLogoTimers();
     setTransitionPhase('idle');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <div ref={wrapRef}>{children}</div>;
+  const logoMeta = logoGame ? GAME_META[logoGame] : null;
+  const reduced = reducedRef.current;
+
+  return (
+    <div ref={wrapRef}>
+      {children}
+      <AnimatePresence>
+        {logoGame && logoMeta && (
+          <motion.div
+            key={logoGame}
+            className="fixed inset-0 z-[300] flex items-center justify-center pointer-events-none"
+            initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.6 }}
+            animate={
+              reduced
+                ? { opacity: 1, transition: { duration: 0.15 } }
+                : {
+                    opacity: 1,
+                    scale: 1,
+                    // Spring avec léger overshoot (damping bas) : 0.6 → ~1.04 → 1.
+                    transition: { type: 'spring', stiffness: 340, damping: 17, mass: 0.9 },
+                  }
+            }
+            exit={
+              reduced
+                ? { opacity: 0, transition: { duration: 0.12 } }
+                : { opacity: 0, scale: 1.12, transition: { duration: 0.3, ease: 'easeOut' } }
+            }
+            aria-hidden
+          >
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                {/* Halo de la couleur de l'univers, derrière le logo */}
+                <div
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    width: LOGO_SIZE * 3,
+                    height: LOGO_SIZE * 3,
+                    background: `radial-gradient(circle, ${logoMeta.glowColor} 0%, transparent 70%)`,
+                    filter: 'blur(18px)',
+                  }}
+                />
+                <div className="relative drop-shadow-lg">{logoMeta.icon(true, LOGO_SIZE)}</div>
+              </div>
+              <div
+                className="relative mt-4 text-2xl font-bold tracking-wide"
+                style={{ color: logoMeta.color, textShadow: `0 0 22px ${logoMeta.glowColor}` }}
+              >
+                {logoMeta.label}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }

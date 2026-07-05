@@ -10,6 +10,17 @@ import {
   Activity,
   MapPin,
   ChevronRight,
+  Sparkles,
+  Zap,
+  TrendingUp,
+  PartyPopper,
+  CalendarCheck,
+  ShoppingBag,
+  Orbit,
+  Medal,
+  ChevronsUp,
+  Target,
+  type LucideIcon,
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
 import { EmptyState } from '../components/EmptyState';
@@ -32,6 +43,167 @@ import { useI18n, useT } from '../lib/i18n';
 
 /** Gain d'ELO du vainqueur à partir duquel on tamponne « upset » (grosse surprise). */
 const UPSET_DELTA = 20;
+
+// ─── Nouveautés à tester ──────────────────────────────────────────────────────
+// Vitrine statique des dernières features (pas d'API) : à mettre à jour à la
+// main quand une nouveauté sort. App interne francophone → FR en dur assumé.
+const WHATS_NEW: { to: string; Icon: LucideIcon; color: string; title: string; desc: string }[] = [
+  {
+    to: '/passe',
+    Icon: Zap,
+    color: '#ffc94a',
+    title: 'Passe de combat',
+    desc: 'Gagne de l’XP à chaque match, même perdu, et réclame tes récompenses.',
+  },
+  {
+    to: '/leaderboard',
+    Icon: TrendingUp,
+    color: '#2cc3ff',
+    title: 'Classement XP',
+    desc: 'Le nouveau ladder d’XP toutes disciplines confondues.',
+  },
+  {
+    to: '/settings',
+    Icon: PartyPopper,
+    color: '#ff5d73',
+    title: 'Émotes de victoire',
+    desc: 'Nargue tes victimes après un 1v1 — à choisir dans tes réglages.',
+  },
+  {
+    to: '/tournaments',
+    Icon: CalendarCheck,
+    color: '#4ade80',
+    title: 'Check-in tournoi',
+    desc: 'Confirme ta présence avant le coup d’envoi pour garder ta place.',
+  },
+];
+
+/** Bloc pleine largeur « Nouveautés à tester » — vitrine flashy des features fraîches. */
+function WhatsNewCard() {
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      className="relative card-hud rounded-2xl px-4 py-4 overflow-hidden border !border-gold/40 shadow-gold-glow"
+    >
+      {/* Halo doré discret en fond, pour l'effet « vitrine » */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-60"
+        style={{ background: 'radial-gradient(ellipse at top left, rgb(var(--accent-gold) / 0.10), transparent 55%)' }}
+      />
+
+      <div className="relative flex items-center gap-2 mb-3">
+        <Sparkles className="w-4 h-4 text-gold" strokeWidth={2.4} />
+        <span className="font-gaming text-xs font-extrabold uppercase tracking-[0.14em] text-text-strong">
+          Nouveautés à tester
+        </span>
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gold/15 border border-gold/50 text-gold text-[9px] font-extrabold uppercase tracking-widest animate-pulse">
+          Nouveau
+        </span>
+      </div>
+
+      <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {WHATS_NEW.map((item) => (
+          <Link
+            key={item.to + item.title}
+            to={item.to}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-bg-2/50 border border-border/50 hover:brightness-110 hover:border-gold/40 transition-all group"
+          >
+            <span
+              className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center border"
+              style={{ color: item.color, background: `${item.color}14`, borderColor: `${item.color}40` }}
+            >
+              <item.Icon className="w-[18px] h-[18px]" strokeWidth={2.2} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[13px] font-gaming font-extrabold text-text-strong leading-tight">
+                {item.title}
+              </span>
+              <span className="block text-[11px] text-muted-2 leading-snug mt-0.5">{item.desc}</span>
+            </span>
+            <ChevronRight
+              className="shrink-0 w-4 h-4 text-muted-2 group-hover:text-gold group-hover:translate-x-0.5 transition-all"
+              strokeWidth={2.5}
+            />
+          </Link>
+        ))}
+      </div>
+    </motion.section>
+  );
+}
+
+// ─── Mini-quêtes de la semaine ────────────────────────────────────────────────
+// Suggestions d'activités concrètes (statiques, pas d'API) pour donner des idées
+// quand la todo est vide : dépenser ses coins, viser un trophée, grimper…
+const WEEKLY_IDEAS: { to: string; Icon: LucideIcon; color: string; label: string; desc: string }[] = [
+  {
+    to: '/shop',
+    Icon: ShoppingBag,
+    color: '#ffc94a',
+    label: 'Vide ton portefeuille',
+    desc: 'Passe en boutique dépenser tes coins : skins d’avatar, titres, consommables.',
+  },
+  {
+    to: '/challenges',
+    Icon: Orbit,
+    color: '#2cc3ff',
+    label: 'Sors de ta zone',
+    desc: 'Défie quelqu’un dans un autre univers que le tien.',
+  },
+  {
+    to: '/trophies',
+    Icon: Medal,
+    color: '#ff9d3a',
+    label: 'Vise le podium des trophées',
+    desc: 'Chaque trophée détenu rapporte 25 coins par semaine.',
+  },
+  {
+    to: '/leaderboard',
+    Icon: ChevronsUp,
+    color: '#4ade80',
+    label: 'Monte d’un grade',
+    desc: 'Grimpe au classement avant la fin de la saison.',
+  },
+];
+
+/** Carte « À faire cette semaine » — mini-quêtes hebdo statiques avec liens. */
+function WeeklyIdeasCard() {
+  return (
+    <div className="card-hud rounded-2xl px-4 py-3.5">
+      <div className="flex items-center gap-2 mb-2.5">
+        <Target className="w-4 h-4 text-teal" strokeWidth={2.4} />
+        <span className="font-gaming text-xs font-extrabold uppercase tracking-[0.14em] text-text-strong">
+          À faire cette semaine
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {WEEKLY_IDEAS.map((q) => (
+          <Link
+            key={q.to + q.label}
+            to={q.to}
+            className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 hover:bg-bg-2/60 border border-transparent hover:border-border/60 transition-all group"
+          >
+            <span
+              className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border"
+              style={{ color: q.color, background: `${q.color}14`, borderColor: `${q.color}40` }}
+            >
+              <q.Icon className="w-4 h-4" strokeWidth={2.2} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[12px] font-bold text-text-strong leading-tight">{q.label}</span>
+              <span className="block text-[11px] text-muted-2 leading-snug mt-0.5">{q.desc}</span>
+            </span>
+            <ChevronRight
+              className="shrink-0 w-3.5 h-3.5 text-muted-2 group-hover:translate-x-0.5 transition-transform"
+              strokeWidth={2.5}
+            />
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function HomePage() {
   const t = useT();
@@ -181,6 +353,9 @@ export function HomePage() {
         </div>
       )}
 
+      {/* Nouveautés à tester — vitrine pleine largeur */}
+      <WhatsNewCard />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:items-start">
         <div className="space-y-4">
           {/* Dispo pour jouer (30 min) */}
@@ -226,6 +401,9 @@ export function HomePage() {
               </div>
             </Link>
           )}
+
+          {/* Mini-quêtes de la semaine (idées d'activités) */}
+          <WeeklyIdeasCard />
 
           {/* Au cluster en ce moment */}
           {online.length > 0 && (

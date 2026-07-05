@@ -106,17 +106,18 @@ export default {
         svh: '100svh',
       },
       boxShadow: {
-        // Glow doré — utilisé partout pour le hover/focus premium.
-        'teal-glow': '0 0 18px rgba(245, 185, 66, 0.45), 0 0 36px rgba(245, 185, 66, 0.18)',
-        'teal-glow-lg': '0 0 32px rgba(245, 185, 66, 0.55), 0 0 64px rgba(245, 185, 66, 0.25)',
-        'gold-glow': '0 0 20px rgba(255, 201, 74, 0.5), 0 0 40px rgba(255, 201, 74, 0.2)',
-        'gold-glow-lg': '0 0 38px rgba(255, 201, 74, 0.6), 0 0 76px rgba(255, 201, 74, 0.3)',
+        // Glows accent — suivent la variable d'univers (or en babyfoot, rouge
+        // en smash, vert aux échecs…) et renforcés pour le rendu « flashy ».
+        'teal-glow': '0 0 18px rgb(var(--accent-teal) / 0.55), 0 0 40px rgb(var(--accent-teal) / 0.22)',
+        'teal-glow-lg': '0 0 32px rgb(var(--accent-teal) / 0.65), 0 0 70px rgb(var(--accent-teal) / 0.3)',
+        'gold-glow': '0 0 20px rgb(var(--accent-gold) / 0.6), 0 0 44px rgb(var(--accent-gold) / 0.25)',
+        'gold-glow-lg': '0 0 38px rgb(var(--accent-gold) / 0.7), 0 0 80px rgb(var(--accent-gold) / 0.35)',
         'brass-glow': '0 0 14px rgba(192, 138, 74, 0.4)',
-        'red-glow': '0 0 18px rgba(255, 83, 102, 0.45)',
+        'red-glow': '0 0 18px rgba(255, 45, 85, 0.5)',
 
         sheet:
           '0 -8px 32px rgba(0, 0, 0, 0.65), 0 -2px 8px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(255, 201, 74, 0.12) inset',
-        'card-hover': '0 14px 28px -10px rgba(255, 201, 74, 0.3)',
+        'card-hover': '0 14px 30px -10px rgb(var(--accent-gold) / 0.4)',
         // Effet "plaque en relief" — pour les stat cards en acier brossé.
         'plate':
           'inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3)',
@@ -130,9 +131,6 @@ export default {
         xs: '2px',
       },
       backgroundImage: {
-        // Grillage technique — texture HUD subtile pour les fonds.
-        'mesh-grid':
-          "linear-gradient(rgba(255, 201, 74, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 201, 74, 0.06) 1px, transparent 1px)",
         // Plaque d'acier brossée verticale (refroidie gris-bleu).
         'plate-steel':
           'linear-gradient(180deg, #2a303c 0%, #1d222c 22%, #161a22 50%, #1d222c 78%, #2a303c 100%)',

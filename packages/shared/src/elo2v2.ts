@@ -1,5 +1,6 @@
 import { K } from './elo.js';
 import type { EloUpdate, Winner } from './elo.js';
+import { ELO_HARD_FLOOR } from './rank.js';
 
 // ─── Babyfoot 2v2 — ELO utilitaires ─────────────────────────────────────────
 //
@@ -87,7 +88,8 @@ export function calculateIndividualEloIn2v2(
 ): { newElo: number; delta: number } {
   const p = 1 / (1 + Math.pow(10, (avgOpponentElo - playerElo) / 400));
   const score = won ? 1 : 0;
-  const delta = Math.round(K * (score - p));
+  // Plancher absolu : l'ELO personnel ne descend jamais sous ELO_HARD_FLOOR.
+  const delta = Math.max(Math.round(K * (score - p)), ELO_HARD_FLOOR - playerElo);
   return { newElo: playerElo + delta, delta };
 }
 

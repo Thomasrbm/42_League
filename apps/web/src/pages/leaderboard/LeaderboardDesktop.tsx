@@ -16,13 +16,14 @@ import { LeaderboardBanner } from '../../components/LeaderboardBanner';
 import { LeaderboardScatter, RankingViewToggle, GradesNavButton, type RankingView, type LeaderboardScatterHandle } from './LeaderboardScatter';
 import { GoatView } from '../GoatPage';
 import { TeamLeaderboard } from './TeamLeaderboard';
+import { XpLeaderboard } from './XpLeaderboard';
 import { RankingScopeToggle } from './RankingScopeToggle';
 import { CampusScopeToggle, useCampusScope, filterByCampus, hasCampusInfo } from './campusScope';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
 import { useT } from '../../lib/i18n';
 
-type LeaderboardTab = 'personal' | 'teams';
+type LeaderboardTab = 'personal' | 'teams' | 'xp';
 
 // ─── Stats dérivées par joueur ───────────────────────────────────────────────
 /** Adversaire ayant mis fin à une plus longue série (photo Intra pour le tooltip). */
@@ -229,7 +230,10 @@ export function LeaderboardDesktop() {
   const showTeamsTab = game === 'babyfoot';
   const [activeTab, setActiveTab] = useState<LeaderboardTab>('personal');
   useEffect(() => {
-    if (game !== 'babyfoot') setActiveTab('personal');
+    // L'onglet Équipes n'existe qu'en babyfoot ; le ladder XP est cross-jeux
+    // et survit donc au changement d'univers.
+    if (game !== 'babyfoot' && activeTab === 'teams') setActiveTab('personal');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game]);
   // Le classement courant est celui du mode (babyfoot|smash) → stats dérivées sur
   // les matchs de ce jeu uniquement. Calcul lourd déporté dans une fonction cachée
@@ -475,27 +479,36 @@ export function LeaderboardDesktop() {
     <div>
       {!viewingPast && <LeaderboardBanner />}
 
-      {activeTab !== 'teams' && top3.length === 3 && (
+      {activeTab === 'personal' && top3.length === 3 && (
         <DesktopPodium top3={top3} statsByLogin={podiumStats} past={viewingPast} />
       )}
 
       <Panel title={t('panel.lb.title')} sub={`${scopedEntries.length} ${t('panel.lb.sub')}`} accent="crown">
-        {/* Onglets Personnel / Équipes — Babyfoot uniquement */}
-        {showTeamsTab && (
-          <div className="mb-4 max-w-xs">
-            <RankingScopeToggle
-              value={activeTab}
-              onChange={setActiveTab}
-              choices={[
-                { value: 'personal' as LeaderboardTab, label: t('lb.tab.solo') },
-                { value: 'teams' as LeaderboardTab, label: t('lb.tab.teams') },
-              ]}
-            />
-          </div>
-        )}
+        {/* Onglets Solo / Équipes (babyfoot) / XP (cross-jeux) */}
+        <div className="mb-4 max-w-md">
+          <RankingScopeToggle
+            value={activeTab}
+            onChange={setActiveTab}
+            choices={[
+              { value: 'personal' as LeaderboardTab, label: t('lb.tab.solo') },
+              ...(showTeamsTab ? [{ value: 'teams' as LeaderboardTab, label: t('lb.tab.teams') }] : []),
+              { value: 'xp' as LeaderboardTab, label: 'XP' },
+            ]}
+          />
+        </div>
 
         <AnimatePresence mode="wait" initial={false}>
-          {activeTab === 'teams' ? (
+          {activeTab === 'xp' ? (
+            <motion.div
+              key="xp"
+              initial={{ opacity: 0, x: 14 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -14 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <XpLeaderboard myLogin={myLogin} />
+            </motion.div>
+          ) : activeTab === 'teams' ? (
             <motion.div
               key="teams"
               initial={{ opacity: 0, x: 14 }}

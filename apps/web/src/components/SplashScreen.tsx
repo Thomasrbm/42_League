@@ -123,17 +123,6 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       exit={{ opacity: 0, transition: { duration: 0.32, ease: 'easeInOut' } }}
       onClick={() => { if (!doneCalled.current) { doneCalled.current = true; onComplete(); } }}
     >
-      {/* ── Grid discret ── */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(0,217,220,0.025) 1px, transparent 1px),' +
-            'linear-gradient(90deg, rgba(0,217,220,0.025) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-        }}
-      />
-
       {/* ── Tiges babyfoot ── */}
       {decor && phase >= 1 &&
         BABY_RODS.map((rod, ri) => (

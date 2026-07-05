@@ -29,11 +29,11 @@ export const GAME_META: Record<Game, GameMeta> = {
   babyfoot: {
     label: 'Babyfoot',
     shortLabel: 'Baby',
-    color: '#ffc94a',
-    borderColor: 'rgba(255,201,74,0.6)',
-    bgColor: 'rgba(255,201,74,0.10)',
-    glowColor: 'rgba(255,201,74,0.45)',
-    button: { from: '#ffd87a', via: '#f0a020', to: '#c5520a', text: '#1a0d00', border: 'rgba(255,201,102,0.6)', glow: 'rgba(255,128,32,0.4)' },
+    color: '#ffbf20',
+    borderColor: 'rgba(255,191,32,0.65)',
+    bgColor: 'rgba(255,191,32,0.13)',
+    glowColor: 'rgba(255,191,32,0.55)',
+    button: { from: '#ffe066', via: '#ffb200', to: '#e05e00', text: '#1a0d00', border: 'rgba(255,206,80,0.7)', glow: 'rgba(255,150,20,0.55)' },
     icon: (sel, size = 20) => (
       <img src={sel ? '/coulour-baby.webp' : '/gray-baby.webp'} alt="" width={size} height={size} loading="eager" decoding="async" className="object-contain" aria-hidden />
     ),
@@ -41,11 +41,11 @@ export const GAME_META: Record<Game, GameMeta> = {
   smash: {
     label: 'Smash',
     shortLabel: 'Smash',
-    color: '#ff3d50',
-    borderColor: 'rgba(255,61,80,0.6)',
-    bgColor: 'rgba(255,61,80,0.10)',
-    glowColor: 'rgba(255,61,80,0.45)',
-    button: { from: '#ff9aa6', via: '#ff3d50', to: '#a8121f', text: '#2a0307', border: 'rgba(255,128,140,0.6)', glow: 'rgba(255,61,80,0.4)' },
+    color: '#ff2d55',
+    borderColor: 'rgba(255,45,85,0.65)',
+    bgColor: 'rgba(255,45,85,0.13)',
+    glowColor: 'rgba(255,45,85,0.55)',
+    button: { from: '#ff8da4', via: '#ff2d55', to: '#b00c2e', text: '#2a0307', border: 'rgba(255,120,145,0.7)', glow: 'rgba(255,45,85,0.55)' },
     icon: (sel, size = 20) => (
       <img src={sel ? '/smash-color.webp' : '/smash-grey.webp'} alt="" width={size} height={size} loading="eager" decoding="async" className="object-contain" aria-hidden />
     ),
@@ -53,11 +53,11 @@ export const GAME_META: Record<Game, GameMeta> = {
   chess: {
     label: 'Échecs',
     shortLabel: 'Échecs',
-    color: '#56c46e',
-    borderColor: 'rgba(86,196,110,0.6)',
-    bgColor: 'rgba(86,196,110,0.10)',
-    glowColor: 'rgba(86,196,110,0.45)',
-    button: { from: '#9ce6ab', via: '#56c46e', to: '#2c7a40', text: '#04240e', border: 'rgba(140,224,160,0.6)', glow: 'rgba(86,196,110,0.4)' },
+    color: '#36e07a',
+    borderColor: 'rgba(54,224,122,0.65)',
+    bgColor: 'rgba(54,224,122,0.13)',
+    glowColor: 'rgba(54,224,122,0.55)',
+    button: { from: '#8df5b0', via: '#36e07a', to: '#158a48', text: '#04240e', border: 'rgba(120,240,165,0.7)', glow: 'rgba(54,224,122,0.55)' },
     icon: (sel, size = 20) => (
       <img src={sel ? '/chess.webp' : '/gray-chess.webp'} alt="" width={size} height={size} loading="eager" decoding="async" className="object-contain" aria-hidden />
     ),
@@ -65,11 +65,11 @@ export const GAME_META: Record<Game, GameMeta> = {
   streetfighter: {
     label: 'Street Fighter',
     shortLabel: 'SF',
-    color: '#ff7a18',
-    borderColor: 'rgba(255,122,24,0.6)',
-    bgColor: 'rgba(255,122,24,0.10)',
-    glowColor: 'rgba(255,122,24,0.45)',
-    button: { from: '#ffc08a', via: '#ff7a18', to: '#b8480a', text: '#2a1200', border: 'rgba(255,176,102,0.6)', glow: 'rgba(255,122,24,0.4)' },
+    color: '#ff6a00',
+    borderColor: 'rgba(255,106,0,0.65)',
+    bgColor: 'rgba(255,106,0,0.13)',
+    glowColor: 'rgba(255,106,0,0.55)',
+    button: { from: '#ffb680', via: '#ff6a00', to: '#c23c00', text: '#2a1200', border: 'rgba(255,170,95,0.7)', glow: 'rgba(255,106,0,0.55)' },
     icon: (sel, size = 20) => (
       <img src={sel ? '/sf-color.webp' : '/sf-grey.webp'} alt="" width={size} height={size} loading="eager" decoding="async" className="object-contain" aria-hidden />
     ),
@@ -77,11 +77,11 @@ export const GAME_META: Record<Game, GameMeta> = {
   flechettes: {
     label: 'Fléchettes',
     shortLabel: 'Fléch.',
-    color: '#14b8a6',
-    borderColor: 'rgba(20,184,166,0.6)',
-    bgColor: 'rgba(20,184,166,0.10)',
-    glowColor: 'rgba(20,184,166,0.45)',
-    button: { from: '#6fe3d6', via: '#14b8a6', to: '#0a7064', text: '#04241f', border: 'rgba(95,224,210,0.6)', glow: 'rgba(20,184,166,0.4)' },
+    color: '#00d8c2',
+    borderColor: 'rgba(0,216,194,0.65)',
+    bgColor: 'rgba(0,216,194,0.13)',
+    glowColor: 'rgba(0,216,194,0.55)',
+    button: { from: '#66f2e0', via: '#00d8c2', to: '#00857a', text: '#04241f', border: 'rgba(90,235,215,0.7)', glow: 'rgba(0,216,194,0.55)' },
     icon: (sel, size = 20) => (
       <img src={sel ? '/flechette.webp' : '/gray-flechette.webp'} alt="" width={size} height={size} loading="eager" decoding="async" className="object-contain" aria-hidden />
     ),

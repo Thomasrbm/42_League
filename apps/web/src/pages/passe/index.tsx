@@ -14,6 +14,7 @@ import {
   Medal,
   Music2,
   Palette,
+  PartyPopper,
   Rocket,
   ShieldBan,
   Snowflake,
@@ -31,6 +32,7 @@ import { useT } from '../../lib/i18n';
 import { useIsLite } from '../../hooks/usePerf';
 import { api, type BattlePassResponse, type BattlePassTierView } from '../../lib/api';
 import { resolveRarity, type Rarity } from '../../lib/rarity';
+import { TAUNT_EMOTES, FREE_TAUNT_EMOTES, TAUNT_EMOTE_LEVEL_STEP } from '../../lib/tauntEmotes';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PASSE DE COMBAT — refonte « vrai Fortnite ».
@@ -62,12 +64,25 @@ const YELLOW = '#ffe234';
 type FnRarity = 'commun' | 'atypique' | 'rare' | 'epique' | 'legendaire';
 
 const FN: Record<FnRarity, { hex: string; label: string }> = {
-  commun: { hex: '#b1b1b1', label: 'Commun' },
-  atypique: { hex: '#87e339', label: 'Atypique' },
-  rare: { hex: '#41bfff', label: 'Rare' },
-  epique: { hex: '#c359ff', label: 'Épique' },
-  legendaire: { hex: '#ea8d23', label: 'Légendaire' },
+  commun: { hex: '#c9d2e0', label: 'Commun' },
+  atypique: { hex: '#7ef23e', label: 'Atypique' },
+  rare: { hex: '#2fb9ff', label: 'Rare' },
+  epique: { hex: '#c94bff', label: 'Épique' },
+  legendaire: { hex: '#ff9e1b', label: 'Légendaire' },
 };
+
+/**
+ * Version assombrie d'une couleur hex `#rrggbb` (facteur 0..1).
+ * Sert à fondre le bas des tuiles vers une nuit teintée de LEUR rareté
+ * (et non plus vers le bleu nuit générique qui éteignait les couleurs).
+ */
+function darkenHex(hex: string, factor: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * factor);
+  const g = Math.round(((n >> 8) & 255) * factor);
+  const b = Math.round((n & 255) * factor);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
 
 /** Rareté boutique (4 niveaux) → échelle Fortnite de la page. */
 const SHOP_TO_FN: Record<Rarity, FnRarity> = {
@@ -176,6 +191,12 @@ const FAKE_COMMON_RARE: Array<[string, LucideIcon]> = [
  * tous les 5, bleu (coins) tous les 3, vert (conso/objet) sinon, gris au début.
  */
 function fakeRewardFor(tier: number): FakeReward {
+  // Émotes de victoire : déblocage RÉEL tous les 7 niveaux (économie partagée
+  // avec le backend, cf. lib/tauntEmotes.ts) — affichées sur la piste.
+  if (tier % TAUNT_EMOTE_LEVEL_STEP === 0) {
+    const emote = TAUNT_EMOTES[FREE_TAUNT_EMOTES + tier / TAUNT_EMOTE_LEVEL_STEP - 1];
+    if (emote) return { kind: 'item', name: `Émote ${emote}`, rarity: 'epique', Icon: PartyPopper };
+  }
   if (tier % 10 === 0) {
     const [name, Icon] = FAKE_LEGENDARY[(tier / 10 - 1 + FAKE_LEGENDARY.length * 10) % FAKE_LEGENDARY.length]!;
     return { kind: 'item', name, rarity: 'legendaire', Icon };
@@ -472,21 +493,27 @@ function TierTile({
       disabled={!claimable}
       onClick={() => claimable && onClaim(tile)}
       className="relative w-full aspect-[4/5] rounded-xl overflow-hidden text-left disabled:cursor-default"
-      whileHover={lite || !claimable ? undefined : { scale: 1.045, zIndex: 10 }}
+      animate={claimable ? { scale: 1.03 } : { scale: 1 }}
+      whileHover={lite || !claimable ? undefined : { scale: 1.08, zIndex: 10 }}
       whileTap={claimable ? { scale: 0.97 } : undefined}
       transition={{ type: 'spring', stiffness: 380, damping: 24 }}
       style={{
-        // Fond façon Fortnite : la CASE est remplie de sa couleur de rareté
-        // (pleine en haut, fondu vers la nuit en bas où vit le texte). Les
-        // paliers verrouillés gardent une teinte résiduelle de leur rareté.
+        // Fond façon Fortnite : la CASE est remplie de sa couleur de rareté,
+        // PLEINE sur les 3/4 hauts puis fondue vers une nuit teintée de la
+        // MÊME rareté (plus de bleu nuit générique qui éteignait la teinte).
+        // Les paliers verrouillés gardent une teinte franche de leur rareté.
         background: unlocked
-          ? `radial-gradient(140% 110% at 50% 0%, ${hex} 0%, ${hex}b0 42%, #0e1c3d 100%)`
-          : `radial-gradient(140% 110% at 50% 0%, ${hex}3d 0%, #0b152e 72%)`,
-        border: claimable ? '2px solid transparent' : `2px solid ${unlocked ? hex : '#1d2b4d'}`,
-        boxShadow: unlocked && !claimable ? `0 10px 26px -14px ${hex}, inset 0 1px 0 rgba(255,255,255,0.18)` : undefined,
+          ? `radial-gradient(140% 120% at 50% 0%, ${hex} 0%, ${hex} 70%, ${darkenHex(hex, 0.3)} 100%)`
+          : `radial-gradient(140% 120% at 50% 0%, ${hex}66 0%, ${hex}2e 62%, ${darkenHex(hex, 0.22)} 100%)`,
+        border: claimable ? '2px solid transparent' : `2px solid ${unlocked ? hex : `${hex}88`}`,
+        // Glow de la couleur de rareté sur toute tuile déverrouillée (le
+        // pulse jaune du claimable prend le dessus quand il est animé).
+        boxShadow: unlocked
+          ? `0 0 18px ${hex}66, 0 10px 26px -14px ${hex}, inset 0 1px 0 rgba(255,255,255,0.22)`
+          : undefined,
         // Liseré jaune pulsé (animation CSS alternate → boucle parfaitement fluide).
         animation: claimable && !lite ? 'bpPulse 1.1s ease-in-out infinite alternate' : undefined,
-        ...(claimable && lite ? { border: `2px solid ${YELLOW}` } : null),
+        ...(claimable && lite ? { border: `2px solid ${YELLOW}`, boxShadow: `0 0 0 3px ${YELLOW}88, 0 0 22px ${YELLOW}77` } : null),
       }}
     >
       {/* Lueur blanche derrière l'icône (la couleur, c'est déjà la case) */}
@@ -532,8 +559,8 @@ function TierTile({
         className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
         style={{
           animation: unlocked && !claimed && !lite ? 'bpFloat 2.4s ease-in-out infinite alternate' : undefined,
-          filter: unlocked ? undefined : 'grayscale(0.9) brightness(0.55)',
-          opacity: claimed ? 0.55 : 1,
+          filter: unlocked ? undefined : 'grayscale(0.35) brightness(0.8)',
+          opacity: claimed ? 0.85 : 1,
         }}
       >
         <RewardIcon
@@ -547,19 +574,19 @@ function TierTile({
       <span className={`absolute inset-x-0 bottom-0 px-2.5 ${claimable ? 'pb-8' : 'pb-2.5'} flex flex-col gap-0.5`}>
         <span
           className="text-[9px] font-gaming font-black italic uppercase tracking-[0.16em]"
-          style={{ color: unlocked ? 'rgba(255,255,255,0.92)' : '#54648c', textShadow: unlocked ? '0 1px 3px rgba(0,0,0,0.6)' : undefined }}
+          style={{ color: unlocked ? 'rgba(255,255,255,0.95)' : hex, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}
         >
           {tile.tag}
         </span>
         <span
           className={`text-[12px] sm:text-[13px] font-bold leading-tight line-clamp-2 ${
-            unlocked ? 'text-white' : 'text-[#7d8db4]'
-          } ${claimed ? 'opacity-60' : ''}`}
+            unlocked ? 'text-white' : 'text-[#a8b8dc]'
+          } ${claimed ? 'opacity-85' : ''}`}
         >
           {tile.Icon === 'coin' ? `${tile.name} Coins` : tile.name}
         </span>
         {!unlocked && (
-          <span className="text-[9px] font-bold tabular-nums text-[#54648c] uppercase tracking-wide">
+          <span className="text-[9px] font-bold tabular-nums text-[#8fa2cc] uppercase tracking-wide">
             {tile.xpRequired} {t('battlepass.xp')}
           </span>
         )}
@@ -576,8 +603,8 @@ function TierTile({
         </span>
       )}
 
-      {/* Voile sombre sur les tuiles récupérées (façon Fortnite « owned ») */}
-      {claimed && <span className="absolute inset-0 bg-[#060b1c]/45 pointer-events-none" />}
+      {/* Voile sombre LÉGER sur les tuiles récupérées (la rareté doit rester lisible) */}
+      {claimed && <span className="absolute inset-0 bg-[#060b1c]/20 pointer-events-none" />}
     </motion.button>
   );
 }
@@ -705,8 +732,8 @@ export function PassePage() {
       {/* Keyframes locales — alternate/linéaire uniquement : boucles sans à-coup */}
       <style>{`
         @keyframes bpPulse {
-          from { border-color: ${YELLOW}77; box-shadow: 0 0 0 1px ${YELLOW}44, 0 0 14px -2px ${YELLOW}55; }
-          to   { border-color: ${YELLOW};   box-shadow: 0 0 0 3px ${YELLOW}88, 0 0 26px 0px ${YELLOW}77; }
+          from { border-color: ${YELLOW}aa; box-shadow: 0 0 0 2px ${YELLOW}55, 0 0 18px 0px ${YELLOW}66; }
+          to   { border-color: ${YELLOW};   box-shadow: 0 0 0 4px ${YELLOW}cc, 0 0 38px 6px ${YELLOW}99; }
         }
         @keyframes bpFloat { from { transform: translate(-50%, -46%); } to { transform: translate(-50%, -56%); } }
         @keyframes bpSpin { to { transform: rotate(360deg); } }
@@ -734,19 +761,14 @@ export function PassePage() {
           boxShadow: 'inset 0 1px 0 rgba(140,170,255,0.15), 0 18px 50px -22px rgba(0,0,0,0.8)',
         }}
       >
-        <div
-          className="absolute inset-0 pointer-events-none opacity-25"
-          style={{ background: 'repeating-linear-gradient(115deg, transparent 0 26px, rgba(120,150,255,0.07) 26px 30px)' }}
-        />
-
         <div className="relative flex flex-wrap items-center gap-x-5 gap-y-4">
           {/* Plaque niveau, penchée façon Fortnite */}
           <div
             className="shrink-0 flex flex-col items-center justify-center w-20 h-20 sm:w-24 sm:h-24"
             style={{
-              background: `linear-gradient(160deg, ${YELLOW}, #ffb200)`,
+              background: `linear-gradient(160deg, #fff566 0%, ${YELLOW} 45%, #ff9500 100%)`,
               clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
-              boxShadow: `0 10px 34px -10px ${YELLOW}aa`,
+              boxShadow: `0 0 28px -2px ${YELLOW}cc, 0 12px 38px -10px #ff9500`,
             }}
           >
             <span className="text-[9px] font-gaming font-black italic uppercase tracking-[0.14em] text-[#0a1228]/70 leading-none">
@@ -773,7 +795,7 @@ export function PassePage() {
               <div className="relative h-4 rounded-sm overflow-hidden" style={{ background: '#0a1430', border: '1px solid #27407c', transform: 'skewX(-8deg)' }}>
                 <motion.div
                   className="h-full relative"
-                  style={{ background: 'linear-gradient(90deg, #1a86ff, #2cc3ff 70%, #7fe7ff)', boxShadow: '0 0 16px rgba(44,195,255,0.8)' }}
+                  style={{ background: 'linear-gradient(90deg, #1a86ff, #2cc3ff 60%, #8ff3ff)', boxShadow: '0 0 22px rgba(44,195,255,1), 0 0 44px -4px rgba(127,231,255,0.85)' }}
                   initial={{ width: 0 }}
                   animate={{ width: `${pct * 100}%` }}
                   transition={{ duration: 0.9, ease: 'easeOut', delay: 0.1 }}
@@ -803,9 +825,9 @@ export function PassePage() {
               onClick={claimAll}
               className="group shrink-0 relative px-5 sm:px-7 py-3 font-gaming font-black italic uppercase text-sm sm:text-base tracking-[0.1em] text-[#0a1228] transition-transform hover:scale-105 active:scale-95"
               style={{
-                background: `linear-gradient(160deg, ${YELLOW}, #ffc400)`,
+                background: `linear-gradient(160deg, #fff566, #ffae00)`,
                 clipPath: 'polygon(6% 0, 100% 0, 94% 100%, 0 100%)',
-                boxShadow: `0 12px 34px -10px ${YELLOW}`,
+                boxShadow: `0 0 26px -2px ${YELLOW}bb, 0 12px 34px -10px ${YELLOW}`,
                 animation: lite ? undefined : 'bpPulse 1.1s ease-in-out infinite alternate',
                 border: '2px solid transparent',
               }}

@@ -11,7 +11,7 @@ import {
   EMPTY_PRIZE,
   type PrizeFormState,
 } from '../../components/tournois/TournamentPrizePicker';
-import { Trophy, Lock, X, Swords, Users, Info, Crown } from 'lucide-react';
+import { Trophy, Lock, X, Users, Info, Crown } from 'lucide-react';
 import { api, type Tournament, type LeaderboardEntry } from '../../lib/api';
 import { PlayerSearch } from '../defis/shared/PlayerSearch';
 import { tournamentArt, safeImageUrl } from '../../lib/tournamentArt';
@@ -82,7 +82,7 @@ export function TournoisDesktop() {
             <div className="absolute inset-0 bg-gradient-to-br from-gold/10 via-gold/3 to-transparent opacity-80 pointer-events-none" />
             <span className="relative flex-shrink-0 flex items-center justify-center w-14 h-14 rounded-xl"
               style={{ background: 'rgba(255,201,74,0.18)', boxShadow: 'inset 0 1px 0 rgba(255,247,228,0.18)' }}>
-              <Swords className="w-7 h-7 text-gold" strokeWidth={2.2} />
+              <Trophy className="w-7 h-7 text-gold" strokeWidth={2.2} />
             </span>
             <span className="relative min-w-0 flex-1">
               <span className="block font-display text-xl font-black text-gold tracking-tight mb-0.5">

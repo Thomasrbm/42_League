@@ -45,6 +45,23 @@ export interface LeaderboardEntry {
   favSf?: string[];
 }
 
+/** Entrée du ladder XP cross-jeux (GET /leaderboard/xp). */
+export interface XpLeaderboardEntry {
+  rank: number;
+  login: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  campus: string | null;
+  imageUrl: string | null;
+  title?: string | null;
+  /** XP cumulée à vie, toutes disciplines confondues. */
+  xp: number;
+  /** Niveau dérivé (même courbe que le passe de combat). */
+  level: number;
+  xpIntoLevel: number;
+  xpForNextLevel: number;
+}
+
 export interface PendingMatch {
   id: string;
   declarerLogin: string;
@@ -1348,6 +1365,9 @@ export const api = {
     request<LeaderboardEntry[]>(
       `/leaderboard${game && game !== 'babyfoot' ? `?game=${game}` : ''}`,
     ),
+  // Ladder XP cross-jeux : XP gagnée à chaque match joué (défaite comprise),
+  // identique quel que soit le mode → pas de paramètre game.
+  xpLeaderboard: () => request<XpLeaderboardEntry[]>('/leaderboard/xp'),
   // Token éphémère (scope SSE) à passer en ?token= pour ouvrir le flux /events,
   // afin de ne jamais exposer le Bearer 30 jours dans une URL (logs / Referer).
   streamToken: () => request<{ token: string }>('/auth/stream-token'),

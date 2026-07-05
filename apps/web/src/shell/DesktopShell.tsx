@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -7,9 +7,7 @@ import {
   Trophy,
   BarChart3,
   Award,
-  Crown,
   User,
-  Users,
   History,
   Settings,
   Cog,
@@ -17,9 +15,6 @@ import {
   Info,
   ShoppingBag,
   Store,
-  Zap,
-  ChevronsLeft,
-  ChevronsRight,
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
 import { CoinCount } from '../components/CoinCount';
@@ -46,20 +41,14 @@ const NAV: NavDef[] = [
   { to: '/leaderboard', labelKey: 'nav.leaderboard', Icon: BarChart3 },
   { to: '/trophies', labelKey: 'nav.trophees', Icon: Award },
   { to: '/shop', labelKey: 'nav.shop', Icon: ShoppingBag },
-  { to: '/passe', labelKey: 'nav.passe', Icon: Zap },
   { to: '/profile', labelKey: 'nav.profil', Icon: User },
-  { to: '/teams', labelKey: 'nav.teams', Icon: Users },
 ];
 
 const NAV_SECONDARY: NavDef[] = [
-  { to: '/goat', labelKey: 'nav.goat', Icon: Crown },
   { to: '/history', labelKey: 'nav.historique', Icon: History },
   { to: '/settings', labelKey: 'nav.reglages', Icon: Settings },
   { to: '/about', labelKey: 'nav.about', Icon: Info },
 ];
-
-/** Clé localStorage de l'état replié du rail de navigation. */
-const NAV_COLLAPSED_LS = 'league.navCollapsed';
 
 const NAV_ADMIN: NavDef[] = [
   { to: '/GOD', labelKey: 'nav.god', Icon: Shield },
@@ -83,26 +72,6 @@ export function DesktopShell({ children }: DesktopShellProps) {
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
 
-  // Rail replié : icônes seules (~72px) au lieu de la sidebar 256px — libère de
-  // la place pour les tableaux sans rien cacher. Choix mémorisé.
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem(NAV_COLLAPSED_LS) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const toggleCollapsed = () => {
-    setCollapsed((c) => {
-      try {
-        localStorage.setItem(NAV_COLLAPSED_LS, c ? '0' : '1');
-      } catch {
-        /* stockage indisponible */
-      }
-      return !c;
-    });
-  };
-
   const pendingCount = pending.filter((p) => p.opponentLogin === me?.login).length;
 
   // Remet le contenu en haut à chaque changement de page. Le classement n'a plus
@@ -115,57 +84,38 @@ export function DesktopShell({ children }: DesktopShellProps) {
   return (
     <div className="h-dvh flex flex-row relative overflow-hidden">
       {/* ─── Sidebar ─────────────────────────────────────────────────── */}
-      <aside
-        className={`relative flex flex-col h-dvh z-20 no-select overflow-hidden transition-[width] duration-200 ease-out ${
-          collapsed ? 'w-[72px]' : 'w-64'
-        }`}
-      >
+      <aside className="relative flex flex-col h-dvh z-20 no-select overflow-hidden w-64">
         {/* Fond + grille HUD */}
         <div className="absolute inset-0 bg-gradient-to-b from-bg-1 via-bg-1/95 to-bg-0 hud-grid" />
 
         {/* Bordure droite « tube laiton » */}
         <div className="absolute top-0 bottom-0 right-0 w-[3px] brass-pipe pointer-events-none" />
         {/* Rivet décoratif */}
-        {!collapsed && (
-          <Cog
-            className="absolute top-3 right-3 w-4 h-4 text-gold/40 animate-gear-spin pointer-events-none"
-            strokeWidth={2}
-          />
-        )}
+        <Cog
+          className="absolute top-3 right-3 w-4 h-4 text-gold/40 animate-gear-spin pointer-events-none"
+          strokeWidth={2}
+        />
 
         {/* Brand */}
-        <div className={`relative border-b border-gold/20 ${collapsed ? 'px-2 py-4' : 'px-5 py-5'}`}>
+        <div className="relative border-b border-gold/20 px-5 py-5">
           <NavLink to="/" className="flex flex-col gap-1.5 group" aria-label="42 League">
-            {collapsed ? (
-              <img
-                src="/mini-96.webp"
-                alt="ONE League"
-                width={96}
-                height={96}
-                className="w-10 h-10 mx-auto rounded-lg select-none drop-shadow-[0_2px_8px_rgba(255,201,74,0.25)]"
-                draggable={false}
-              />
-            ) : (
-              <>
-                <img
-                  src="/logo-wordmark.webp"
-                  alt="42 League"
-                  width={700}
-                  height={233}
-                  fetchPriority="high"
-                  className="w-full h-auto select-none drop-shadow-[0_2px_8px_rgba(255,201,74,0.25)]"
-                  draggable={false}
-                />
-                <div className="text-[9px] text-brass/80 uppercase tracking-[0.2em] font-bold text-center">
-                  {GAME_META[game].label} · Ranked
-                </div>
-              </>
-            )}
+            <img
+              src="/logo-wordmark.webp"
+              alt="42 League"
+              width={700}
+              height={233}
+              fetchPriority="high"
+              className="w-full h-auto select-none drop-shadow-[0_2px_8px_rgba(255,201,74,0.25)]"
+              draggable={false}
+            />
+            <div className="text-[9px] text-brass/80 uppercase tracking-[0.2em] font-bold text-center">
+              {GAME_META[game].label} · Ranked
+            </div>
           </NavLink>
         </div>
 
         {/* Navigation principale */}
-        <nav className={`relative flex flex-col gap-1 ${collapsed ? 'p-2' : 'p-3'}`}>
+        <nav className="relative flex flex-col gap-1 p-3">
           {NAV.map((n) => (
             <NavItem
               key={n.to}
@@ -173,64 +123,29 @@ export function DesktopShell({ children }: DesktopShellProps) {
               label={t(n.labelKey)}
               Icon={n.Icon}
               badge={n.to === '/challenges' ? pendingCount : 0}
-              collapsed={collapsed}
             />
           ))}
           <div className="my-2 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
           {NAV_SECONDARY.map((n) => (
-            <NavItem
-              key={n.to}
-              to={n.to}
-              label={t(n.labelKey)}
-              Icon={n.Icon}
-              collapsed={collapsed}
-            />
+            <NavItem key={n.to} to={n.to} label={t(n.labelKey)} Icon={n.Icon} />
           ))}
           {(me?.role === 'ADMIN' || me?.role === 'SUPERADMIN') && (
             <>
               <div className="my-2 h-px bg-gradient-to-r from-transparent via-red/30 to-transparent" />
               {NAV_ADMIN.map((n) => (
-                <NavItem key={n.to} to={n.to} label={t(n.labelKey)} Icon={n.Icon} collapsed={collapsed} />
+                <NavItem key={n.to} to={n.to} label={t(n.labelKey)} Icon={n.Icon} />
               ))}
             </>
           )}
-
-          {/* Replier / agrandir le rail */}
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            title={collapsed ? t('nav.expand') : t('nav.collapse')}
-            aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
-            className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold tracking-wide text-muted-2 hover:text-text transition-colors duration-150 ${
-              collapsed ? 'justify-center' : ''
-            }`}
-          >
-            {collapsed ? (
-              <ChevronsRight className="w-[18px] h-[18px]" strokeWidth={2} />
-            ) : (
-              <>
-                <ChevronsLeft className="w-[18px] h-[18px]" strokeWidth={2} />
-                <span className="flex-1 text-left">{t('nav.collapse')}</span>
-              </>
-            )}
-          </button>
         </nav>
 
         {/* Les games à confirmer ne s'affichent plus dans la barre : elles vivent
             dans la section Défis (badge sur l'onglet) + la bannière popup. */}
 
         {/* Profil bas */}
-        <div className={`relative mt-auto border-t border-gold/20 ${collapsed ? 'p-2' : 'p-3'}`}>
+        <div className="relative mt-auto border-t border-gold/20 p-3">
           {me?.user ? (
-            collapsed ? (
-              <div className="flex flex-col items-center gap-2">
-                <NavLink to="/profile" title={login ?? ''} className="rounded-full hover:ring-2 hover:ring-gold/40 transition-shadow">
-                  <Avatar login={login ?? '?'} imageUrl={me.user.imageUrl} size="md" />
-                </NavLink>
-                <NotificationBell placement="up" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1">
                 <NavLink
                   to="/profile"
                   className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-gold/5 transition-colors group flex-1 min-w-0"
@@ -251,7 +166,6 @@ export function DesktopShell({ children }: DesktopShellProps) {
                 </NavLink>
                 <NotificationBell placement="up" />
               </div>
-            )
           ) : (
             <div className="text-xs text-muted-2">{t('auth.notConnected')}</div>
           )}
@@ -280,20 +194,17 @@ interface NavItemProps {
   label: string;
   Icon: typeof Swords;
   badge?: number;
-  /** Rail replié : icône seule centrée, libellé en tooltip natif. */
-  collapsed?: boolean;
 }
 
-function NavItem({ to, label, Icon, badge = 0, collapsed = false }: NavItemProps) {
+function NavItem({ to, label, Icon, badge = 0 }: NavItemProps) {
   return (
     <NavLink
       to={to}
       end={to === '/'}
-      title={collapsed ? label : undefined}
       className={({ isActive }) =>
         `relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold tracking-wide group transition-colors duration-150 ${
-          collapsed ? 'justify-center' : ''
-        } ${isActive ? 'text-gold' : 'text-muted-2 hover:text-text'}`
+          isActive ? 'text-gold' : 'text-muted-2 hover:text-text'
+        }`
       }
     >
       {({ isActive }) => (
@@ -304,9 +215,9 @@ function NavItem({ to, label, Icon, badge = 0, collapsed = false }: NavItemProps
               layoutId="desktop-nav-bg"
               className="absolute inset-0 rounded-lg"
               style={{
-                background: 'rgba(255,201,74,0.09)',
-                border: '1px solid rgba(255,201,74,0.22)',
-                boxShadow: 'inset 0 1px 0 rgba(255,215,120,0.10)',
+                background: 'rgb(var(--accent-gold) / 0.10)',
+                border: '1px solid rgb(var(--accent-gold) / 0.28)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
               }}
               transition={{ type: 'spring', stiffness: 500, damping: 38, mass: 0.7 }}
             />
@@ -317,8 +228,8 @@ function NavItem({ to, label, Icon, badge = 0, collapsed = false }: NavItemProps
               layoutId="desktop-nav-bar"
               className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
               style={{
-                background: 'linear-gradient(to bottom, #ffc94a, #e0a82a)',
-                boxShadow: '0 0 10px rgba(255,201,74,0.6)',
+                background: 'linear-gradient(to bottom, rgb(var(--accent-gold)), rgb(var(--accent-gold-dim)))',
+                boxShadow: '0 0 10px rgb(var(--accent-gold) / 0.65)',
               }}
               transition={{ type: 'spring', stiffness: 500, damping: 38, mass: 0.7 }}
             />
@@ -330,15 +241,9 @@ function NavItem({ to, label, Icon, badge = 0, collapsed = false }: NavItemProps
               }`}
               strokeWidth={isActive ? 2.5 : 2}
             />
-            {/* Rail replié : le badge devient une pastille sur l'icône */}
-            {collapsed && badge > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-red text-white text-[9px] font-extrabold flex items-center justify-center ring-2 ring-bg-1 tabular-nums">
-                {badge}
-              </span>
-            )}
           </span>
-          {!collapsed && <span className="relative flex-1">{label}</span>}
-          {!collapsed && badge > 0 && (
+          <span className="relative flex-1">{label}</span>
+          {badge > 0 && (
             <motion.span
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}

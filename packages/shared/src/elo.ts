@@ -1,5 +1,34 @@
+import { ELO_HARD_FLOOR } from './rank.js';
+
 export const DEFAULT_ELO = 1000;
 export const K = 32;
+
+// ─── Plancher ELO & anti-farm de plancher ───────────────────────────────────
+/** Battre un joueur à ELO ≤ plancher+FLOOR_FARM_ZONE ne rapporte presque rien. */
+export const FLOOR_FARM_ZONE = 10;
+/** Fraction du gain conservée quand on bat un joueur de la zone plancher. */
+export const FLOOR_FARM_FACTOR = 0.25;
+
+/**
+ * Gain du vainqueur amorti si le PERDANT est dans la zone plancher (≤ 985) :
+ * taper les joueurs coincés au plancher ne doit presque rien rapporter.
+ * Un gain déjà ≤ 1 reste tel quel (le favori extrême gagne toujours ~0).
+ */
+function dampFloorFarm(loserRating: number, gain: number): number {
+  if (loserRating > ELO_HARD_FLOOR + FLOOR_FARM_ZONE) return gain;
+  if (gain <= 1) return gain;
+  return Math.max(1, Math.round(gain * FLOOR_FARM_FACTOR));
+}
+
+/**
+ * Borne un delta NÉGATIF pour que `rating + delta` ne descende jamais sous le
+ * plancher absolu (975). Ne remonte jamais un rating : un rating hérité déjà
+ * sous le plancher ne perd simplement plus de points (delta plancher = 0).
+ */
+function clampDeltaToFloor(rating: number, delta: number): number {
+  if (delta >= 0) return delta;
+  return Math.max(delta, Math.min(0, ELO_HARD_FLOOR - rating));
+}
 
 // ─── OPS (ennemi juré) ──────────────────────────────────────────────────────
 export const OPS_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -69,11 +98,11 @@ export function calculateBabyfootElo(
   const winnerGain = Math.min(baseP + Math.min(gapBonus, WINNER_BONUS_CAP), MAX_DELTA_PER_MATCH);
   const loserLoss = Math.min(baseP + gapBonus, MAX_DELTA_PER_MATCH);
 
-  const gain = Math.round(winnerGain);
+  const gain = dampFloorFarm(loserRating, Math.round(winnerGain));
   const loss = Math.round(loserLoss);
 
-  const deltaA = winner === 'A' ? gain : -loss;
-  const deltaB = winner === 'A' ? -loss : gain;
+  const deltaA = winner === 'A' ? gain : clampDeltaToFloor(ratingA, -loss);
+  const deltaB = winner === 'A' ? clampDeltaToFloor(ratingB, -loss) : gain;
 
   return {
     newA: ratingA + deltaA,
@@ -140,11 +169,11 @@ export function calculateSmashElo(
   const winnerGain = Math.min(baseP + Math.min(gapBonus, WINNER_BONUS_CAP), MAX_DELTA_PER_MATCH);
   const loserLoss = Math.min(baseP + gapBonus, MAX_DELTA_PER_MATCH);
 
-  const gain = Math.round(winnerGain);
+  const gain = dampFloorFarm(loserRating, Math.round(winnerGain));
   const loss = Math.round(loserLoss);
 
-  const deltaA = winner === 'A' ? gain : -loss;
-  const deltaB = winner === 'A' ? -loss : gain;
+  const deltaA = winner === 'A' ? gain : clampDeltaToFloor(ratingA, -loss);
+  const deltaB = winner === 'A' ? clampDeltaToFloor(ratingB, -loss) : gain;
 
   return { newA: ratingA + deltaA, newB: ratingB + deltaB, deltaA, deltaB };
 }
@@ -182,8 +211,9 @@ export function calculateFfaElo(ratings: number[]): number[] {
       sum[j]! += deltaB;
     }
   }
-  // Moyenne sur les adversaires (arrondie une seule fois pour limiter la dérive).
-  return sum.map((s) => Math.round(s / (n - 1)));
+  // Moyenne sur les adversaires (arrondie une seule fois pour limiter la
+  // dérive), puis plancher absolu appliqué à chacun.
+  return sum.map((s, i) => clampDeltaToFloor(ratings[i]!, Math.round(s / (n - 1))));
 }
 
 // ─── FLÉCHETTES (301 / 501, N>=2) ────────────────────────────────────────────
@@ -228,11 +258,12 @@ export function calculateDartsElo(ratings: number[], scored: number[]): number[]
       sum[j]! -= dI; // a_j − E_j = (1−a_i) − (1−E_i) = −(a_i − E_i)
     }
   }
-  // Moyenne sur les adversaires + plafond (arrondi une seule fois).
-  return sum.map((s) => {
+  // Moyenne sur les adversaires + plafond (arrondi une seule fois), puis
+  // plancher absolu appliqué à chacun.
+  return sum.map((s, i) => {
     const avg = s / (n - 1);
     const capped = Math.max(-MAX_DELTA_PER_MATCH, Math.min(MAX_DELTA_PER_MATCH, avg));
-    return Math.round(capped);
+    return clampDeltaToFloor(ratings[i]!, Math.round(capped));
   });
 }
 
@@ -253,8 +284,8 @@ export function calculateChessElo(
   if (winner === 'draw') {
     const eA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
     const eB = 1 / (1 + Math.pow(10, (ratingA - ratingB) / 400));
-    const deltaA = Math.round(K * (0.5 - eA));
-    const deltaB = Math.round(K * (0.5 - eB));
+    const deltaA = clampDeltaToFloor(ratingA, Math.round(K * (0.5 - eA)));
+    const deltaB = clampDeltaToFloor(ratingB, Math.round(K * (0.5 - eB)));
     return { newA: ratingA + deltaA, newB: ratingB + deltaB, deltaA, deltaB };
   }
   const winnerRating = winner === 'A' ? ratingA : ratingB;

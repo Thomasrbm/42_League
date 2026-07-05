@@ -100,7 +100,8 @@ describe('calculateBabyfootElo', () => {
   // ─────────────────────────────────────────────────────────────────────────
   describe('résultats attendus : transfert symétrique (somme nulle)', () => {
     it('ratings égaux 10-0 → ±32 (E=0.5, M=2)', () => {
-      const r = calculateBabyfootElo(1000, 1000, 'A', 10, 0);
+      // 1200 vs 1200 : loin du plancher 975, le transfert reste symétrique.
+      const r = calculateBabyfootElo(1200, 1200, 'A', 10, 0);
       expect(r.deltaA).toBe(32);
       expect(r.deltaB).toBe(-32);
       expect(r.deltaA + r.deltaB).toBe(0);
@@ -159,9 +160,35 @@ describe('calculateBabyfootElo', () => {
     });
 
     it('gamelle 10--10 à rating égal → ±48 (M=3)', () => {
-      const r = calculateBabyfootElo(1000, 1000, 'A', 10, -10);
+      // 1200 vs 1200 : loin du plancher 975 (à 1000 la perte serait bornée à -25).
+      const r = calculateBabyfootElo(1200, 1200, 'A', 10, -10);
       expect(r.deltaA).toBe(48);
       expect(r.deltaB).toBe(-48);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PLANCHER 975 & anti-farm de plancher.
+  // ─────────────────────────────────────────────────────────────────────────
+  describe('plancher ELO 975 (étain) et anti-farm', () => {
+    it("le perdant ne descend jamais sous 975 (borne la perte)", () => {
+      const r = calculateBabyfootElo(1000, 1000, 'A', 10, -10); // perte brute -48
+      expect(r.newB).toBe(975);
+      expect(r.deltaB).toBe(-25);
+    });
+
+    it('un rating hérité déjà sous 975 ne perd plus de points', () => {
+      const r = calculateBabyfootElo(1200, 950, 'A', 10, 0);
+      expect(r.deltaB).toBe(0);
+      expect(r.newB).toBe(950);
+    });
+
+    it('battre un joueur au plancher (≤985) rapporte très peu', () => {
+      const farm = calculateBabyfootElo(1000, 975, 'A', 10, 0);
+      const normal = calculateBabyfootElo(1000, 1000, 'A', 10, 0);
+      expect(farm.deltaA).toBeGreaterThanOrEqual(1);
+      expect(farm.deltaA).toBeLessThanOrEqual(8);
+      expect(farm.deltaA).toBeLessThan(normal.deltaA / 2);
     });
   });
 

@@ -3,15 +3,16 @@
  *
  * Framework-free (TS pur, pas de React) : importable côté backend comme côté front.
  *
- * Échelle (croissante) :
- *   <1000        → Étain
- *   1000–1099    → Bronze
- *   1100–1199    → Argent
- *   1200–1399    → Or
- *   >=1400       → Diamant
+ * Échelle (croissante) — resserrée pour que les grades soient plus accessibles :
+ *   975–999      → Étain   (975 = plancher ABSOLU : l'ELO ne descend jamais dessous)
+ *   1000–1049    → Bronze
+ *   1050–1099    → Argent
+ *   1100–1199    → Or
+ *   >=1200       → Diamant
  *
- * `floor` = seuil minimal du palier, utilisé comme cible de reset en fin de saison
- * (on ne repart pas de 1000 mais du plancher de son grade courant).
+ * `floor` = seuil minimal du palier. En fin de saison chacun repart au plancher
+ * du grade JUSTE EN DESSOUS du sien (Or → Argent), sauf Bronze et Étain qui
+ * restent à leur propre plancher (cf. seasonResetElo).
  */
 export type RankTierKey = 'etain' | 'bronze' | 'argent' | 'or' | 'diamant' | 'grandmaster';
 
@@ -27,15 +28,22 @@ export interface RankTier {
   color: string;
 }
 
-const ETAIN: RankTier = { key: 'etain', label: 'Étain', min: 0, floor: 900, color: '#787f87' };
+/**
+ * Plancher ELO absolu : quel que soit le match, un joueur ne descend jamais
+ * sous 975. Appliqué dans les moteurs Elo (cf. elo.ts) — et battre un joueur
+ * dans la zone plancher ne rapporte presque rien (anti-farm).
+ */
+export const ELO_HARD_FLOOR = 975;
+
+const ETAIN: RankTier = { key: 'etain', label: 'Étain', min: 0, floor: ELO_HARD_FLOOR, color: '#787f87' };
 
 /** Table des paliers, ordonnée par ELO croissant. */
 export const RANK_TIERS: readonly RankTier[] = [
   ETAIN,
   { key: 'bronze', label: 'Bronze', min: 1000, floor: 1000, color: '#cd7f32' },
-  { key: 'argent', label: 'Argent', min: 1100, floor: 1100, color: '#c0c0c0' },
-  { key: 'or', label: 'Or', min: 1200, floor: 1200, color: '#ffc94a' },
-  { key: 'diamant', label: 'Diamant', min: 1400, floor: 1400, color: '#5fd0e0' },
+  { key: 'argent', label: 'Argent', min: 1050, floor: 1050, color: '#c0c0c0' },
+  { key: 'or', label: 'Or', min: 1100, floor: 1100, color: '#ffc94a' },
+  { key: 'diamant', label: 'Diamant', min: 1200, floor: 1200, color: '#5fd0e0' },
 ];
 
 /**
@@ -63,7 +71,7 @@ export const GRANDMASTER: RankTier = {
   key: 'grandmaster',
   label: 'Grand Master',
   min: Infinity,
-  floor: 1400,
+  floor: 1200,
   color: '#c084fc',
 };
 
@@ -72,7 +80,7 @@ export const GRANDMASTER: RankTier = {
  * Le top {@link GRANDMASTER_TOP_N} ne suffit pas si l'on n'a pas atteint ce palier.
  */
 export const GRANDMASTER_MIN_ELO =
-  RANK_TIERS.find((t) => t.key === 'diamant')?.min ?? 1400;
+  RANK_TIERS.find((t) => t.key === 'diamant')?.min ?? 1200;
 
 /**
  * Palier d'un joueur en tenant compte de sa POSITION dans le classement de sa
@@ -104,19 +112,23 @@ export function rankFloor(elo: number): number {
   return rankTier(elo).floor;
 }
 
-/** Plancher du palier Bronze (cible de reset des Étains). */
-const BRONZE_FLOOR = RANK_TIERS.find((t) => t.key === 'bronze')?.floor ?? 1000;
-
 /**
- * ELO cible après reset de fin de saison.
+ * ELO cible après reset de fin de saison : SOFT RESET d'un grade.
  *
- * Comme {@link rankFloor}, MAIS les Étains (< 1000) sont remontés au plancher
- * Bronze : personne ne reste coincé sous le Bronze entre deux saisons, on
- * repart au minimum au grade Bronze.
- *   seasonResetElo(1500) === 1400  (Diamant → plancher Diamant)
- *   seasonResetElo(1050) === 1000  (Bronze  → plancher Bronze)
- *   seasonResetElo(950)  === 1000  (Étain   → plancher Bronze)
+ * On ne garde pas son grade : chacun repart au plancher du grade JUSTE EN
+ * DESSOUS du sien (Or → Argent, Diamant → Or…). Exceptions du bas d'échelle :
+ * Bronze reste à 1000 et Étain reste à son plancher (pas de grade en dessous).
+ *   seasonResetElo(1300) === 1100  (Diamant → plancher Or)
+ *   seasonResetElo(1150) === 1050  (Or      → plancher Argent)
+ *   seasonResetElo(1060) === 1000  (Argent  → plancher Bronze)
+ *   seasonResetElo(1020) === 1000  (Bronze  → reste à 1000)
+ *   seasonResetElo(980)  === 975   (Étain   → plancher Étain)
  */
 export function seasonResetElo(elo: number): number {
-  return rankTier(elo).key === 'etain' ? BRONZE_FLOOR : rankFloor(elo);
+  const tier = rankTier(elo);
+  const idx = RANK_TIERS.findIndex((t) => t.key === tier.key);
+  const below = idx > 0 ? RANK_TIERS[idx - 1] : undefined;
+  // Bronze ne descend PAS en Étain : il reste à son propre plancher (1000).
+  if (tier.key === 'bronze' || !below) return tier.floor;
+  return below.floor;
 }

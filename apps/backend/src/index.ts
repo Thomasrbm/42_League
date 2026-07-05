@@ -1755,6 +1755,32 @@ app.get('/leaderboard', async (c) => {
   );
 });
 
+// ── Classement XP (cross-jeux) ────────────────────────────────────────────────
+// L'XP est créditée à CHAQUE match joué (défaite comprise), quel que soit le
+// mode de jeu → un seul ladder global, sans paramètre `game`. Trie sur
+// User.xp ; expose aussi le niveau dérivé (même courbe que le passe).
+app.get('/leaderboard/xp', async (c) => {
+  await getCurrentLogin(c);
+  const users = await prisma.user.findMany({
+    where: { ...VISIBLE_USER_WHERE, xp: { gt: 0 } },
+    orderBy: { xp: 'desc' },
+    take: MAX_PUBLIC_LIST,
+  });
+  return c.json(
+    users.map((u, i) => {
+      const lv = levelFromXp(u.xp);
+      return {
+        rank: i + 1,
+        ...toPublicUser(u),
+        xp: u.xp,
+        level: lv.level,
+        xpIntoLevel: lv.xpIntoLevel,
+        xpForNextLevel: lv.xpForNextLevel,
+      };
+    }),
+  );
+});
+
 // ── Helpers équipes Babyfoot 2v2 ──────────────────────────────────────────────
 // Inclusions communes pour enrichir une BabyfootTeam : avatars dénormalisés +
 // matchs 2v2 validés (bilan wins/losses). Partagé par le classement, la liste
@@ -10714,18 +10740,57 @@ app.delete('/me/hot', async (c) => {
 
 // ── Émotes de narguage (fin de 1v1 : le vainqueur nargue le perdant) ─────────
 
-/** Émotes proposées au joueur (PUT /me/taunt-emote). La première est le défaut. */
+/** Émotes proposées au joueur (PUT /me/taunt-emote). La première est le défaut.
+ *  Économie (garder en synchro avec le front, cf. lib/tauntEmotes.ts) :
+ *  - index 0 : émote par défaut de tout le monde ;
+ *  - index 1-2 : gratuites ;
+ *  - index 3+ : débloquées par le PASSE DE COMBAT, une tous les 7 niveaux
+ *    (niveau 7, 14, 21, … — cf. tauntEmoteUnlockLevel). */
 const TAUNT_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'] as const;
 const DEFAULT_TAUNT_EMOTE = TAUNT_EMOTES[0];
+/** Nombre d'émotes gratuites (défaut inclus) en tête de liste. */
+const FREE_TAUNT_EMOTES = 3;
+/** Une émote payante se débloque tous les N niveaux de passe. */
+const TAUNT_EMOTE_LEVEL_STEP = 7;
+
+/** Niveau de passe requis pour équiper l'émote (0 = gratuite). */
+function tauntEmoteUnlockLevel(emote: string): number {
+  const idx = (TAUNT_EMOTES as readonly string[]).indexOf(emote);
+  if (idx < FREE_TAUNT_EMOTES) return 0;
+  return (idx - FREE_TAUNT_EMOTES + 1) * TAUNT_EMOTE_LEVEL_STEP;
+}
+
+// GET /me/taunt-emotes — catalogue des émotes avec leur état de déblocage.
+app.get('/me/taunt-emotes', async (c) => {
+  const login = await getCurrentLogin(c);
+  const user = await getOrCreateUser(login);
+  const level = levelFromXp(user.xp).level;
+  return c.json({
+    current: user.tauntEmote ?? DEFAULT_TAUNT_EMOTE,
+    level,
+    emotes: TAUNT_EMOTES.map((emote) => {
+      const unlockLevel = tauntEmoteUnlockLevel(emote);
+      return { emote, unlockLevel, unlocked: level >= unlockLevel };
+    }),
+  });
+});
 
 // PUT /me/taunt-emote — choisit l'émote montrée aux joueurs qu'on bat.
+// Les émotes du passe ne sont équipables qu'au niveau requis.
 app.put('/me/taunt-emote', async (c) => {
   const login = await getCurrentLogin(c);
-  await getOrCreateUser(login);
+  const user = await getOrCreateUser(login);
   const body = await c.req.json().catch(() => null);
   const parsed = z.object({ emote: z.enum(TAUNT_EMOTES) }).safeParse(body);
   if (!parsed.success) {
     throw new HTTPException(400, { message: 'émote invalide' });
+  }
+  const required = tauntEmoteUnlockLevel(parsed.data.emote);
+  const level = levelFromXp(user.xp).level;
+  if (level < required) {
+    throw new HTTPException(403, {
+      message: `émote verrouillée — atteins le niveau ${required} du passe pour l'équiper`,
+    });
   }
   await prisma.user.update({ where: { login }, data: { tauntEmote: parsed.data.emote } });
   return c.json({ ok: true, emote: parsed.data.emote });
