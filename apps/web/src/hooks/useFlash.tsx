@@ -8,14 +8,21 @@ import {
   type ReactNode,
 } from 'react';
 
+/** Action optionnelle du toast (pattern « Annuler » post-action). */
+export interface FlashAction {
+  label: string;
+  run: () => void;
+}
+
 interface FlashState {
   message: string | null;
   kind: 'info' | 'error';
+  action?: FlashAction;
 }
 
 interface FlashContextValue {
   flash: FlashState;
-  show: (message: string, kind?: 'info' | 'error') => void;
+  show: (message: string, kind?: 'info' | 'error', action?: FlashAction) => void;
   clear: () => void;
 }
 
@@ -26,12 +33,12 @@ export function FlashProvider({ children }: { children: ReactNode }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // File d'attente : plusieurs messages rapprochés s'enchaînent au lieu de
   // s'écraser (ex. erreurs en cascade d'un « tout récupérer »).
-  const queue = useRef<{ message: string; kind: 'info' | 'error' }[]>([]);
+  const queue = useRef<{ message: string; kind: 'info' | 'error'; action?: FlashAction }[]>([]);
   const current = useRef<string | null>(null);
 
-  /** Durée d'affichage proportionnelle à la longueur (3 s → 7 s). */
-  const durationFor = (message: string) =>
-    Math.min(7000, Math.max(3000, 2200 + message.length * 45));
+  /** Durée d'affichage proportionnelle à la longueur (3 s → 7 s, ≥5 s si action). */
+  const durationFor = (message: string, hasAction: boolean) =>
+    Math.min(7000, Math.max(hasAction ? 5000 : 3000, 2200 + message.length * 45));
 
   const playNext = useCallback(() => {
     const next = queue.current.shift();
@@ -43,7 +50,7 @@ export function FlashProvider({ children }: { children: ReactNode }) {
     }
     current.current = next.message;
     setFlash(next);
-    timer.current = setTimeout(playNext, durationFor(next.message));
+    timer.current = setTimeout(playNext, durationFor(next.message, !!next.action));
   }, []);
 
   const clear = useCallback(() => {
@@ -57,10 +64,10 @@ export function FlashProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const show = useCallback(
-    (message: string, kind: 'info' | 'error' = 'info') => {
+    (message: string, kind: 'info' | 'error' = 'info', action?: FlashAction) => {
       // Dédoublonne : même message déjà affiché ou déjà en file → ignoré.
       if (current.current === message || queue.current.some((f) => f.message === message)) return;
-      queue.current.push({ message, kind });
+      queue.current.push({ message, kind, action });
       if (!timer.current) playNext();
     },
     [playNext],

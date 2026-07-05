@@ -115,12 +115,24 @@ export function useDefisLogic(): DefisLogic {
     await refetchContestable();
   }, [baseRefresh, refetchContestable]);
 
+  // Optimistic UI : la réponse à un défi s'applique à l'écran AVANT la réponse
+  // serveur (rollback + toast si l'API échoue). Sur le wifi du campus, ça se sent.
+  const [optimistic, setOptimistic] = useState<Map<string, 'accept' | 'decline'>>(new Map());
+
   const { incoming, outgoing, accepted } = useMemo(() => {
     const inc: Challenge[] = [];
     const out: Challenge[] = [];
     const acc: Challenge[] = [];
     // Plus récents en haut : on trie la source par date décroissante.
-    const sorted = [...challenges].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    const base = challenges
+      .map((c) => {
+        const opt = optimistic.get(c.id);
+        if (!opt) return c;
+        if (opt === 'decline') return null; // disparaît immédiatement
+        return c.status === 'pending' ? { ...c, status: 'accepted' as const } : c;
+      })
+      .filter((c): c is Challenge => c !== null);
+    const sorted = [...base].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
     for (const c of sorted) {
       if (c.status === 'accepted') {
         acc.push(c);
@@ -138,7 +150,7 @@ export function useDefisLogic(): DefisLogic {
       }
     }
     return { incoming: inc, outgoing: out, accepted: acc };
-  }, [challenges, myLogin]);
+  }, [challenges, myLogin, optimistic]);
 
   const { pendingToConfirm, pendingWaiting } = useMemo(() => {
     const toConfirm: PendingMatch[] = [];
@@ -281,6 +293,8 @@ export function useDefisLogic(): DefisLogic {
         const ok = await confirm(declinePrompt(challenge));
         if (!ok) return;
       }
+      // L'UI répond au tap tout de suite ; le serveur suit (rollback si échec).
+      setOptimistic((m) => new Map(m).set(id, action));
       try {
         if (action === 'accept') {
           const challenge = challenges.find((c) => c.id === id);
@@ -306,8 +320,21 @@ export function useDefisLogic(): DefisLogic {
         }
         await refresh();
       } catch (err) {
+        // Rollback : le défi réapparaît tel quel.
+        setOptimistic((m) => {
+          const next = new Map(m);
+          next.delete(id);
+          return next;
+        });
         flash.show(err instanceof Error ? err.message : String(err), 'error');
+        return;
       }
+      // Succès : l'état serveur (refresh) fait foi, on retire l'overlay local.
+      setOptimistic((m) => {
+        const next = new Map(m);
+        next.delete(id);
+        return next;
+      });
     },
     [challenges, confirm, declinePrompt, flash, refresh, t, myLogin],
   );

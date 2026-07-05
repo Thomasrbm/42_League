@@ -106,13 +106,14 @@ export function DeclareGameFlow({
     if (!opponent || !hasOutcome) return;
     setBusy(true);
     try {
+      let declared: { id: string };
       if (isSetGame) {
         if (!setValue) {
           setBusy(false);
           setSending(false);
           return;
         }
-        await api.declareMatch({
+        declared = await api.declareMatch({
           opponentLogin: opponent.login,
           scoreSelf: setValue.scoreSelf,
           scoreOpponent: setValue.scoreOpponent,
@@ -123,7 +124,7 @@ export function DeclareGameFlow({
         });
       } else if (isChess) {
         // Échecs : victoire 1-0, défaite 0-1, ou nulle 0-0.
-        await api.declareMatch({
+        declared = await api.declareMatch({
           opponentLogin: opponent.login,
           scoreSelf: isDraw ? 0 : iWon ? 1 : 0,
           scoreOpponent: isDraw ? 0 : iWon ? 0 : 1,
@@ -132,10 +133,25 @@ export function DeclareGameFlow({
       } else {
         const scoreSelf = iWon ? WINNING_SCORE : loserScore;
         const scoreOpponent = iWon ? loserScore : WINNING_SCORE;
-        await api.declareMatch({ opponentLogin: opponent.login, scoreSelf, scoreOpponent });
+        declared = await api.declareMatch({ opponentLogin: opponent.login, scoreSelf, scoreOpponent });
       }
       trackEvent('match.declare', isSf ? 'streetfighter' : isSmash ? 'smash' : isChess ? 'chess' : 'babyfoot');
-      flash.show(`${t('defis.gameDeclared')} ${opponent.login} ${t('defis.mustConfirmShort')}`);
+      // Pattern « Annuler » : zéro friction à la déclaration, filet de sécurité
+      // dans le toast (le déclarant peut retirer sa déclaration tant qu'elle
+      // est en attente — l'endpoint /matches/:id/cancel le permet de toute façon).
+      const pendingId = declared.id;
+      flash.show(`${t('defis.gameDeclared')} ${opponent.login} ${t('defis.mustConfirmShort')}`, 'info', {
+        label: t('confirm.cancel'),
+        run: () => {
+          void api
+            .cancelMatch(pendingId)
+            .then(() => {
+              flash.show(t('defis.declareUndone'));
+              void onSubmitted();
+            })
+            .catch((err) => flash.show(err instanceof Error ? err.message : String(err), 'error'));
+        },
+      });
       haptic('success');
       await onSubmitted();
     } catch (err) {
