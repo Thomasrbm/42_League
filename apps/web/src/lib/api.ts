@@ -579,7 +579,23 @@ export interface MeResponse {
     eloMultUntil?: string | null;
     /** Réputation litiges : nb de litiges perdus (marque publique sur le profil). */
     disputesLost?: number;
+    /** Émote de victoire (narguage) — null = défaut. */
+    tauntEmote?: string | null;
   } | null;
+}
+
+/** Narguage en attente : le vainqueur d'un 1v1 nargue le perdant à sa prochaine connexion. */
+export interface TauntData {
+  id: string;
+  game: string;
+  emote: string;
+  createdAt: string;
+  winner: {
+    login: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    imageUrl: string | null;
+  };
 }
 
 export const MODERATOR_PERMISSION_KEYS = [
@@ -2111,6 +2127,18 @@ export const api = {
   adminDeleteBattlePassTier: (tier: number) =>
     request<{ ok: true }>(`/admin/battlepass/tiers/${tier}`, {
       method: 'DELETE',
+    }),
+  // ── Émotes de narguage ─────────────────────────────────────────────────────
+  /** Narguages pas encore vus (max 3, plus ancien d'abord). */
+  tauntsPending: () => request<TauntData[]>('/me/taunts/pending'),
+  /** Marque un narguage comme vu (après la cinématique). */
+  tauntSeen: (id: string) =>
+    request<{ ok: true }>(`/me/taunts/${encodeURIComponent(id)}/seen`, { method: 'POST' }),
+  /** Choisit son émote de victoire (montrée aux joueurs battus). */
+  setTauntEmote: (emote: string) =>
+    request<{ ok: true; emote: string }>('/me/taunt-emote', {
+      method: 'PUT',
+      body: JSON.stringify({ emote }),
     }),
   // ── Suivi des coins (Shop GOD) ────────────────────────────────────────────
   /** Annuaire des joueurs avec leur solde (tri solde décroissant, recherche optionnelle). */

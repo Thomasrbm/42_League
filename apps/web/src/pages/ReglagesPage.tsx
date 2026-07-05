@@ -8,11 +8,16 @@ import { FeatureRequestBox } from '../components/FeatureRequestBox';
 import { BugReportBox } from '../components/BugReportBox';
 import { useAuth } from '../hooks/useAuth';
 import { useFlash } from '../hooks/useFlash';
+import { useLeagueData } from '../hooks/useLeagueData';
+import { api } from '../lib/api';
 import { useI18n, useT, type Lang } from '../lib/i18n';
 import { getApiBase, APP_VERSION, APP_BUILD_DATE } from '../lib/config';
 import { getToken } from '../lib/storage';
 import { usePerfPref } from '../hooks/usePerf';
 import { setPerfPref, type PerfPref } from '../lib/perf';
+
+/** Émotes de victoire proposées — MÊME liste que TAUNT_EMOTES côté backend. */
+const TAUNT_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'];
 
 export function ReglagesPage() {
   const t = useT();
@@ -20,10 +25,26 @@ export function ReglagesPage() {
   const { signOut, startLogin, login } = useAuth();
   const flash = useFlash();
   const perfPref = usePerfPref();
+  const { me, refresh } = useLeagueData();
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Émote choisie localement (retour instantané) — sinon celle du profil.
+  const [localEmote, setLocalEmote] = useState<string | null>(null);
+  const tauntEmote = localEmote ?? me?.user?.tauntEmote ?? TAUNT_EMOTES[0];
+
+  async function saveTauntEmote(emote: string) {
+    setLocalEmote(emote);
+    try {
+      await api.setTauntEmote(emote);
+      flash.show(t('settings.tauntEmote.saved'));
+      void refresh();
+    } catch {
+      setLocalEmote(null);
+      flash.show(t('settings.tauntEmote.error'));
+    }
+  }
 
   async function handleExport() {
     setExporting(true);
@@ -108,6 +129,33 @@ export function ReglagesPage() {
           />
           <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
             {t('settings.quality.hint')}
+          </p>
+        </div>
+
+        {/* Émote de victoire (narguage post-1v1) */}
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-2 mb-2">
+            {t('settings.tauntEmote')}
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {TAUNT_EMOTES.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => void saveTauntEmote(e)}
+                className={`w-11 h-11 rounded-xl text-2xl flex items-center justify-center border transition-transform hover:scale-110 active:scale-95 ${
+                  tauntEmote === e
+                    ? 'border-gold bg-gold/15 shadow-gold-glow'
+                    : 'border-border/60 bg-bg-2/60'
+                }`}
+                aria-label={e}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
+            {t('settings.tauntEmote.hint')}
           </p>
         </div>
 

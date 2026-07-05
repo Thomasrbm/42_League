@@ -10519,6 +10519,65 @@ app.delete('/admin/battlepass/tiers/:tier', async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Émotes de narguage (fin de 1v1 : le vainqueur nargue le perdant) ─────────
+
+/** Émotes proposées au joueur (PUT /me/taunt-emote). La première est le défaut. */
+const TAUNT_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'] as const;
+const DEFAULT_TAUNT_EMOTE = TAUNT_EMOTES[0];
+
+// PUT /me/taunt-emote — choisit l'émote montrée aux joueurs qu'on bat.
+app.put('/me/taunt-emote', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const body = await c.req.json().catch(() => null);
+  const parsed = z.object({ emote: z.enum(TAUNT_EMOTES) }).safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: 'émote invalide' });
+  }
+  await prisma.user.update({ where: { login }, data: { tauntEmote: parsed.data.emote } });
+  return c.json({ ok: true, emote: parsed.data.emote });
+});
+
+// GET /me/taunts/pending — narguages pas encore vus (max 3, plus ancien d'abord).
+// Consommé au chargement du site ; chaque narguage est marqué vu via /seen.
+app.get('/me/taunts/pending', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const taunts = await prisma.emoteTaunt.findMany({
+    where: { loserLogin: login, seenAt: null },
+    orderBy: { createdAt: 'asc' },
+    take: 3,
+    include: {
+      winner: { select: { login: true, firstName: true, lastName: true, imageUrl: true } },
+    },
+  });
+  return c.json(
+    taunts.map((tn) => ({
+      id: tn.id,
+      game: tn.game,
+      emote: tn.emote,
+      createdAt: tn.createdAt.toISOString(),
+      winner: {
+        login: tn.winner.login,
+        firstName: tn.winner.firstName,
+        lastName: tn.winner.lastName,
+        imageUrl: tn.winner.imageUrl,
+      },
+    })),
+  );
+});
+
+// POST /me/taunts/:id/seen — marque un narguage comme vu (le sien uniquement).
+app.post('/me/taunts/:id/seen', async (c) => {
+  const login = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  await prisma.emoteTaunt.updateMany({
+    where: { id, loserLogin: login, seenAt: null },
+    data: { seenAt: new Date() },
+  });
+  return c.json({ ok: true });
+});
+
 // ── Annonces générales (admin → tous les joueurs) ────────────────────────────
 
 function serializeAnnouncement(a: {
@@ -11132,6 +11191,27 @@ async function awardMatchExperienceTx(
         const newLevel = levelFromXp(next).level;
         await notifyBattlePassTiersTx(tx, p.login, prevLevel, newLevel);
       }
+    }
+  }
+
+  // Narguage : en 1v1 (hors nulle), le vainqueur laisse son émote au perdant —
+  // montrée à sa prochaine connexion (écran versus puis émote, cf. /me/taunts).
+  if (!isDraw && participants.length === 2) {
+    const winner = participants.find((p) => p.won);
+    const loser = participants.find((p) => !p.won);
+    if (winner && loser && winner.login !== loser.login) {
+      const w = await tx.user.findUnique({
+        where: { login: winner.login },
+        select: { tauntEmote: true },
+      });
+      await tx.emoteTaunt.create({
+        data: {
+          loserLogin: loser.login,
+          winnerLogin: winner.login,
+          game,
+          emote: w?.tauntEmote ?? DEFAULT_TAUNT_EMOTE,
+        },
+      });
     }
   }
 }

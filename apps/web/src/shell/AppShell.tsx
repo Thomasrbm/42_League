@@ -17,6 +17,7 @@ const ContestRageOverlay = lazy(() => import('../components/ContestRageOverlay')
 const RankUpOverlay      = lazy(() => import('../components/RankUpOverlay').then(m => ({ default: m.RankUpOverlay })));
 const LevelUpOverlay     = lazy(() => import('../components/LevelUpOverlay').then(m => ({ default: m.LevelUpOverlay })));
 const RewardUnlockOverlay = lazy(() => import('../components/RewardUnlockOverlay').then(m => ({ default: m.RewardUnlockOverlay })));
+const TauntOverlay       = lazy(() => import('../components/TauntOverlay').then(m => ({ default: m.TauntOverlay })));
 
 interface AppShellProps {
   children: ReactNode;
@@ -66,6 +67,8 @@ export function AppShell({ children }: AppShellProps) {
             débloquée » (event SSE battlepass:tier) */}
         <LevelUpOverlay />
         <RewardUnlockOverlay />
+        {/* Narguage post-défaite : écran versus puis émote du vainqueur, à la connexion */}
+        <TauntOverlay />
       </Suspense>
     </>
   );

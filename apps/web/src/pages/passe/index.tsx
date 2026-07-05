@@ -52,17 +52,28 @@ import { resolveRarity, type Rarity } from '../../lib/rarity';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const YELLOW = '#ffe234';
-const PAGE_SIZE = 10;
 
-/** Palette de rareté façon Fortnite (locale à la page — la boutique garde la sienne). */
-const FN_HEX: Record<Rarity | 'coins' | 'consumable' | 'none', string> = {
-  common: '#9aa9c0',
-  rare: '#2cc3ff',
-  epic: '#c655ff',
-  legendary: '#ff9a3d',
-  coins: '#ffd23e',
-  consumable: '#3ee0d8',
-  none: '#5b6b8a',
+/**
+ * Échelle de rareté Fortnite (couleurs ET libellés FR du jeu) :
+ * gris Commun → vert Atypique → bleu Rare → violet Épique → orange Légendaire.
+ * Locale à la page — la boutique garde sa propre échelle à 4 niveaux.
+ */
+type FnRarity = 'commun' | 'atypique' | 'rare' | 'epique' | 'legendaire';
+
+const FN: Record<FnRarity, { hex: string; label: string }> = {
+  commun: { hex: '#b1b1b1', label: 'Commun' },
+  atypique: { hex: '#87e339', label: 'Atypique' },
+  rare: { hex: '#41bfff', label: 'Rare' },
+  epique: { hex: '#c359ff', label: 'Épique' },
+  legendaire: { hex: '#ea8d23', label: 'Légendaire' },
+};
+
+/** Rareté boutique (4 niveaux) → échelle Fortnite de la page. */
+const SHOP_TO_FN: Record<Rarity, FnRarity> = {
+  common: 'commun',
+  rare: 'rare',
+  epic: 'epique',
+  legendary: 'legendaire',
 };
 
 const CONSUMABLE_ICON: Record<string, LucideIcon> = {
@@ -72,12 +83,64 @@ const CONSUMABLE_ICON: Record<string, LucideIcon> = {
   mini_ops: ShieldBan,
 };
 
+/** Largeur d'une tuile de la piste (une seule ligne, scroll horizontal). */
+const TILE_W = 208;
+
+/**
+ * Scroll par glisser-déposer (souris) + molette verticale → défilement
+ * horizontal. Le tactile garde le scroll natif.
+ */
+function useDragScroll(ref: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let down = false;
+    let startX = 0;
+    let startLeft = 0;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      down = true;
+      startX = e.clientX;
+      startLeft = el.scrollLeft;
+      el.classList.add('cursor-grabbing');
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!down) return;
+      el.scrollLeft = startLeft - (e.clientX - startX);
+    };
+    const onUp = () => {
+      down = false;
+      el.classList.remove('cursor-grabbing');
+    };
+    const onWheel = (e: WheelEvent) => {
+      const delta = e.deltaY;
+      if (delta === 0 || el.scrollWidth <= el.clientWidth) return;
+      const atStart = el.scrollLeft <= 0;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
+      // En butée, on rend la main au scroll vertical de la page.
+      if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return;
+      e.preventDefault();
+      el.scrollLeft += delta;
+    };
+    el.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      el.removeEventListener('wheel', onWheel);
+    };
+  }, [ref]);
+}
+
 // ─── Récompenses factices (le temps que les vraies soient configurées) ──────
 
 interface FakeReward {
   kind: 'item' | 'coins' | 'consumable';
   name: string;
-  rarity: Rarity;
+  rarity: FnRarity;
   coins?: number;
   consumableKind?: string;
   Icon: LucideIcon;
@@ -106,15 +169,19 @@ const FAKE_COMMON_RARE: Array<[string, LucideIcon]> = [
   ['Sticker Flamme', Flame],
 ];
 
-/** Récompense factice, déterministe par numéro de palier (aucun aléatoire). */
+/**
+ * Récompense factice, déterministe par numéro de palier (aucun aléatoire).
+ * Balaye toute l'échelle de rareté : légendaire tous les 10 paliers, épique
+ * tous les 5, bleu (coins) tous les 3, vert (conso/objet) sinon, gris au début.
+ */
 function fakeRewardFor(tier: number): FakeReward {
   if (tier % 10 === 0) {
     const [name, Icon] = FAKE_LEGENDARY[(tier / 10 - 1 + FAKE_LEGENDARY.length * 10) % FAKE_LEGENDARY.length]!;
-    return { kind: 'item', name, rarity: 'legendary', Icon };
+    return { kind: 'item', name, rarity: 'legendaire', Icon };
   }
   if (tier % 5 === 0) {
     const [name, Icon] = FAKE_EPIC[Math.floor(tier / 5) % FAKE_EPIC.length]!;
-    return { kind: 'item', name, rarity: 'epic', Icon };
+    return { kind: 'item', name, rarity: 'epique', Icon };
   }
   if (tier % 3 === 0) {
     return { kind: 'coins', name: `${100 + (tier % 4) * 50}`, rarity: 'rare', coins: 100 + (tier % 4) * 50, Icon: Gem };
@@ -122,10 +189,10 @@ function fakeRewardFor(tier: number): FakeReward {
   if (tier % 4 === 0) {
     const kinds = ['anti_ops', 'elo_mult', 'force_duel', 'mini_ops'] as const;
     const consumableKind = kinds[Math.floor(tier / 4) % kinds.length]!;
-    return { kind: 'consumable', name: consumableKind, rarity: 'rare', consumableKind, Icon: CONSUMABLE_ICON[consumableKind] ?? Zap };
+    return { kind: 'consumable', name: consumableKind, rarity: 'atypique', consumableKind, Icon: CONSUMABLE_ICON[consumableKind] ?? Zap };
   }
   const [name, Icon] = FAKE_COMMON_RARE[tier % FAKE_COMMON_RARE.length]!;
-  return { kind: 'item', name, rarity: tier % 2 === 0 ? 'rare' : 'common', Icon };
+  return { kind: 'item', name, rarity: tier % 2 === 0 ? 'atypique' : 'commun', Icon };
 }
 
 // ─── Modèle d'affichage d'une tuile ──────────────────────────────────────────
@@ -142,13 +209,6 @@ interface TileView {
   hex: string;
   Icon: LucideIcon | 'coin';
 }
-
-const RARITY_TAG: Record<Rarity, string> = {
-  common: 'Commun',
-  rare: 'Rare',
-  epic: 'Épique',
-  legendary: 'Légendaire',
-};
 
 function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileView[] {
   // Aucun palier configuré → piste 100% factice de 60 paliers pour la démo.
@@ -176,7 +236,7 @@ function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileVie
           claimable: tier.unlocked && !claimed,
           name: `${tier.coins ?? 0}`,
           tag: t('battlepass.reward.coins'),
-          hex: FN_HEX.coins,
+          hex: FN.rare.hex,
           Icon: 'coin',
         };
       }
@@ -190,12 +250,12 @@ function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileVie
           claimable: tier.unlocked && !claimed,
           name: t(`battlepass.consumable.${tier.consumableKind}`),
           tag: t('battlepass.reward.consumable'),
-          hex: FN_HEX.consumable,
+          hex: FN.atypique.hex,
           Icon: CONSUMABLE_ICON[tier.consumableKind] ?? Zap,
         };
       }
       // item
-      const rarity = resolveRarity(tier.item!);
+      const fn = FN[SHOP_TO_FN[resolveRarity(tier.item!)]];
       const claimed = !!tier.claimedAt;
       return {
         tier: tier.tier,
@@ -204,8 +264,8 @@ function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileVie
         claimed,
         claimable: tier.unlocked && !claimed,
         name: tier.item!.name,
-        tag: RARITY_TAG[rarity],
-        hex: FN_HEX[rarity],
+        tag: fn.label,
+        hex: fn.hex,
         Icon: Gem,
       };
     }
@@ -226,8 +286,8 @@ function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileVie
         ? t('battlepass.reward.coins')
         : isConsumable
           ? t('battlepass.reward.consumable')
-          : RARITY_TAG[fk.rarity],
-      hex: isCoins ? FN_HEX.coins : isConsumable ? FN_HEX.consumable : FN_HEX[fk.rarity],
+          : FN[fk.rarity].label,
+      hex: FN[fk.rarity].hex,
       Icon: isCoins ? 'coin' : fk.Icon,
     };
   });
@@ -512,9 +572,10 @@ export function PassePage() {
   const { show } = useFlash();
   const [data, setData] = useState<BattlePassResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pageIdx, setPageIdx] = useState(0);
-  const [dir, setDir] = useState(1);
-  const autoPageDone = useRef(false);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const currentTileRef = useRef<HTMLDivElement | null>(null);
+
+  useDragScroll(scrollerRef);
 
   // File de la cinématique de claim (claim unitaire = 1 élément).
   const [fxQueue, setFxQueue] = useState<TileView[]>([]);
@@ -538,19 +599,26 @@ export function PassePage() {
 
   const tiles = useMemo(() => (data ? buildTiles(data, t) : []), [data, t]);
 
-  const pages = useMemo(() => {
-    const out: TileView[][] = [];
-    for (let i = 0; i < tiles.length; i += PAGE_SIZE) out.push(tiles.slice(i, i + PAGE_SIZE));
-    return out;
-  }, [tiles]);
-
-  // À l'arrivée : ouvrir la page contenant le niveau courant.
+  // À l'arrivée : centrer la piste sur le palier du niveau courant.
   useEffect(() => {
-    if (autoPageDone.current || !data || tiles.length === 0) return;
-    autoPageDone.current = true;
-    const idx = tiles.findIndex((tl) => tl.tier === data.level);
-    setPageIdx(Math.max(0, Math.floor((idx === -1 ? tiles.length - 1 : idx) / PAGE_SIZE)));
-  }, [data, tiles]);
+    if (loading) return;
+    requestAnimationFrame(() => {
+      const sc = scrollerRef.current;
+      const nd = currentTileRef.current;
+      if (!sc || !nd) return;
+      const target = nd.offsetLeft - sc.clientWidth / 2 + nd.offsetWidth / 2;
+      sc.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    });
+    // volontairement déclenché une seule fois, données prêtes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  /** Fait défiler la piste d'environ un écran (flèches). */
+  const scrollByPage = useCallback((delta: number) => {
+    const sc = scrollerRef.current;
+    if (!sc) return;
+    sc.scrollBy({ left: delta * sc.clientWidth * 0.85, behavior: 'smooth' });
+  }, []);
 
   const claimables = useMemo(() => tiles.filter((tl) => tl.claimable), [tiles]);
 
@@ -593,21 +661,12 @@ export function PassePage() {
     setFxQueue((q) => q.slice(1));
   }, []);
 
-  const goPage = useCallback(
-    (delta: number) => {
-      setDir(delta);
-      setPageIdx((p) => Math.min(Math.max(0, p + delta), Math.max(0, pages.length - 1)));
-    },
-    [pages.length],
-  );
-
   const pct =
     data && data.xpForNextLevel > 0
       ? Math.min(1, Math.max(0, data.xpIntoLevel / data.xpForNextLevel))
       : 0;
 
-  const page = pages[pageIdx] ?? [];
-  const pageClaimed = page.filter((tl) => tl.claimed).length;
+  const claimedCount = useMemo(() => tiles.filter((tl) => tl.claimed).length, [tiles]);
   const fxCurrent = fxQueue[0];
 
   return (
@@ -732,70 +791,70 @@ export function PassePage() {
         </div>
       </div>
 
-      {/* ── Piste des récompenses en pages ─────────────────────────────────── */}
+      {/* ── Piste des récompenses : UNE ligne, scroll horizontal ───────────── */}
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-            <Skeleton key={i} className="w-full aspect-[4/5] rounded-xl" />
+        <div className="flex gap-3 overflow-hidden">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="shrink-0" style={{ width: TILE_W }}>
+              <Skeleton className="w-full aspect-[4/5] rounded-xl" />
+            </div>
           ))}
         </div>
-      ) : pages.length === 0 ? (
+      ) : tiles.length === 0 ? (
         <div className="rounded-2xl p-12 text-center" style={{ background: '#0c1731', border: '1px solid #27407c' }}>
           <Sparkles className="w-8 h-8 text-[#54648c] mx-auto mb-3" strokeWidth={1.8} />
           <p className="text-sm text-[#9db8f5] font-medium">{t('battlepass.empty')}</p>
         </div>
       ) : (
         <div className="relative">
-          {/* Navigation de page */}
-          <div className="flex items-center justify-between mb-3">
-            <button
-              type="button"
-              onClick={() => goPage(-1)}
-              disabled={pageIdx === 0}
-              className="w-11 h-11 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95 disabled:opacity-25 disabled:hover:scale-100"
-              style={{ background: '#16234a', border: '1px solid #2a3d6e', clipPath: 'polygon(14% 0, 100% 0, 86% 100%, 0 100%)' }}
-              aria-label="page précédente"
-            >
-              <ChevronLeft className="w-6 h-6" strokeWidth={3} />
-            </button>
-
-            <div className="text-center">
-              <div className="font-gaming font-black italic uppercase text-lg sm:text-xl text-white tracking-[0.12em]" style={{ transform: 'skewX(-8deg)' }}>
-                {t('battlepass.page')} {pageIdx + 1} <span className="text-[#54648c]">/ {pages.length}</span>
-              </div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7fa4ff] tabular-nums">
-                {pageClaimed}/{page.length} · {t('battlepass.claimed')}
-              </div>
+          {/* Compteur global + indice de scroll */}
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7fa4ff] tabular-nums">
+              {claimedCount}/{tiles.length} · {t('battlepass.claimed')}
             </div>
-
-            <button
-              type="button"
-              onClick={() => goPage(1)}
-              disabled={pageIdx >= pages.length - 1}
-              className="w-11 h-11 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95 disabled:opacity-25 disabled:hover:scale-100"
-              style={{ background: '#16234a', border: '1px solid #2a3d6e', clipPath: 'polygon(14% 0, 100% 0, 86% 100%, 0 100%)' }}
-              aria-label="page suivante"
-            >
-              <ChevronRight className="w-6 h-6" strokeWidth={3} />
-            </button>
+            <div className="hidden sm:block text-[10px] uppercase tracking-[0.16em] text-[#54648c] font-bold">
+              {t('battlepass.dragHint')}
+            </div>
           </div>
 
-          {/* Grille de tuiles (5×2 desktop) avec glissement directionnel */}
-          <div className="relative overflow-hidden">
-            <AnimatePresence mode="popLayout" initial={false} custom={dir}>
-              <motion.div
-                key={pageIdx}
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
-                initial={lite ? false : { x: dir * 90, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={lite ? undefined : { x: dir * -90, opacity: 0 }}
-                transition={{ duration: 0.28, ease: 'easeOut' }}
+          {/* Flèches par-dessus les bords, façon sélecteur Fortnite */}
+          <button
+            type="button"
+            onClick={() => scrollByPage(-1)}
+            className="absolute left-0 top-1/2 z-30 -translate-y-1/2 w-11 h-14 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
+            style={{ background: '#16234acc', border: '1px solid #2a3d6e', clipPath: 'polygon(22% 0, 100% 0, 78% 100%, 0 100%)', backdropFilter: 'blur(4px)' }}
+            aria-label="reculer"
+          >
+            <ChevronLeft className="w-6 h-6" strokeWidth={3} />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollByPage(1)}
+            className="absolute right-0 top-1/2 z-30 -translate-y-1/2 w-11 h-14 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
+            style={{ background: '#16234acc', border: '1px solid #2a3d6e', clipPath: 'polygon(22% 0, 100% 0, 78% 100%, 0 100%)', backdropFilter: 'blur(4px)' }}
+            aria-label="avancer"
+          >
+            <ChevronRight className="w-6 h-6" strokeWidth={3} />
+          </button>
+
+          {/* Fondus latéraux */}
+          <div className="pointer-events-none absolute left-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(90deg, #0b1836, transparent)' }} />
+          <div className="pointer-events-none absolute right-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(270deg, #0b1836, transparent)' }} />
+
+          <div
+            ref={scrollerRef}
+            className="flex gap-3 overflow-x-auto overflow-y-hidden snap-x scroll-px-4 px-1 pb-2 pt-1 cursor-grab scrollbar-none select-none"
+          >
+            {tiles.map((tile) => (
+              <div
+                key={tile.tier}
+                ref={data && tile.tier === data.level ? (el) => (currentTileRef.current = el) : undefined}
+                className="shrink-0 snap-start"
+                style={{ width: TILE_W }}
               >
-                {page.map((tile) => (
-                  <TierTile key={tile.tier} tile={tile} lite={lite} onClaim={claimOne} t={t} />
-                ))}
-              </motion.div>
-            </AnimatePresence>
+                <TierTile tile={tile} lite={lite} onClaim={claimOne} t={t} />
+              </div>
+            ))}
           </div>
         </div>
       )}

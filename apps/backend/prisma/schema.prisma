@@ -157,8 +157,32 @@ model User {
   // XP & passe de combat — journal des gains d'XP + paliers déjà accordés.
   xpTransactions            XpTransaction[]
   battlePassClaims          BattlePassClaim[]
+  // Émote de victoire (narguage) : émoji montré au perdant à sa prochaine
+  // connexion, après l'écran versus. Null = émote par défaut côté front.
+  tauntEmote                String?                 @map("taunt_emote")
+  tauntsSent                EmoteTaunt[]            @relation("tauntWinner")
+  tauntsReceived            EmoteTaunt[]            @relation("tauntLoser")
 
   @@map("users")
+}
+
+// Narguage post-match : à la fin d'un 1v1, le vainqueur « tag » le perdant.
+// Le perdant voit à sa PROCHAINE connexion l'écran versus puis l'émote du
+// vainqueur (émote figée au moment du match). seenAt null = pas encore montré.
+model EmoteTaunt {
+  id          String    @id @default(uuid())
+  loserLogin  String    @map("loser_login")
+  winnerLogin String    @map("winner_login")
+  game        String
+  emote       String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  seenAt      DateTime? @map("seen_at")
+
+  loser  User @relation("tauntLoser", fields: [loserLogin], references: [login], onDelete: Cascade, onUpdate: Cascade)
+  winner User @relation("tauntWinner", fields: [winnerLogin], references: [login], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([loserLogin, seenAt])
+  @@map("emote_taunt")
 }
 
 // Annonce générale rédigée par un admin (cf. /GOD onglet Annonces). Affichée
