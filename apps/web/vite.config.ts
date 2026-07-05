@@ -68,10 +68,27 @@ export default defineConfig(({ mode }) => {
           type: 'module',
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+          // PAS de `png` ici : les portraits Smash/SF + décors pèsent >30 Mo et
+          // étaient précachés d'office pour TOUS les visiteurs (34 Mo au premier
+          // chargement). Les images passent en cache runtime (règle ci-dessous) :
+          // téléchargées à la demande, cachées ensuite. Les petites icônes du
+          // manifest restent précachées via includeAssets.
+          globPatterns: ['**/*.{js,css,html,svg,ico,woff2}'],
           // Ne pas mettre en cache les appels API (cookies-based auth, données live).
           navigateFallbackDenylist: [/^\/api/],
           runtimeCaching: [
+            {
+              // Images locales (portraits smash/sf, décors, grades…) : à la
+              // demande, cache-first, plafonné. Même origine uniquement — ne
+              // touche pas au CDN 42 (cf. avertissement plus bas).
+              urlPattern: ({ url, sameOrigin }) =>
+                sameOrigin && /\.(png|jpg|jpeg|webp)$/.test(url.pathname),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'local-images',
+                expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              },
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
               handler: 'StaleWhileRevalidate',
@@ -123,7 +140,9 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: 'esnext',
-      sourcemap: true,
+      // Pas de sourcemaps en prod : ~10 Mo servis publiquement (code source
+      // lisible par n'importe qui) sans bénéfice utilisateur.
+      sourcemap: false,
       outDir: 'dist',
       rollupOptions: {
         output: {

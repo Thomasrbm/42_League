@@ -119,7 +119,10 @@ export function initPerf(): void {
 // Latch : aucune re-promotion automatique (évite l'oscillation visuelle). Ne
 // tourne qu'en préférence 'auto' tant qu'on est en 'full'.
 
-const FPS_FLOOR = 24; // sous ce FPS moyen = jank franc (jamais atteint par un écran sain, même 30 Hz)
+// 28 (et pas 24) : un téléphone qui rame à ~26-27 fps mérite le mode lite,
+// tout en restant sous la cadence d'un écran 30 Hz sain (~30 fps) pour éviter
+// les faux positifs.
+const FPS_FLOOR = 28;
 const BAD_WINDOWS_TO_DEMOTE = 3; // secondes mauvaises consécutives avant rétrogradation
 const WINDOW_MS = 1000;
 const WARMUP_MS = 1500; // ignore le jank de démarrage / 1ère navigation
