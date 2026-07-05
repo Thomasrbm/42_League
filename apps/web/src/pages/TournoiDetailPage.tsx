@@ -154,6 +154,11 @@ export function TournoiDetailPage() {
   const is2v2 = tournament.mode === '2v2';
   // 2v2 : je suis inscrit si je suis capitaine OU coéquipier d'une entrée.
   const iAmIn = !!tournament.entries?.some((e) => e.login === myLogin || e.partnerLogin === myLogin);
+  // Mon inscription est-elle pointée présente (check-in avant lancement) ?
+  const myCheckedIn = !!tournament.entries?.some(
+    (e) => (e.login === myLogin || e.partnerLogin === myLogin) && e.checkedInAt,
+  );
+  const checkedInCount = (tournament.entries ?? []).filter((e) => e.checkedInAt).length;
   const entriesCount = tournament.entries?.length ?? 0;
   // Ligue : la capacité est une cible indicative — on peut inscrire au-delà du nombre
   // déclaré et l'organisateur lance MANUELLEMENT dès 2 inscrits (pas d'auto-démarrage).
@@ -542,7 +547,21 @@ export function TournoiDetailPage() {
               </Button>
             )}
             {iAmIn && (
-              <Button variant="ghost" onClick={handleLeave}>{t('tournois.detail.leave')}</Button>
+              <>
+                {/* Check-in : « je suis là » — l'organisateur voit qui est présent avant de lancer */}
+                <Button
+                  variant={myCheckedIn ? 'ghost' : 'primary'}
+                  onClick={() =>
+                    runAction(
+                      () => api.tournamentCheckin(tournament.id, !myCheckedIn),
+                      myCheckedIn ? t('tournois.detail.checkin.off') : t('tournois.detail.checkin.on'),
+                    )
+                  }
+                >
+                  {myCheckedIn ? `✓ ${t('tournois.detail.checkin.here')}` : t('tournois.detail.checkin.cta')}
+                </Button>
+                <Button variant="ghost" onClick={handleLeave}>{t('tournois.detail.leave')}</Button>
+              </>
             )}
             {(isOrganizer || isAdmin) && canStartNow && (
               <Button onClick={() => runAction(() => api.startTournament(tournament.id), t('tournois.flash.started'))}>
@@ -741,13 +760,28 @@ export function TournoiDetailPage() {
 
           <div className="text-[10px] uppercase tracking-wider text-muted font-semibold mb-2">
             {t('tournois.detail.entrants')}
+            {tournament.status === 'registration' && checkedInCount > 0 && (
+              <span className="ml-2 text-[#4ade80] font-extrabold tabular-nums normal-case tracking-normal">
+                {checkedInCount}/{entriesCount} {t('tournois.detail.checkin.present')}
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {(tournament.entries ?? []).map((e) => (
               <div
                 key={e.login}
-                className="flex items-center gap-2.5 p-2.5 border border-border bg-bg-2/40 rounded"
+                className="flex items-center gap-2.5 p-2.5 border rounded"
+                style={{
+                  borderColor: tournament.status === 'registration' && e.checkedInAt ? 'rgba(74,222,128,0.45)' : undefined,
+                  background: 'rgba(255,255,255,0.02)',
+                }}
               >
+                {tournament.status === 'registration' && e.checkedInAt && (
+                  <span
+                    className="shrink-0 w-2 h-2 rounded-full bg-[#4ade80] shadow-[0_0_6px_rgba(74,222,128,0.8)]"
+                    title={t('tournois.detail.checkin.present')}
+                  />
+                )}
                 {is2v2 ? (
                   // Équipe : nom d'équipe optionnel au-dessus du duo capitaine + coéquipier.
                   <div className="flex-1 min-w-0">

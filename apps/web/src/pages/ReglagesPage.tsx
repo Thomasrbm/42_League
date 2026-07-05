@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Panel } from '../components/Panel';
 import { GameModesSettings } from '../components/GameModesSettings';
 import { Pills } from '../components/Pills';
 import { Button } from '../components/Button';
 import { FeatureRequestBox } from '../components/FeatureRequestBox';
+import { TauntEmotePicker } from '../components/TauntEmotePicker';
 import { BugReportBox } from '../components/BugReportBox';
 import { useAuth } from '../hooks/useAuth';
 import { useFlash } from '../hooks/useFlash';
@@ -13,6 +14,9 @@ import { getApiBase, APP_VERSION, APP_BUILD_DATE } from '../lib/config';
 import { getToken } from '../lib/storage';
 import { usePerfPref } from '../hooks/usePerf';
 import { setPerfPref, type PerfPref } from '../lib/perf';
+import { setAutoCinematics, useAutoCinematics } from '../lib/cinematics';
+import { disablePush, enablePush, getPushState, pushSupported, type PushState } from '../lib/push';
+
 
 export function ReglagesPage() {
   const t = useT();
@@ -20,10 +24,37 @@ export function ReglagesPage() {
   const { signOut, startLogin, login } = useAuth();
   const flash = useFlash();
   const perfPref = usePerfPref();
+  const autoCine = useAutoCinematics();
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Notifications push : état de CET appareil.
+  const [pushState, setPushState] = useState<PushState>('unsupported');
+  const [pushBusy, setPushBusy] = useState(false);
+  useEffect(() => {
+    void getPushState().then(setPushState);
+  }, []);
+
+  async function togglePush() {
+    setPushBusy(true);
+    try {
+      if (pushState === 'on') {
+        await disablePush();
+        setPushState('off');
+        flash.show(t('settings.push.disabled'));
+      } else {
+        await enablePush();
+        setPushState('on');
+        flash.show(t('settings.push.enabled'));
+      }
+    } catch (err) {
+      flash.show(err instanceof Error ? err.message : t('settings.push.error'));
+      void getPushState().then(setPushState);
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   async function handleExport() {
     setExporting(true);
@@ -108,6 +139,61 @@ export function ReglagesPage() {
           />
           <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
             {t('settings.quality.hint')}
+          </p>
+        </div>
+
+        {/* Notifications push (app fermée) */}
+        {pushSupported() && (
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-2 mb-2">
+              {t('settings.push')}
+            </label>
+            {pushState === 'denied' ? (
+              <p className="text-[11px] leading-relaxed text-muted-2/70">{t('settings.push.denied')}</p>
+            ) : (
+              <>
+                <Button
+                  variant={pushState === 'on' ? 'ghost' : 'primary'}
+                  loading={pushBusy}
+                  onClick={() => void togglePush()}
+                >
+                  {pushState === 'on' ? t('settings.push.disable') : t('settings.push.enable')}
+                </Button>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
+                  {t('settings.push.hint')}
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Cinématiques automatiques (level-up, récompenses, rage, réactions) */}
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-2 mb-2">
+            {t('settings.cinematics')}
+          </label>
+          <Pills<'on' | 'off'>
+            value={autoCine ? 'on' : 'off'}
+            onChange={(v) => setAutoCinematics(v === 'on')}
+            choices={[
+              { value: 'on', label: t('settings.cinematics.on') },
+              { value: 'off', label: t('settings.cinematics.off') },
+            ]}
+          />
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
+            {t('settings.cinematics.hint')}
+          </p>
+        </div>
+
+        {/* Émote de victoire (narguage post-1v1) — sélecteur partagé avec le
+            Profil, avec l'économie du passe (gratuites + déblocages). */}
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-2 mb-2">
+            {t('settings.tauntEmote')}
+          </label>
+          <TauntEmotePicker />
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
+            {t('settings.tauntEmote.hint')}
           </p>
         </div>
 

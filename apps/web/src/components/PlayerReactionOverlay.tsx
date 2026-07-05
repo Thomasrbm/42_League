@@ -1,3 +1,4 @@
+import { useAutoCinematics } from '../lib/cinematics';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -37,7 +38,8 @@ export function PlayerReactionOverlay({ signals }: { signals: ReactionSignals })
     setSeen(sessionStorage.getItem(SEEN_PREFIX + reaction.id));
   }, [reaction]);
 
-  const open = !!reaction && seen !== signature;
+  const autoCine = useAutoCinematics();
+  const open = autoCine && !!reaction && seen !== signature;
 
   const close = useCallback(() => {
     if (!reaction) return;

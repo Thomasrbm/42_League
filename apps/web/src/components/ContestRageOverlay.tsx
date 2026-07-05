@@ -1,3 +1,4 @@
+import { autoCinematicsEnabled } from '../lib/cinematics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -50,6 +51,7 @@ export function ContestRageOverlay() {
   const counter = useRef(0);
 
   const trigger = useCallback((role: ContestRageRole) => {
+    if (!autoCinematicsEnabled()) return;
     counter.current += 1;
     setActive({ id: counter.current, role });
     haptic('error');

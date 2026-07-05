@@ -1,31 +1,97 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Crown,
-  Lock,
   Check,
-  Gem,
-  Zap,
-  ShieldBan,
-  Trophy,
-  Sparkles,
   ChevronLeft,
   ChevronRight,
+  Crown,
+  Flame,
+  Gem,
+  Ghost,
+  Gift,
+  Lock,
+  Medal,
+  Music2,
+  Palette,
+  PartyPopper,
+  Rocket,
+  ShieldBan,
+  Snowflake,
+  Sparkles,
+  Star,
+  Swords,
+  Wand2,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
-import { Panel } from '../../components/Panel';
 import { Skeleton } from '../../mobile/primitives/Skeleton';
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useFlash } from '../../hooks/useFlash';
 import { useT } from '../../lib/i18n';
 import { useIsLite } from '../../hooks/usePerf';
 import { api, type BattlePassResponse, type BattlePassTierView } from '../../lib/api';
-import { RARITY, resolveRarity } from '../../lib/rarity';
+import { resolveRarity, type Rarity } from '../../lib/rarity';
+import { TAUNT_EMOTES, FREE_TAUNT_EMOTES, TAUNT_EMOTE_LEVEL_STEP } from '../../lib/tauntEmotes';
 
-const BLUE = '#38bdf8';
-const GOLD = '#ffc94a';
-const TIER_W = 196;
+// ─────────────────────────────────────────────────────────────────────────────
+// PASSE DE COMBAT — refonte « vrai Fortnite ».
+//
+// D.A. volontairement DÉTACHÉE du reste du site : fond bleu nuit profond,
+// typo condensée italique penchée, boutons jaunes massifs, tuiles de
+// récompense XXL teintées par rareté (palette Fortnite : gris / bleu /
+// violet / orange, or pour les coins, turquoise pour les consommables).
+//
+// Les paliers sont présentés en PAGES de 10 tuiles (5×2 en desktop) comme le
+// passe Fortnite, avec navigation par flèches. Un palier atteint mais non
+// récupéré affiche un liseré jaune pulsé + ruban « RÉCUPÉRER » ; un bouton
+// « TOUT RÉCUPÉRER » en tête de page enchaîne toutes les récompenses avec la
+// cinématique de claim (rayons rotatifs + zoom de l'objet).
+//
+// La récupération est RÉELLE : POST /me/battlepass/claim/:tier et
+// /me/battlepass/claim-all (la récompense n'est plus auto-accordée côté
+// serveur). Les paliers sans récompense configurée affichent une récompense
+// FACTICE (visuel seulement) mais leur claim est enregistré pareil.
+// ─────────────────────────────────────────────────────────────────────────────
 
-/** Icône de chaque consommable (mêmes accents que la boutique). */
+const YELLOW = '#ffe234';
+
+/**
+ * Échelle de rareté Fortnite (couleurs ET libellés FR du jeu) :
+ * gris Commun → vert Atypique → bleu Rare → violet Épique → orange Légendaire.
+ * Locale à la page — la boutique garde sa propre échelle à 4 niveaux.
+ */
+type FnRarity = 'commun' | 'atypique' | 'rare' | 'epique' | 'legendaire';
+
+const FN: Record<FnRarity, { hex: string; label: string }> = {
+  commun: { hex: '#c9d2e0', label: 'Commun' },
+  atypique: { hex: '#7ef23e', label: 'Atypique' },
+  rare: { hex: '#2fb9ff', label: 'Rare' },
+  epique: { hex: '#c94bff', label: 'Épique' },
+  legendaire: { hex: '#ff9e1b', label: 'Légendaire' },
+};
+
+/**
+ * Version assombrie d'une couleur hex `#rrggbb` (facteur 0..1).
+ * Sert à fondre le bas des tuiles vers une nuit teintée de LEUR rareté
+ * (et non plus vers le bleu nuit générique qui éteignait les couleurs).
+ */
+function darkenHex(hex: string, factor: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * factor);
+  const g = Math.round(((n >> 8) & 255) * factor);
+  const b = Math.round((n & 255) * factor);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+/** Rareté boutique (4 niveaux) → échelle Fortnite de la page. */
+const SHOP_TO_FN: Record<Rarity, FnRarity> = {
+  common: 'commun',
+  rare: 'rare',
+  epic: 'epique',
+  legendary: 'legendaire',
+};
+
 const CONSUMABLE_ICON: Record<string, LucideIcon> = {
   anti_ops: ShieldBan,
   elo_mult: Zap,
@@ -33,9 +99,12 @@ const CONSUMABLE_ICON: Record<string, LucideIcon> = {
   mini_ops: ShieldBan,
 };
 
+/** Largeur d'une tuile de la piste (une seule ligne, scroll horizontal). */
+const TILE_W = 208;
+
 /**
- * Scroll par glisser-déposer (souris) + molette verticale → défilement horizontal.
- * Le tactile garde le scroll natif. Donne la sensation « piste » d'un passe de combat.
+ * Scroll par glisser-déposer (souris) + molette verticale → défilement
+ * horizontal. Le tactile garde le scroll natif.
  */
 function useDragScroll(ref: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
@@ -45,7 +114,7 @@ function useDragScroll(ref: React.RefObject<HTMLDivElement | null>) {
     let startX = 0;
     let startLeft = 0;
     const onDown = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') return; // laisse le scroll tactile natif
+      if (e.pointerType === 'touch') return;
       down = true;
       startX = e.clientX;
       startLeft = el.scrollLeft;
@@ -82,292 +151,465 @@ function useDragScroll(ref: React.RefObject<HTMLDivElement | null>) {
   }, [ref]);
 }
 
-/** Compte à rebours animé d'un nombre 0 → target (cubic ease-out). */
-function useCountUp(target: number, active: boolean, durationMs = 900) {
-  const [val, setVal] = useState(active ? 0 : target);
-  useEffect(() => {
-    if (!active) {
-      setVal(target);
-      return;
-    }
-    let raf = 0;
-    let startTs = 0;
-    const tick = (now: number) => {
-      if (!startTs) startTs = now;
-      const p = Math.min(1, (now - startTs) / durationMs);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setVal(Math.round(target * eased));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, active, durationMs]);
-  return val;
+// ─── Récompenses factices (le temps que les vraies soient configurées) ──────
+
+interface FakeReward {
+  kind: 'item' | 'coins' | 'consumable';
+  name: string;
+  rarity: FnRarity;
+  coins?: number;
+  consumableKind?: string;
+  Icon: LucideIcon;
 }
 
-/** Métadonnées d'affichage de la récompense d'un palier (icône + libellé + couleur). */
-function rewardView(tier: BattlePassTierView, t: (k: string) => string) {
-  if (tier.rewardKind === 'item' && tier.item) {
-    const rk = RARITY[resolveRarity(tier.item)];
-    return {
-      hex: rk.hex,
-      tag: rk.label,
-      name: tier.item.name,
-      icon: <Gem className="w-8 h-8" strokeWidth={2.2} style={{ color: rk.hex }} />,
-    };
-  }
-  if (tier.rewardKind === 'coins') {
-    return {
-      hex: GOLD,
-      tag: 'Coins',
-      name: `${tier.coins ?? 0}`,
-      icon: <img src="/42coin.webp" alt="" className="w-8 h-8 drop-shadow" />,
-    };
-  }
-  if (tier.rewardKind === 'consumable' && tier.consumableKind) {
-    const Icon = CONSUMABLE_ICON[tier.consumableKind] ?? Zap;
-    return {
-      hex: '#5eead4',
-      tag: t('battlepass.reward.consumable'),
-      name: t(`battlepass.consumable.${tier.consumableKind}`),
-      icon: <Icon className="w-8 h-8 text-teal-300" strokeWidth={2} />,
-    };
-  }
-  return {
-    hex: '#6b6453',
-    tag: '—',
-    name: t('battlepass.reward.none'),
-    icon: <Gem className="w-8 h-8 text-muted/40" strokeWidth={1.8} />,
-  };
-}
+const FAKE_LEGENDARY: Array<[string, LucideIcon]> = [
+  ['Aura Solaire', Flame],
+  ['Couronne du GOAT', Crown],
+  ['Cadre Holographique', Star],
+  ['Titre : Légende du Cluster', Medal],
+  ['Bannière Supernova', Rocket],
+];
+const FAKE_EPIC: Array<[string, LucideIcon]> = [
+  ['Traînée Néon', Wand2],
+  ['Emote « GG EZ »', Music2],
+  ['Bannière Spectre', Ghost],
+  ['Palette Synthwave', Palette],
+  ['Épées Croisées', Swords],
+];
+const FAKE_COMMON_RARE: Array<[string, LucideIcon]> = [
+  ['Sticker 42', Star],
+  ['Bannière Givre', Snowflake],
+  ['Titre : Padawan', Medal],
+  ['Emote Pouce Levé', Music2],
+  ['Fond de Profil Circuit', Palette],
+  ['Sticker Flamme', Flame],
+];
 
 /**
- * Une colonne de la frise (= un palier), look « passe de combat Fortnite » :
- * grosse carte-récompense presque carrée dont le FOND arbore la couleur de rareté,
- * numéro de palier coloré en filigrane, nœud circulaire épais posé sur un rail néon.
- * Le palier courant est balisé par un badge et un unique anneau pulsé sobre.
+ * Récompense factice, déterministe par numéro de palier (aucun aléatoire).
+ * Balaye toute l'échelle de rareté : légendaire tous les 10 paliers, épique
+ * tous les 5, bleu (coins) tous les 3, vert (conso/objet) sinon, gris au début.
  */
-function TierColumn({
-  tier,
-  index,
-  t,
-  isCurrent,
-  lite,
-  colRef,
-}: {
-  tier: BattlePassTierView;
-  index: number;
-  t: (k: string) => string;
-  isCurrent: boolean;
-  lite: boolean;
-  colRef?: (el: HTMLDivElement | null) => void;
-}) {
-  const claimed = !!tier.claimedAt;
-  const unlocked = tier.unlocked;
-  const rw = rewardView(tier, t);
-  // Couleur du nœud : or pour le palier courant, bleu néon pour les débloqués.
-  const nodeHex = isCurrent ? GOLD : BLUE;
-  // Délai d'entrée plafonné : les paliers lointains n'attendent pas une éternité.
-  const delay = lite ? 0 : Math.min(index * 0.018, 0.5);
+function fakeRewardFor(tier: number): FakeReward {
+  // Émotes de victoire : déblocage RÉEL tous les 7 niveaux (économie partagée
+  // avec le backend, cf. lib/tauntEmotes.ts) — affichées sur la piste.
+  if (tier % TAUNT_EMOTE_LEVEL_STEP === 0) {
+    const emote = TAUNT_EMOTES[FREE_TAUNT_EMOTES + tier / TAUNT_EMOTE_LEVEL_STEP - 1];
+    if (emote) return { kind: 'item', name: `Émote ${emote}`, rarity: 'epique', Icon: PartyPopper };
+  }
+  if (tier % 10 === 0) {
+    const [name, Icon] = FAKE_LEGENDARY[(tier / 10 - 1 + FAKE_LEGENDARY.length * 10) % FAKE_LEGENDARY.length]!;
+    return { kind: 'item', name, rarity: 'legendaire', Icon };
+  }
+  if (tier % 5 === 0) {
+    const [name, Icon] = FAKE_EPIC[Math.floor(tier / 5) % FAKE_EPIC.length]!;
+    return { kind: 'item', name, rarity: 'epique', Icon };
+  }
+  if (tier % 3 === 0) {
+    return { kind: 'coins', name: `${100 + (tier % 4) * 50}`, rarity: 'rare', coins: 100 + (tier % 4) * 50, Icon: Gem };
+  }
+  if (tier % 4 === 0) {
+    const kinds = ['anti_ops', 'elo_mult', 'force_duel', 'mini_ops'] as const;
+    const consumableKind = kinds[Math.floor(tier / 4) % kinds.length]!;
+    return { kind: 'consumable', name: consumableKind, rarity: 'atypique', consumableKind, Icon: CONSUMABLE_ICON[consumableKind] ?? Zap };
+  }
+  const [name, Icon] = FAKE_COMMON_RARE[tier % FAKE_COMMON_RARE.length]!;
+  return { kind: 'item', name, rarity: tier % 2 === 0 ? 'atypique' : 'commun', Icon };
+}
 
-  return (
+// ─── Modèle d'affichage d'une tuile ──────────────────────────────────────────
+
+interface TileView {
+  tier: number;
+  xpRequired: number;
+  unlocked: boolean;
+  claimed: boolean;
+  claimable: boolean;
+  name: string;
+  /** Libellé de rareté / type affiché sous le nom. */
+  tag: string;
+  hex: string;
+  Icon: LucideIcon | 'coin';
+}
+
+function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileView[] {
+  // Aucun palier configuré → piste 100% factice de 60 paliers pour la démo.
+  const source: BattlePassTierView[] =
+    data.tiers.length > 0
+      ? data.tiers
+      : Array.from({ length: 60 }, (_, i) => ({
+          tier: i + 1,
+          xpRequired: (i + 1) * 100,
+          rewardKind: 'none' as const,
+          unlocked: i + 1 <= data.level,
+          claimedAt: null,
+        }));
+
+  return source.map((tier) => {
+    const hasReal = tier.rewardKind !== 'none' && !(tier.rewardKind === 'item' && !tier.item);
+    if (hasReal) {
+      if (tier.rewardKind === 'coins') {
+        const claimed = !!tier.claimedAt;
+        return {
+          tier: tier.tier,
+          xpRequired: tier.xpRequired,
+          unlocked: tier.unlocked,
+          claimed,
+          claimable: tier.unlocked && !claimed,
+          name: `${tier.coins ?? 0}`,
+          tag: t('battlepass.reward.coins'),
+          hex: FN.rare.hex,
+          Icon: 'coin',
+        };
+      }
+      if (tier.rewardKind === 'consumable' && tier.consumableKind) {
+        const claimed = !!tier.claimedAt;
+        return {
+          tier: tier.tier,
+          xpRequired: tier.xpRequired,
+          unlocked: tier.unlocked,
+          claimed,
+          claimable: tier.unlocked && !claimed,
+          name: t(`battlepass.consumable.${tier.consumableKind}`),
+          tag: t('battlepass.reward.consumable'),
+          hex: FN.atypique.hex,
+          Icon: CONSUMABLE_ICON[tier.consumableKind] ?? Zap,
+        };
+      }
+      // item
+      const fn = FN[SHOP_TO_FN[resolveRarity(tier.item!)]];
+      const claimed = !!tier.claimedAt;
+      return {
+        tier: tier.tier,
+        xpRequired: tier.xpRequired,
+        unlocked: tier.unlocked,
+        claimed,
+        claimable: tier.unlocked && !claimed,
+        name: tier.item!.name,
+        tag: fn.label,
+        hex: fn.hex,
+        Icon: Gem,
+      };
+    }
+
+    // Palier sans récompense configurée → visuel factice, mais claim réel.
+    const fk = fakeRewardFor(tier.tier);
+    const claimed = !!tier.claimedAt;
+    const isCoins = fk.kind === 'coins';
+    const isConsumable = fk.kind === 'consumable';
+    return {
+      tier: tier.tier,
+      xpRequired: tier.xpRequired,
+      unlocked: tier.unlocked,
+      claimed,
+      claimable: tier.unlocked && !claimed,
+      name: isConsumable ? t(`battlepass.consumable.${fk.consumableKind}`) : fk.name,
+      tag: isCoins
+        ? t('battlepass.reward.coins')
+        : isConsumable
+          ? t('battlepass.reward.consumable')
+          : FN[fk.rarity].label,
+      hex: FN[fk.rarity].hex,
+      Icon: isCoins ? 'coin' : fk.Icon,
+    };
+  });
+}
+
+// ─── Icône de récompense (objet Lucide ou pièce 42) ─────────────────────────
+
+function RewardIcon({
+  tile,
+  className,
+  color,
+}: {
+  tile: TileView;
+  className: string;
+  /** Couleur de l'icône — blanc sur les tuiles pleines, rareté sur fond sombre. */
+  color?: string;
+}) {
+  if (tile.Icon === 'coin') {
+    return <img src="/42coin.webp" alt="" className={`${className} object-contain drop-shadow`} />;
+  }
+  const Icon = tile.Icon;
+  return <Icon className={className} strokeWidth={2} style={{ color: color ?? tile.hex }} />;
+}
+
+// ─── Cinématique de claim (rayons rotatifs + zoom, façon Fortnite) ──────────
+
+function ClaimFx({
+  tile,
+  queueLen,
+  lite,
+  onDone,
+  t,
+}: {
+  tile: TileView;
+  queueLen: number;
+  lite: boolean;
+  onDone: () => void;
+  t: (k: string) => string;
+}) {
+  const doneRef = useRef(false);
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    onDone();
+  }, [onDone]);
+
+  // Claim unitaire : ~1.5 s. « Tout récupérer » : cadence accélérée.
+  const duration = lite ? 500 : queueLen > 3 ? 850 : 1500;
+  useEffect(() => {
+    const id = setTimeout(finish, duration);
+    return () => clearTimeout(id);
+  }, [finish, duration]);
+  // Échap = passer (même geste que le clic).
+  useEscapeKey(true, finish);
+
+  // 14 particules déterministes projetées en étoile.
+  const sparks = Array.from({ length: 14 }, (_, i) => {
+    const angle = (i / 14) * Math.PI * 2;
+    const radius = 150 + (i % 3) * 55;
+    return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius, s: 4 + (i % 3) * 3 };
+  });
+
+  return createPortal(
     <motion.div
-      ref={colRef}
-      // pt uniforme sur TOUTES les colonnes → alignement vertical strict.
-      className="group relative shrink-0 snap-center flex flex-col items-center pt-6 select-none"
-      style={{ width: TIER_W }}
-      initial={lite ? false : { opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.45, ease: 'easeOut' }}
+      className="fixed inset-0 z-[120] flex items-center justify-center cursor-pointer select-none"
+      style={{ background: 'radial-gradient(90% 90% at 50% 45%, rgba(9,16,38,0.82), rgba(4,8,20,0.95))' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      onPointerDown={finish}
     >
-      {/* Récompense (carte au-dessus du rail) — presque carrée, fond coloré */}
-      <div className="relative w-full px-1.5">
-        {/* Badge doré « palier actuel » : absolu, chevauche la carte (n'ajoute AUCUN décalage) */}
-        {isCurrent && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30">
-            <span
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-display font-extrabold uppercase tracking-[0.16em] text-bg-0 whitespace-nowrap"
-              style={{
-                background: `linear-gradient(135deg, ${GOLD}, #ffe6a3)`,
-                boxShadow: `0 0 18px ${GOLD}, 0 4px 12px -4px ${GOLD}`,
-              }}
-            >
-              <Crown className="w-3 h-3" strokeWidth={2.8} />
-              {t('battlepass.jumpToCurrent')}
-            </span>
-          </div>
-        )}
+      {/* Rayons rotatifs (rotation linéaire → boucle invisible) */}
+      {!lite && (
+        <div
+          className="absolute w-[160vmax] h-[160vmax] pointer-events-none"
+          style={{
+            background: `repeating-conic-gradient(from 0deg, ${tile.hex}2e 0deg 9deg, transparent 9deg 24deg)`,
+            WebkitMaskImage: 'radial-gradient(circle, black 0%, transparent 62%)',
+            maskImage: 'radial-gradient(circle, black 0%, transparent 62%)',
+            animation: 'bpSpin 16s linear infinite',
+          }}
+        />
+      )}
+
+      {/* Onde de choc unique à l'apparition */}
+      {!lite && (
+        <motion.span
+          className="absolute rounded-full border-4 pointer-events-none"
+          style={{ borderColor: tile.hex, width: 180, height: 180 }}
+          initial={{ scale: 0.4, opacity: 0.9 }}
+          animate={{ scale: 3.2, opacity: 0 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+        />
+      )}
+
+      {/* Particules projetées */}
+      {!lite &&
+        sparks.map((p, i) => (
+          <motion.span
+            key={i}
+            className="absolute rounded-full pointer-events-none"
+            style={{ width: p.s, height: p.s, background: i % 3 === 0 ? YELLOW : tile.hex }}
+            initial={{ x: 0, y: 0, opacity: 1 }}
+            animate={{ x: p.x, y: p.y, opacity: 0 }}
+            transition={{ duration: 0.75, ease: 'easeOut', delay: 0.05 }}
+          />
+        ))}
+
+      <div className="relative flex flex-col items-center gap-5 px-6">
+        <motion.div
+          className="font-gaming font-black italic uppercase text-[15px] sm:text-lg tracking-[0.22em] text-white/90"
+          style={{ transform: 'skewX(-8deg)', textShadow: `0 0 24px ${tile.hex}` }}
+          initial={{ y: -26, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.08, duration: 0.3, ease: 'easeOut' }}
+        >
+          {t('battlepass.rewardClaimed')}
+        </motion.div>
+
+        {/* L'objet : gros médaillon teinté rareté, zoom avec rebond */}
+        <motion.div
+          className="relative w-44 h-44 sm:w-56 sm:h-56 rounded-2xl flex items-center justify-center"
+          style={{
+            background: `radial-gradient(90% 75% at 50% 25%, ${tile.hex}59, #0c1731 78%)`,
+            border: `3px solid ${tile.hex}`,
+            boxShadow: `0 0 60px -6px ${tile.hex}, 0 0 140px -30px ${tile.hex}, inset 0 0 40px -14px ${tile.hex}`,
+          }}
+          initial={{ scale: 0.15, rotate: -10, opacity: 0 }}
+          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 15, delay: 0.05 }}
+        >
+          <RewardIcon tile={tile} className="w-24 h-24 sm:w-32 sm:h-32" />
+          <span
+            className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1 text-[11px] font-gaming font-black italic uppercase tracking-[0.18em] text-[#0a1228] whitespace-nowrap"
+            style={{ background: tile.hex, transform: 'translateX(-50%) skewX(-8deg)', boxShadow: `0 0 18px ${tile.hex}` }}
+          >
+            {tile.tag}
+          </span>
+        </motion.div>
 
         <motion.div
-          className="shine relative rounded-3xl border-2 p-5 flex flex-col items-center justify-center gap-2.5 text-center w-full min-h-[200px] overflow-hidden"
-          whileHover={lite ? undefined : { y: -8, scale: 1.05 }}
-          transition={{ type: 'spring', stiffness: 360, damping: 22 }}
-          style={{
-            // Bordure épaisse et bien saturée dans la couleur de rareté.
-            borderColor: unlocked ? rw.hex : 'rgba(125,115,95,0.28)',
-            // FOND coloré (façon Fortnite) : la couleur de rareté remplit la carte.
-            background: unlocked
-              ? `linear-gradient(160deg, ${rw.hex}66 0%, ${rw.hex}40 60%, ${rw.hex}2b 100%)`
-              : 'rgba(20,18,15,0.88)',
-            boxShadow: unlocked
-              ? `0 12px 36px -12px ${rw.hex}, 0 0 30px -6px ${rw.hex}, inset 0 1px 0 rgba(255,255,255,0.1)`
-              : 'inset 0 1px 0 rgba(255,255,255,0.03)',
-          }}
+          className="text-center"
+          initial={{ y: 18, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.16, duration: 0.3, ease: 'easeOut' }}
         >
-          {/* Numéro de palier en filigrane, coloré dans la rareté */}
-          <span
-            className="absolute -bottom-4 right-1 font-display font-black leading-none pointer-events-none select-none tabular-nums"
-            style={{
-              fontSize: 88,
-              color: unlocked ? `${rw.hex}55` : 'rgba(125,115,95,0.1)',
-              textShadow: unlocked ? `0 0 24px ${rw.hex}55` : 'none',
-            }}
-          >
-            {tier.tier}
-          </span>
-
-          {/* Liseré de rareté en haut, épais (6px) et vif */}
-          <span
-            className="absolute top-0 left-0 right-0 h-[6px]"
-            style={{ background: unlocked ? rw.hex : 'rgba(125,115,95,0.3)' }}
-          />
-          {/* Halo de rareté derrière la carte */}
-          {unlocked && !lite && (
-            <span
-              className="absolute -top-8 left-1/2 -translate-x-1/2 w-32 h-32 rounded-full blur-3xl pointer-events-none"
-              style={{ background: `${rw.hex}66` }}
-            />
-          )}
-
-          {/* Médaillon d'icône (grand, centré) */}
-          <span
-            className="relative w-20 h-20 rounded-2xl flex items-center justify-center border-2"
-            style={{
-              borderColor: unlocked ? rw.hex : 'rgba(125,115,95,0.35)',
-              background: unlocked
-                ? `radial-gradient(circle at 50% 35%, ${rw.hex}59, ${rw.hex}1a)`
-                : 'radial-gradient(circle at 50% 35%, rgba(125,115,95,0.18), rgba(125,115,95,0.05))',
-              boxShadow: unlocked
-                ? `0 0 26px -4px ${rw.hex}, inset 0 0 16px -6px ${rw.hex}`
-                : 'none',
-            }}
-          >
-            {rw.icon}
-          </span>
-
-          <span
-            className="relative text-[10px] font-display font-extrabold uppercase tracking-[0.14em]"
-            style={{ color: unlocked ? rw.hex : '#8a7d65' }}
-          >
-            {rw.tag}
-          </span>
-          <span className="relative text-[13px] font-bold text-text-strong leading-tight line-clamp-2">
-            {rw.name}
-          </span>
-
-          {claimed && (
-            <span
-              className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center"
-              style={{ background: GOLD, boxShadow: `0 0 14px ${GOLD}` }}
-            >
-              <Check className="w-3.5 h-3.5 text-bg-0" strokeWidth={3.5} />
-            </span>
-          )}
+          <div className="font-gaming font-black italic uppercase text-2xl sm:text-3xl text-white leading-tight" style={{ transform: 'skewX(-6deg)' }}>
+            {tile.Icon === 'coin' ? `${tile.name} COINS` : tile.name}
+          </div>
+          <div className="mt-1 text-[11px] uppercase tracking-[0.2em] font-bold" style={{ color: tile.hex }}>
+            {t('battlepass.tier')} {tile.tier}
+          </div>
         </motion.div>
+
+        <div className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-bold">{t('battlepass.tapToSkip')}</div>
       </div>
-
-      {/* Rail + nœud */}
-      <div className="relative w-full h-16 flex items-center justify-center my-1">
-        {/* Ligne de base (toujours présente, terne) */}
-        <div
-          className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[6px] rounded-full"
-          style={{ background: 'rgba(125,115,95,0.2)' }}
-        />
-        {/* Remplissage néon animé (paliers débloqués), bleu → or, jointif */}
-        {unlocked && (
-          <motion.div
-            className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[6px] rounded-full origin-left"
-            style={{
-              background: `linear-gradient(90deg, #0ea5e9, ${BLUE} 45%, ${GOLD})`,
-              boxShadow: `0 0 14px rgba(56,189,248,0.7), 0 0 10px ${GOLD}55`,
-            }}
-            initial={lite ? false : { scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ delay, duration: 0.5, ease: 'easeOut' }}
-          />
-        )}
-
-        {/* Palier courant : un unique anneau pulsé, sobre et robuste */}
-        {isCurrent && !lite && (
-          <motion.span
-            className="absolute z-0 w-14 h-14 rounded-full border-2 pointer-events-none"
-            style={{ borderColor: GOLD }}
-            animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
-          />
-        )}
-
-        {/* Nœud */}
-        <motion.span
-          className="relative z-10 inline-flex items-center justify-center w-14 h-14 rounded-full border-[3px] font-display text-lg font-extrabold tabular-nums"
-          initial={lite ? false : { scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: delay + 0.12, type: 'spring', stiffness: 420, damping: 18 }}
-          style={
-            unlocked
-              ? {
-                  borderColor: nodeHex,
-                  background: claimed
-                    ? `linear-gradient(160deg, ${nodeHex}66, ${nodeHex}1f)`
-                    : `radial-gradient(circle at 50% 35%, ${nodeHex}3d, ${nodeHex}14)`,
-                  color: isCurrent ? '#fff4d6' : '#e0f2fe',
-                  boxShadow: `0 0 22px -2px ${nodeHex}, inset 0 0 12px -4px ${nodeHex}`,
-                }
-              : {
-                  borderColor: 'rgba(125,115,95,0.4)',
-                  background: 'rgba(12,10,8,0.85)',
-                  color: '#a89880',
-                }
-          }
-        >
-          {claimed ? (
-            <Check className="w-6 h-6" strokeWidth={3} />
-          ) : unlocked ? (
-            tier.tier
-          ) : (
-            <Lock className="w-5 h-5" strokeWidth={2.4} />
-          )}
-        </motion.span>
-      </div>
-
-      {/* XP requise + état */}
-      <div className="flex flex-col items-center gap-1.5 pb-1">
-        <span className="font-gaming text-[11px] text-muted-2 tabular-nums">
-          {tier.xpRequired} <span className="text-[#7dd3fc]/70">{t('battlepass.xp')}</span>
-        </span>
-        {claimed ? (
-          <span
-            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide border"
-            style={{ background: `${GOLD}26`, borderColor: `${GOLD}66`, color: GOLD }}
-          >
-            <Check className="w-2.5 h-2.5" strokeWidth={3} />
-            {t('battlepass.claimed')}
-          </span>
-        ) : unlocked ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide bg-emerald-500/15 border border-emerald-400/40 text-emerald-300">
-            <Check className="w-2.5 h-2.5" strokeWidth={3} />
-            {t('battlepass.unlocked')}
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide bg-bg-1/80 border border-border/60 text-muted-2">
-            <Lock className="w-2.5 h-2.5" strokeWidth={2.5} />
-            {t('battlepass.locked')}
-          </span>
-        )}
-      </div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
+
+// ─── Tuile de récompense (XXL, teintée rareté) ──────────────────────────────
+
+function TierTile({
+  tile,
+  lite,
+  onClaim,
+  t,
+}: {
+  tile: TileView;
+  lite: boolean;
+  onClaim: (tile: TileView) => void;
+  t: (k: string) => string;
+}) {
+  const { unlocked, claimed, claimable, hex } = tile;
+
+  return (
+    <motion.button
+      type="button"
+      disabled={!claimable}
+      onClick={() => claimable && onClaim(tile)}
+      className="relative w-full aspect-[4/5] rounded-xl overflow-hidden text-left disabled:cursor-default"
+      animate={claimable ? { scale: 1.03 } : { scale: 1 }}
+      whileHover={lite || !claimable ? undefined : { scale: 1.08, zIndex: 10 }}
+      whileTap={claimable ? { scale: 0.97 } : undefined}
+      transition={{ type: 'spring', stiffness: 380, damping: 24 }}
+      style={{
+        // Fond façon Fortnite : la CASE est remplie de sa couleur de rareté,
+        // PLEINE sur les 3/4 hauts puis fondue vers une nuit teintée de la
+        // MÊME rareté (plus de bleu nuit générique qui éteignait la teinte).
+        // Les paliers verrouillés gardent une teinte franche de leur rareté.
+        background: unlocked
+          ? `radial-gradient(140% 120% at 50% 0%, ${hex} 0%, ${hex} 70%, ${darkenHex(hex, 0.3)} 100%)`
+          : `radial-gradient(140% 120% at 50% 0%, ${hex}66 0%, ${hex}2e 62%, ${darkenHex(hex, 0.22)} 100%)`,
+        border: claimable ? '2px solid transparent' : `2px solid ${unlocked ? hex : `${hex}88`}`,
+        // Glow de la couleur de rareté sur toute tuile déverrouillée (le
+        // pulse jaune du claimable prend le dessus quand il est animé).
+        boxShadow: unlocked
+          ? `0 0 18px ${hex}66, 0 10px 26px -14px ${hex}, inset 0 1px 0 rgba(255,255,255,0.22)`
+          : undefined,
+        // Liseré jaune pulsé (animation CSS alternate → boucle parfaitement fluide).
+        animation: claimable && !lite ? 'bpPulse 1.1s ease-in-out infinite alternate' : undefined,
+        ...(claimable && lite ? { border: `2px solid ${YELLOW}`, boxShadow: `0 0 0 3px ${YELLOW}88, 0 0 22px ${YELLOW}77` } : null),
+      }}
+    >
+      {/* Lueur blanche derrière l'icône (la couleur, c'est déjà la case) */}
+      {unlocked && (
+        <span
+          className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 w-3/4 aspect-square rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.38), transparent 66%)', filter: 'blur(7px)' }}
+        />
+      )}
+
+      {/* Numéro de palier : plaque sombre penchée en haut à gauche (lisible sur case colorée) */}
+      <span
+        className="absolute top-0 left-0 px-3 py-1 font-gaming font-black italic text-base sm:text-lg tabular-nums leading-none"
+        style={{
+          background: unlocked ? 'rgba(8,15,36,0.82)' : '#22335c',
+          color: unlocked ? '#ffffff' : '#7d8db4',
+          clipPath: 'polygon(0 0, 100% 0, 82% 100%, 0 100%)',
+          paddingRight: 18,
+        }}
+      >
+        {tile.tier}
+      </span>
+
+      {/* Verrou (palier non atteint) */}
+      {!unlocked && (
+        <span className="absolute top-2 right-2 w-7 h-7 rounded-md bg-[#16234a] border border-[#2a3d6e] flex items-center justify-center">
+          <Lock className="w-3.5 h-3.5 text-[#7d8db4]" strokeWidth={2.4} />
+        </span>
+      )}
+
+      {/* Coche (récupéré) */}
+      {claimed && (
+        <span
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
+          style={{ background: YELLOW, boxShadow: `0 0 14px ${YELLOW}88` }}
+        >
+          <Check className="w-4 h-4 text-[#0a1228]" strokeWidth={3.4} />
+        </span>
+      )}
+
+      {/* Icône de récompense, flottement doux (alternate → sans à-coup) */}
+      <span
+        className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+        style={{
+          animation: unlocked && !claimed && !lite ? 'bpFloat 2.4s ease-in-out infinite alternate' : undefined,
+          filter: unlocked ? undefined : 'grayscale(0.35) brightness(0.8)',
+          opacity: claimed ? 0.85 : 1,
+        }}
+      >
+        <RewardIcon
+          tile={tile}
+          className="w-14 h-14 sm:w-16 sm:h-16"
+          color={unlocked ? '#ffffff' : tile.hex}
+        />
+      </span>
+
+      {/* Bas de tuile : rareté + nom */}
+      <span className={`absolute inset-x-0 bottom-0 px-2.5 ${claimable ? 'pb-8' : 'pb-2.5'} flex flex-col gap-0.5`}>
+        <span
+          className="text-[9px] font-gaming font-black italic uppercase tracking-[0.16em]"
+          style={{ color: unlocked ? 'rgba(255,255,255,0.95)' : hex, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}
+        >
+          {tile.tag}
+        </span>
+        <span
+          className={`text-[12px] sm:text-[13px] font-bold leading-tight line-clamp-2 ${
+            unlocked ? 'text-white' : 'text-[#a8b8dc]'
+          } ${claimed ? 'opacity-85' : ''}`}
+        >
+          {tile.Icon === 'coin' ? `${tile.name} Coins` : tile.name}
+        </span>
+        {!unlocked && (
+          <span className="text-[9px] font-bold tabular-nums text-[#8fa2cc] uppercase tracking-wide">
+            {tile.xpRequired} {t('battlepass.xp')}
+          </span>
+        )}
+      </span>
+
+      {/* Ruban RÉCUPÉRER */}
+      {claimable && (
+        <span
+          className="absolute inset-x-0 bottom-0 h-7 flex items-center justify-center gap-1 font-gaming font-black italic uppercase text-[11px] tracking-[0.14em] text-[#0a1228]"
+          style={{ background: YELLOW }}
+        >
+          <Gift className="w-3.5 h-3.5" strokeWidth={2.6} />
+          {t('battlepass.claim')}
+        </span>
+      )}
+
+      {/* Voile sombre LÉGER sur les tuiles récupérées (la rareté doit rester lisible) */}
+      {claimed && <span className="absolute inset-0 bg-[#060b1c]/20 pointer-events-none" />}
+    </motion.button>
+  );
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export function PassePage() {
   const t = useT();
@@ -376,9 +618,14 @@ export function PassePage() {
   const [data, setData] = useState<BattlePassResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const currentRef = useRef<HTMLDivElement | null>(null);
+  const currentTileRef = useRef<HTMLDivElement | null>(null);
 
   useDragScroll(scrollerRef);
+
+  // File de la cinématique de claim (claim unitaire = 1 élément).
+  const [fxQueue, setFxQueue] = useState<TileView[]>([]);
+  // Verrou pendant l'appel API de claim (évite le double-clic).
+  const claiming = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -395,206 +642,308 @@ export function PassePage() {
     void load();
   }, [load]);
 
-  const scrollToCurrent = useCallback((smooth = true) => {
+  const tiles = useMemo(() => (data ? buildTiles(data, t) : []), [data, t]);
+
+  // À l'arrivée : centrer la piste sur le palier du niveau courant.
+  useEffect(() => {
+    if (loading) return;
+    requestAnimationFrame(() => {
+      const sc = scrollerRef.current;
+      const nd = currentTileRef.current;
+      if (!sc || !nd) return;
+      const target = nd.offsetLeft - sc.clientWidth / 2 + nd.offsetWidth / 2;
+      sc.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    });
+    // volontairement déclenché une seule fois, données prêtes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  /** Fait défiler la piste d'environ un écran (flèches). */
+  const scrollByPage = useCallback((delta: number) => {
     const sc = scrollerRef.current;
-    const nd = currentRef.current;
-    if (!sc || !nd) return;
-    const target = nd.offsetLeft - sc.clientWidth / 2 + nd.offsetWidth / 2;
-    sc.scrollTo({ left: Math.max(0, target), behavior: smooth ? 'smooth' : 'auto' });
+    if (!sc) return;
+    sc.scrollBy({ left: delta * sc.clientWidth * 0.85, behavior: 'smooth' });
   }, []);
 
-  // Auto-centrage de la frise sur le palier courant une fois les données prêtes.
+  // Position de scroll de la piste (0..1) + part visible — pilote la barre du bas.
+  const [scrollPos, setScrollPos] = useState({ pos: 0, size: 1 });
+  const onTrackScroll = useCallback(() => {
+    const sc = scrollerRef.current;
+    if (!sc || sc.scrollWidth === 0) return;
+    setScrollPos({ pos: sc.scrollLeft / sc.scrollWidth, size: sc.clientWidth / sc.scrollWidth });
+  }, []);
   useEffect(() => {
-    if (!loading) requestAnimationFrame(() => scrollToCurrent(true));
-  }, [loading, data, scrollToCurrent]);
+    onTrackScroll();
+    window.addEventListener('resize', onTrackScroll);
+    return () => window.removeEventListener('resize', onTrackScroll);
+  }, [onTrackScroll, loading]);
 
-  // Progression dans le niveau courant (0..1), clampée.
+  const claimables = useMemo(() => tiles.filter((tl) => tl.claimable), [tiles]);
+
+  /** Claim unitaire : API d'abord, cinématique uniquement si le serveur accepte. */
+  const claimOne = useCallback(
+    async (tile: TileView) => {
+      if (claiming.current) return;
+      claiming.current = true;
+      try {
+        await api.battlePassClaimTier(tile.tier);
+        setFxQueue([tile]);
+      } catch (err) {
+        show(err instanceof Error ? err.message : t('battlepass.claim'), 'error');
+      } finally {
+        claiming.current = false;
+        void load();
+      }
+    },
+    [load, show, t],
+  );
+
+  /** Claim groupé : le serveur réclame tout, la cinématique enchaîne les paliers acceptés. */
+  const claimAll = useCallback(async () => {
+    if (claiming.current || claimables.length === 0) return;
+    claiming.current = true;
+    try {
+      const res = await api.battlePassClaimAll();
+      const ok = new Set(res.tiers);
+      const played = claimables.filter((tl) => ok.has(tl.tier));
+      if (played.length > 0) setFxQueue(played);
+    } catch (err) {
+      show(err instanceof Error ? err.message : t('battlepass.claimAll'), 'error');
+    } finally {
+      claiming.current = false;
+      void load();
+    }
+  }, [claimables, load, show, t]);
+
+  const onFxDone = useCallback(() => {
+    setFxQueue((q) => q.slice(1));
+  }, []);
+
   const pct =
     data && data.xpForNextLevel > 0
       ? Math.min(1, Math.max(0, data.xpIntoLevel / data.xpForNextLevel))
       : 0;
 
-  const ready = !loading && !!data;
-  const levelCount = useCountUp(data?.level ?? 1, ready, 800);
-  const intoCount = useCountUp(data?.xpIntoLevel ?? 0, ready, 900);
-  const totalCount = useCountUp(data?.totalXp ?? 0, ready, 1000);
+  const claimedCount = useMemo(() => tiles.filter((tl) => tl.claimed).length, [tiles]);
+  const fxCurrent = fxQueue[0];
 
   return (
-    <div className="relative space-y-5">
-      {/* ── Fond de scène (halos or / bleu / violet + grille) ──────────────── */}
-      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 bg-mesh-grid opacity-[0.18]" style={{ backgroundSize: '32px 32px' }} />
-        <div className="absolute -top-24 left-[8%] w-[36rem] h-[36rem] rounded-full bg-gold/10 blur-3xl" />
-        <div className="absolute top-[30%] right-[4%] w-[30rem] h-[30rem] rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="absolute -bottom-32 left-[30%] w-[34rem] h-[34rem] rounded-full bg-violet-600/12 blur-3xl" />
+    <div className="relative space-y-4">
+      {/* Keyframes locales — alternate/linéaire uniquement : boucles sans à-coup */}
+      <style>{`
+        @keyframes bpPulse {
+          from { border-color: ${YELLOW}aa; box-shadow: 0 0 0 2px ${YELLOW}55, 0 0 18px 0px ${YELLOW}66; }
+          to   { border-color: ${YELLOW};   box-shadow: 0 0 0 4px ${YELLOW}cc, 0 0 38px 6px ${YELLOW}99; }
+        }
+        @keyframes bpFloat { from { transform: translate(-50%, -46%); } to { transform: translate(-50%, -56%); } }
+        @keyframes bpSpin { to { transform: rotate(360deg); } }
+      `}</style>
+
+      {/* ── Fond de scène : nuit Fortnite (bleu profond + bandes diagonales) ── */}
+      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden" style={{ background: 'linear-gradient(175deg, #0a1430 0%, #0d1c44 45%, #131040 100%)' }}>
+        <div
+          className="absolute -inset-x-1/4 top-[-20%] h-[70%] opacity-40"
+          style={{
+            background: 'linear-gradient(115deg, transparent 30%, rgba(58,92,196,0.35) 42%, transparent 50%, rgba(114,74,222,0.28) 62%, transparent 72%)',
+            transform: 'skewY(-6deg)',
+          }}
+        />
+        <div className="absolute -bottom-40 left-[15%] w-[42rem] h-[42rem] rounded-full blur-3xl" style={{ background: 'rgba(44,113,246,0.14)' }} />
+        <div className="absolute -top-24 right-[5%] w-[34rem] h-[34rem] rounded-full blur-3xl" style={{ background: 'rgba(146,66,255,0.13)' }} />
       </div>
 
-      {/* ── En-tête : barre d'XP spectaculaire ─────────────────────────────── */}
-      <Panel title={t('battlepass.title')}>
-        <div className="relative overflow-hidden rounded-3xl p-6 border-2 border-gold/30 bg-gradient-to-br from-violet-700/25 via-bg-2 to-bg-0">
-          <div className="absolute inset-0 hud-diag pointer-events-none opacity-25" />
-          <div className="absolute -left-10 -top-12 w-52 h-52 rounded-full bg-gold/18 blur-3xl pointer-events-none" />
-          <div className="absolute right-0 -bottom-16 w-60 h-60 rounded-full bg-violet-500/20 blur-3xl pointer-events-none" />
-          {/* Étincelles flottantes */}
-          {!lite &&
-            ready &&
-            [0, 1, 2, 3, 4].map((i) => (
-              <motion.span
-                key={i}
-                className="absolute rounded-full"
-                style={{
-                  width: 3,
-                  height: 3,
-                  left: `${14 + i * 18}%`,
-                  top: '62%',
-                  background: i % 2 ? GOLD : '#bae6fd',
-                }}
-                animate={{ y: [-2, -28, -2], opacity: [0, 0.9, 0] }}
-                transition={{ duration: 2.6 + i * 0.4, repeat: Infinity, delay: i * 0.5, ease: 'easeInOut' }}
-              />
-            ))}
+      {/* ── En-tête : titre + niveau + XP + TOUT RÉCUPÉRER ─────────────────── */}
+      <div
+        className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
+        style={{
+          background: 'linear-gradient(120deg, #0e1c42 0%, #142757 55%, #1a1b52 100%)',
+          border: '1px solid #27407c',
+          boxShadow: 'inset 0 1px 0 rgba(140,170,255,0.15), 0 18px 50px -22px rgba(0,0,0,0.8)',
+        }}
+      >
+        <div className="relative flex flex-wrap items-center gap-x-5 gap-y-4">
+          {/* Plaque niveau, penchée façon Fortnite */}
+          <div
+            className="shrink-0 flex flex-col items-center justify-center w-20 h-20 sm:w-24 sm:h-24"
+            style={{
+              background: `linear-gradient(160deg, #fff566 0%, ${YELLOW} 45%, #ff9500 100%)`,
+              clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
+              boxShadow: `0 0 28px -2px ${YELLOW}cc, 0 12px 38px -10px #ff9500`,
+            }}
+          >
+            <span className="text-[9px] font-gaming font-black italic uppercase tracking-[0.14em] text-[#0a1228]/70 leading-none">
+              {t('battlepass.level')}
+            </span>
+            <span className="font-gaming font-black italic text-4xl sm:text-5xl text-[#0a1228] tabular-nums leading-none" style={{ transform: 'skewX(-6deg)' }}>
+              {loading || !data ? '–' : data.level}
+            </span>
+          </div>
 
-          <div className="relative flex items-center gap-5">
-            {/* Médaillon niveau (84px) */}
-            <motion.div
-              className="relative shrink-0 w-[84px] h-[84px] rounded-3xl bg-gradient-to-br from-gold/40 to-violet-500/15 border-2 border-gold/50 flex flex-col items-center justify-center shadow-gold-glow overflow-hidden"
-              initial={lite ? false : { scale: 0.6, rotate: -8, opacity: 0 }}
-              animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+          <div className="min-w-0 flex-1">
+            <h1
+              className="font-gaming font-black italic uppercase text-2xl sm:text-[34px] leading-none text-white"
+              style={{ transform: 'skewX(-8deg)', textShadow: '0 3px 0 #0a1228, 0 0 34px rgba(80,130,255,0.55)' }}
             >
-              <Crown className="w-6 h-6 text-gold drop-shadow" strokeWidth={2.2} />
-              <span className="font-display text-3xl font-black text-text-strong tabular-nums leading-none">
-                {loading ? '–' : levelCount}
-              </span>
-              {!lite && (
-                <div className="absolute inset-y-0 -left-1/2 w-1/2 bg-white/20 blur-md animate-gold-sweep pointer-events-none" />
-              )}
-            </motion.div>
+              {t('battlepass.title')}
+            </h1>
+            <div className="mt-0.5 text-[10px] sm:text-[11px] font-gaming font-bold italic uppercase tracking-[0.3em] text-[#7fa4ff]">
+              42 League — {t('battlepass.season')} 1
+            </div>
 
-            <div className="relative min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <div className="text-[11px] uppercase tracking-[0.22em] font-display font-extrabold text-gold/90">
-                  {t('battlepass.level')} {loading ? '' : levelCount}
-                </div>
-                {!loading && data && (
-                  <div className="text-[12px] font-bold text-muted-2 tabular-nums">
-                    <span className="text-[#7dd3fc]">{intoCount}</span> / {data.xpForNextLevel}{' '}
-                    <span className="uppercase tracking-wide text-[#7dd3fc]/70">{t('battlepass.xp')}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Barre de progression deep-blue → cyan → or, reflet qui balaie */}
-              <div className="shine relative mt-2.5 h-5 w-full rounded-full bg-bg-0/80 border border-gold/20 overflow-hidden">
+            {/* Barre d'XP : bleu électrique, crantée, reflet continu */}
+            <div className="mt-3 max-w-xl">
+              <div className="relative h-4 rounded-sm overflow-hidden" style={{ background: '#0a1430', border: '1px solid #27407c', transform: 'skewX(-8deg)' }}>
                 <motion.div
-                  className="h-full rounded-full relative overflow-hidden"
-                  style={{
-                    background: `linear-gradient(90deg, #0369a1 0%, ${BLUE} 45%, #7dd3fc 70%, ${GOLD} 100%)`,
-                    boxShadow: `0 0 18px rgba(56,189,248,0.6), 0 0 12px ${GOLD}55`,
-                  }}
+                  className="h-full relative"
+                  style={{ background: 'linear-gradient(90deg, #1a86ff, #2cc3ff 60%, #8ff3ff)', boxShadow: '0 0 22px rgba(44,195,255,1), 0 0 44px -4px rgba(127,231,255,0.85)' }}
                   initial={{ width: 0 }}
                   animate={{ width: `${pct * 100}%` }}
                   transition={{ duration: 0.9, ease: 'easeOut', delay: 0.1 }}
-                >
-                  {!lite && pct > 0 && (
-                    <motion.span
-                      className="absolute inset-y-0 w-1/3"
-                      style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)' }}
-                      animate={{ x: ['-120%', '320%'] }}
-                      transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1 }}
-                    />
-                  )}
-                </motion.div>
+                />
+                {/* Crans */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: 'repeating-linear-gradient(90deg, transparent 0 10%, rgba(8,14,34,0.85) 10% calc(10% + 2px))' }}
+                />
               </div>
-
               {!loading && data && (
-                <div className="mt-2 flex items-center gap-1.5 text-[12px] text-muted-2 font-medium">
-                  <Trophy className="w-3.5 h-3.5 text-gold/70" strokeWidth={2.4} />
-                  <span className="tabular-nums">{totalCount}</span>
-                  <span className="uppercase tracking-wide text-[10px]">{t('battlepass.xp')}</span>
-                  <span className="opacity-60">·</span>
-                  <span>{t('battlepass.xpToNext')}: </span>
-                  <span className="tabular-nums text-text">
-                    {Math.max(0, data.xpForNextLevel - data.xpIntoLevel)}
+                <div className="mt-1.5 flex items-center gap-2 text-[11px] font-bold tabular-nums text-[#9db8f5]">
+                  <span className="text-[#2cc3ff]">{data.xpIntoLevel}</span>/{data.xpForNextLevel} {t('battlepass.xp')}
+                  <span className="opacity-40">·</span>
+                  <span className="opacity-80">
+                    {t('battlepass.xpToNext')} : {Math.max(0, data.xpForNextLevel - data.xpIntoLevel)}
                   </span>
                 </div>
               )}
             </div>
           </div>
-        </div>
-      </Panel>
 
-      {/* ── Frise des paliers (scroll horizontal, façon passe de combat) ──── */}
+          {/* TOUT RÉCUPÉRER */}
+          {claimables.length > 0 && (
+            <button
+              type="button"
+              onClick={claimAll}
+              className="group shrink-0 relative px-5 sm:px-7 py-3 font-gaming font-black italic uppercase text-sm sm:text-base tracking-[0.1em] text-[#0a1228] transition-transform hover:scale-105 active:scale-95"
+              style={{
+                background: `linear-gradient(160deg, #fff566, #ffae00)`,
+                clipPath: 'polygon(6% 0, 100% 0, 94% 100%, 0 100%)',
+                boxShadow: `0 0 26px -2px ${YELLOW}bb, 0 12px 34px -10px ${YELLOW}`,
+                animation: lite ? undefined : 'bpPulse 1.1s ease-in-out infinite alternate',
+                border: '2px solid transparent',
+              }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Gift className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.6} />
+                {t('battlepass.claimAll')}
+                <span className="inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-full bg-[#0a1228] text-[12px] text-white tabular-nums not-italic">
+                  {claimables.length}
+                </span>
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Piste des récompenses : UNE ligne, scroll horizontal ───────────── */}
       {loading ? (
-        <div className="card-hud rounded-3xl p-4 overflow-hidden">
-          <div className="flex gap-0">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="shrink-0 px-1.5" style={{ width: TIER_W }}>
-                <Skeleton className="h-[200px] rounded-3xl" />
+        <div className="grid grid-rows-2 grid-flow-col gap-3 overflow-hidden">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} style={{ width: TILE_W }}>
+              <Skeleton className="w-full aspect-[4/5] rounded-xl" />
+            </div>
+          ))}
+        </div>
+      ) : tiles.length === 0 ? (
+        <div className="rounded-2xl p-12 text-center" style={{ background: '#0c1731', border: '1px solid #27407c' }}>
+          <Sparkles className="w-8 h-8 text-[#54648c] mx-auto mb-3" strokeWidth={1.8} />
+          <p className="text-sm text-[#9db8f5] font-medium">{t('battlepass.empty')}</p>
+        </div>
+      ) : (
+        <div className="relative">
+          {/* Compteur global, centré au-dessus de la piste */}
+          <div
+            className="text-center mb-2 font-gaming font-black italic uppercase text-lg sm:text-xl text-white tracking-[0.1em] tabular-nums"
+            style={{ transform: 'skewX(-8deg)' }}
+          >
+            <span className="text-[#2cc3ff]">{claimedCount}</span>
+            <span className="text-[#54648c]">/{tiles.length}</span>{' '}
+            <span className="text-[13px] sm:text-[15px] text-[#7fa4ff]">{t('battlepass.claimed')}</span>
+          </div>
+
+          {/* Flèches par-dessus les bords, façon sélecteur Fortnite */}
+          <button
+            type="button"
+            onClick={() => scrollByPage(-1)}
+            className="absolute left-0 top-1/2 z-30 -translate-y-1/2 w-11 h-14 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
+            style={{ background: '#16234acc', border: '1px solid #2a3d6e', clipPath: 'polygon(22% 0, 100% 0, 78% 100%, 0 100%)', backdropFilter: 'blur(4px)' }}
+            aria-label="reculer"
+          >
+            <ChevronLeft className="w-6 h-6" strokeWidth={3} />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollByPage(1)}
+            className="absolute right-0 top-1/2 z-30 -translate-y-1/2 w-11 h-14 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
+            style={{ background: '#16234acc', border: '1px solid #2a3d6e', clipPath: 'polygon(22% 0, 100% 0, 78% 100%, 0 100%)', backdropFilter: 'blur(4px)' }}
+            aria-label="avancer"
+          >
+            <ChevronRight className="w-6 h-6" strokeWidth={3} />
+          </button>
+
+          {/* Fondus latéraux */}
+          <div className="pointer-events-none absolute left-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(90deg, #0b1836, transparent)' }} />
+          <div className="pointer-events-none absolute right-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(270deg, #0b1836, transparent)' }} />
+
+          {/* 2 lignes, remplissage colonne par colonne. Le padding intérieur
+              laisse la place au zoom du hover (plus de tuile rognée aux bords). */}
+          <div
+            ref={scrollerRef}
+            onScroll={onTrackScroll}
+            className="grid grid-rows-2 grid-flow-col gap-3 overflow-x-auto overflow-y-hidden snap-x scroll-px-6 px-4 py-4 cursor-grab scrollbar-none select-none"
+          >
+            {tiles.map((tile) => (
+              <div
+                key={tile.tier}
+                ref={data && tile.tier === data.level ? (el) => (currentTileRef.current = el) : undefined}
+                className="snap-start"
+                style={{ width: TILE_W }}
+              >
+                <TierTile tile={tile} lite={lite} onClaim={claimOne} t={t} />
               </div>
             ))}
           </div>
-        </div>
-      ) : !data || data.tiers.length === 0 ? (
-        <div className="rounded-3xl border border-border/50 bg-bg-2/50 p-12 text-center">
-          <Sparkles className="w-8 h-8 text-muted/50 mx-auto mb-3" strokeWidth={1.8} />
-          <p className="text-sm text-muted-2 font-medium">{t('battlepass.empty')}</p>
-        </div>
-      ) : (
-        <div className="card-hud rounded-3xl p-4 pt-3">
-          {/* Sous-titre piste + indice de scroll */}
-          <div className="flex items-center justify-between px-1 mb-2">
-            <div className="font-display text-[11px] uppercase tracking-[0.18em] text-gold/85 font-extrabold flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" strokeWidth={2.4} />
-              {t('battlepass.rewardsTrack')}
-            </div>
-            <div className="hidden sm:block text-[10px] text-muted-2/70 italic">{t('battlepass.dragHint')}</div>
-          </div>
 
-          <div className="relative">
-            {/* Fondus + indicateurs de défilement sur les bords */}
-            <div className="pointer-events-none absolute left-0 inset-y-0 w-12 z-20 bg-gradient-to-r from-bg-1 to-transparent flex items-center">
-              <ChevronLeft className="w-6 h-6 text-muted-2/70" strokeWidth={2.5} />
-            </div>
-            <div className="pointer-events-none absolute right-0 inset-y-0 w-12 z-20 bg-gradient-to-l from-bg-1 to-transparent flex items-center justify-end">
-              <ChevronRight className="w-6 h-6 text-muted-2/70" strokeWidth={2.5} />
-            </div>
-
+          {/* Barre de position du scroll (part visible + avancement) */}
+          <div
+            className="mt-1 mx-1 h-2 rounded-full overflow-hidden"
+            style={{ background: '#101f42', border: '1px solid #27407c' }}
+          >
             <div
-              ref={scrollerRef}
-              className="relative overflow-x-auto overflow-y-hidden snap-x scroll-px-6 px-1 pb-1 cursor-grab scrollbar-none"
-            >
-              <div className="flex min-w-max pt-3">
-                {data.tiers.map((tier, i) => {
-                  const isCurrent = tier.tier === data.level;
-                  return (
-                    <TierColumn
-                      key={tier.tier}
-                      tier={tier}
-                      index={i}
-                      t={t}
-                      isCurrent={isCurrent}
-                      lite={lite}
-                      colRef={isCurrent ? (el) => (currentRef.current = el) : undefined}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bouton « revenir au palier actuel » */}
-            <button
-              type="button"
-              onClick={() => scrollToCurrent(true)}
-              className="absolute -bottom-2 right-2 z-30 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[10px] font-display font-extrabold uppercase tracking-wide text-bg-0 shadow-lg transition-transform hover:scale-105 active:scale-95"
-              style={{ background: `linear-gradient(135deg, ${GOLD}, #ffe6a3)`, boxShadow: `0 4px 18px -4px ${GOLD}` }}
-            >
-              <Crown className="w-3.5 h-3.5" strokeWidth={2.6} />
-              {t('battlepass.jumpToCurrent')}
-            </button>
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, scrollPos.size * 100)}%`,
+                marginLeft: `${Math.min(100, scrollPos.pos * 100)}%`,
+                background: 'linear-gradient(90deg, #1a86ff, #2cc3ff)',
+                boxShadow: '0 0 10px rgba(44,195,255,0.75)',
+              }}
+            />
           </div>
         </div>
       )}
+
+      {/* ── Cinématique de claim ───────────────────────────────────────────── */}
+      <AnimatePresence>
+        {fxCurrent && (
+          <ClaimFx
+            key={fxCurrent.tier}
+            tile={fxCurrent}
+            queueLen={fxQueue.length}
+            lite={lite}
+            onDone={onFxDone}
+            t={t}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

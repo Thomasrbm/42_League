@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { Globe2, User, TrendingDown, TrendingUp } from 'lucide-react';
+import { Globe2, History, User, TrendingDown, TrendingUp } from 'lucide-react';
+import { EmptyState } from '../../components/EmptyState';
 import { Panel } from '../../components/Panel';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useI18n, useT } from '../../lib/i18n';
@@ -69,7 +70,7 @@ export function HistoriqueDesktop() {
           count={data.global.length}
         >
           {data.global.length === 0 ? (
-            <EmptyState text={t('history.empty')} />
+            <EmptyState Icon={History} title={t('history.empty')} />
           ) : (
             data.global
               .slice(0, 80)
@@ -103,7 +104,11 @@ export function HistoriqueDesktop() {
           header={data.mine.length > 0 ? <MyStatsStrip {...stats} /> : undefined}
         >
           {data.mine.length === 0 ? (
-            <EmptyState text={t('history.empty.mine')} />
+            <EmptyState
+              Icon={History}
+              title={t('history.empty.mine')}
+              cta={{ label: t('empty.cta.challenge'), to: '/challenges' }}
+            />
           ) : (
             data.mine
               .slice(0, 80)
@@ -236,11 +241,3 @@ function Stat({
   );
 }
 
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="text-center py-12 px-4">
-      <div className="text-4xl mb-3 opacity-50">🏓</div>
-      <div className="text-sm text-muted-2 font-medium">{text}</div>
-    </div>
-  );
-}

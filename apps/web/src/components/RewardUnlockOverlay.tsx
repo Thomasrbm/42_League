@@ -1,3 +1,4 @@
+import { autoCinematicsEnabled } from '../lib/cinematics';
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -42,6 +43,7 @@ export function RewardUnlockOverlay() {
       const data = event?.data as { payload?: TierEventPayload } | undefined;
       const tiers = data?.payload?.tiers;
       if (Array.isArray(tiers) && tiers.length > 0) {
+        if (!autoCinematicsEnabled()) return;
         triggerRewardUnlock(tiers);
         haptic('heavy');
       }

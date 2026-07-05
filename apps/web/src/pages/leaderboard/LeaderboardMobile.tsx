@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, LocateFixed } from 'lucide-react';
 import { PullToRefresh } from '../../mobile/primitives/PullToRefresh';
+import { Skeleton } from '../../mobile/primitives/Skeleton';
 import { StaggerList, StaggerItem } from '../../mobile/motion/StaggerList';
 import { RankingScopeToggle } from './RankingScopeToggle';
 import { CampusScopeToggle, useCampusScope, filterByCampus, hasCampusInfo } from './campusScope';
@@ -11,12 +12,13 @@ import { LeaderboardScatter, RankingViewToggle, GradesNavButton, type RankingVie
 import { GoatView } from '../GoatPage';
 import { LeaderboardBanner } from '../../components/LeaderboardBanner';
 import { TeamLeaderboard } from './TeamLeaderboard';
+import { XpLeaderboard } from './XpLeaderboard';
 import { api, type Season, type SeasonStanding, type LeaderboardEntry } from '../../lib/api';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
 import { useT } from '../../lib/i18n';
 
-type LeaderboardTab = 'personal' | 'teams';
+type LeaderboardTab = 'personal' | 'teams' | 'xp';
 
 export function LeaderboardMobile() {
   const t = useT();
@@ -40,17 +42,19 @@ export function LeaderboardMobile() {
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<RankingView>('list');
 
-  // Onglets — le classement Équipes n'est disponible qu'en Babyfoot.
+  // Onglets — le classement Équipes n'est disponible qu'en Babyfoot ; le
+  // ladder XP est cross-jeux et survit au changement d'univers.
   const showTeamsTab = game === 'babyfoot';
   const [activeTab, setActiveTab] = useState<LeaderboardTab>('personal');
-  // Réinitialise sur l'onglet personnel si on change de jeu.
   useEffect(() => {
-    if (game !== 'babyfoot') setActiveTab('personal');
+    if (game !== 'babyfoot' && activeTab === 'teams') setActiveTab('personal');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game]);
 
   const tabChoices = [
     { value: 'personal' as LeaderboardTab, label: t('lb.tab.solo') },
     ...(showTeamsTab ? [{ value: 'teams' as LeaderboardTab, label: t('lb.tab.teams') }] : []),
+    { value: 'xp' as LeaderboardTab, label: 'XP' },
   ];
 
   // Saison affichée : '' = en cours (live), sinon snapshot d'une saison passée.
@@ -73,6 +77,8 @@ export function LeaderboardMobile() {
   }, [seasonId, game]);
   const pastSeasons = seasons.filter((s) => !s.isActive);
   const viewingPast = standings !== null;
+  // Snapshot d'une saison passée en cours de chargement → skeletons (pas de pop-in).
+  const loadingSeason = seasonId !== '' && standings === null;
 
   // Matchs de la saison affichée. La BETA précède le tagging par seasonId → 0
   // match rattaché : on la détecte ainsi (seasonHasMatches=false) pour masquer la
@@ -208,18 +214,26 @@ export function LeaderboardMobile() {
   return (
     <PullToRefresh onRefresh={refresh}>
       <div className="space-y-5">
-        {/* Onglets Personnel / Équipes */}
-        {showTeamsTab && (
-          <RankingScopeToggle
-            value={activeTab}
-            onChange={setActiveTab}
-            choices={tabChoices}
-          />
-        )}
+        {/* Onglets Solo / Équipes / XP */}
+        <RankingScopeToggle
+          value={activeTab}
+          onChange={setActiveTab}
+          choices={tabChoices}
+        />
 
         {/* ── Transition entre onglets ────────────────────────────────────── */}
         <AnimatePresence mode="wait" initial={false}>
-          {activeTab === 'teams' ? (
+          {activeTab === 'xp' ? (
+            <motion.div
+              key="xp"
+              initial={{ opacity: 0, x: 18 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -18 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <XpLeaderboard myLogin={myLogin} />
+            </motion.div>
+          ) : activeTab === 'teams' ? (
             <motion.div
               key="teams"
               initial={{ opacity: 0, x: 18 }}
@@ -295,7 +309,13 @@ export function LeaderboardMobile() {
           <GradesNavButton />
         </div>
 
-        {viewMode === 'graph' ? (
+        {loadingSeason ? (
+          <div className="space-y-2 px-1">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 rounded-2xl" />
+            ))}
+          </div>
+        ) : viewMode === 'graph' ? (
           <>
             {myRank && <WhereAmIButton onClick={scrollToMe} label={t('lb.whereAmI')} />}
             <LeaderboardScatter

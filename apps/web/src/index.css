@@ -13,104 +13,82 @@
        sur mobile (Safari iOS, Chrome Android), en navigateur comme en PWA. */
     color-scheme: dark;
 
-    --accent-gold: 255 201 74; /* #ffc94a */
-    --accent-gold-dim: 224 168 42; /* #e0a82a */
-    --accent-gold-deep: 138 99 16; /* #8a6310 */
-    --accent-teal: 245 185 66; /* #f5b942 */
-    --accent-teal-dim: 212 150 32; /* #d49620 */
-    --accent-teal-deep: 107 74 20; /* #6b4a14 */
+    /* Or « électrique » : plus saturé que l'ancien #ffc94a pour flasher sur
+       les fonds anthracite froids. */
+    --accent-gold: 255 191 32; /* #ffbf20 */
+    --accent-gold-dim: 232 158 8; /* #e89e08 */
+    --accent-gold-deep: 148 96 8; /* #946008 */
+    --accent-teal: 255 178 24; /* #ffb218 */
+    --accent-teal-dim: 224 140 10; /* #e08c0a */
+    --accent-teal-deep: 120 74 8; /* #784a08 */
   }
 
   /* ─── MODE SMASH : univers rouge combat ────────────────────────────────── */
   [data-game='smash'] {
-    --accent-gold: 255 77 92;
-    --accent-gold-dim: 214 54 70;
-    --accent-gold-deep: 120 26 34;
-    --accent-teal: 255 77 92;
-    --accent-teal-dim: 214 54 70;
-    --accent-teal-deep: 120 26 34;
+    --accent-gold: 255 45 85; /* #ff2d55 — rouge électrique */
+    --accent-gold-dim: 214 24 62;
+    --accent-gold-deep: 130 10 34;
+    --accent-teal: 255 45 85;
+    --accent-teal-dim: 214 24 62;
+    --accent-teal-deep: 130 10 34;
   }
   /* Fond : teinté rouge sombre + vignette d'impact */
   [data-game='smash'] body {
     background:
-      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(255, 60, 80, 0.10) 0%, transparent 55%),
-      radial-gradient(ellipse 100% 60% at 50% 115%, rgba(140, 20, 30, 0.08) 0%, transparent 55%),
-      linear-gradient(180deg, #0e0607 0%, #080304 100%);
-  }
-  /* Grille technique en rouge très subtil */
-  [data-game='smash'] body::before {
-    background-image:
-      linear-gradient(rgba(255, 77, 92, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 77, 92, 0.025) 1px, transparent 1px);
+      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(255, 45, 85, 0.17) 0%, transparent 55%),
+      radial-gradient(ellipse 100% 60% at 50% 115%, rgba(180, 20, 45, 0.12) 0%, transparent 55%),
+      linear-gradient(180deg, #120409 0%, #080304 100%);
   }
 
   /* ─── MODE ÉCHECS : univers vert nuit ───────────────────────────────────── */
   [data-game='chess'] {
-    --accent-gold: 86 196 110;
-    --accent-gold-dim: 58 158 80;
-    --accent-gold-deep: 24 88 44;
-    --accent-teal: 86 196 110;
-    --accent-teal-dim: 58 158 80;
-    --accent-teal-deep: 24 88 44;
+    --accent-gold: 54 224 122; /* #36e07a — vert néon */
+    --accent-gold-dim: 26 178 90;
+    --accent-gold-deep: 10 96 48;
+    --accent-teal: 54 224 122;
+    --accent-teal-dim: 26 178 90;
+    --accent-teal-deep: 10 96 48;
   }
   /* Fond : teinté vert foncé + damier très discret */
   [data-game='chess'] body {
     background:
-      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(40, 140, 60, 0.08) 0%, transparent 55%),
-      radial-gradient(ellipse 100% 60% at 50% 115%, rgba(20, 80, 40, 0.07) 0%, transparent 55%),
-      linear-gradient(180deg, #050e08 0%, #030906 100%);
-  }
-  /* Grille technique en vert très subtil */
-  [data-game='chess'] body::before {
-    background-image:
-      linear-gradient(rgba(86, 196, 110, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(86, 196, 110, 0.025) 1px, transparent 1px);
+      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(54, 224, 122, 0.14) 0%, transparent 55%),
+      radial-gradient(ellipse 100% 60% at 50% 115%, rgba(20, 120, 60, 0.11) 0%, transparent 55%),
+      linear-gradient(180deg, #04120a 0%, #030906 100%);
   }
 
   /* ─── MODE STREET FIGHTER : univers orange combat ───────────────────────── */
   [data-game='streetfighter'] {
-    --accent-gold: 255 122 24;
-    --accent-gold-dim: 214 100 18;
-    --accent-gold-deep: 120 56 8;
-    --accent-teal: 255 122 24;
-    --accent-teal-dim: 214 100 18;
-    --accent-teal-deep: 120 56 8;
+    --accent-gold: 255 106 0; /* #ff6a00 — orange pur */
+    --accent-gold-dim: 220 82 0;
+    --accent-gold-deep: 130 48 0;
+    --accent-teal: 255 106 0;
+    --accent-teal-dim: 220 82 0;
+    --accent-teal-deep: 130 48 0;
   }
   /* Fond : teinté orange sombre + vignette d'impact */
   [data-game='streetfighter'] body {
     background:
-      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(255, 122, 24, 0.10) 0%, transparent 55%),
-      radial-gradient(ellipse 100% 60% at 50% 115%, rgba(160, 70, 10, 0.08) 0%, transparent 55%),
-      linear-gradient(180deg, #0f0803 0%, #080402 100%);
-  }
-  /* Grille technique en orange très subtil */
-  [data-game='streetfighter'] body::before {
-    background-image:
-      linear-gradient(rgba(255, 122, 24, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 122, 24, 0.025) 1px, transparent 1px);
+      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(255, 106, 0, 0.16) 0%, transparent 55%),
+      radial-gradient(ellipse 100% 60% at 50% 115%, rgba(190, 80, 5, 0.11) 0%, transparent 55%),
+      linear-gradient(180deg, #120902 0%, #080402 100%);
   }
 
   /* ─── MODE FLÉCHETTES : univers teal/sarcelle ───────────────────────────── */
   [data-game='flechettes'] {
-    --accent-gold: 20 184 166;
-    --accent-gold-dim: 13 148 136;
-    --accent-gold-deep: 8 80 72;
-    --accent-teal: 20 184 166;
-    --accent-teal-dim: 13 148 136;
-    --accent-teal-deep: 8 80 72;
+    --accent-gold: 0 216 194; /* #00d8c2 — teal néon */
+    --accent-gold-dim: 0 172 154;
+    --accent-gold-deep: 6 96 86;
+    --accent-teal: 0 216 194;
+    --accent-teal-dim: 0 172 154;
+    --accent-teal-deep: 6 96 86;
   }
   /* Fond : teinté teal sombre + vignette */
   [data-game='flechettes'] body {
     background:
-      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(20, 184, 166, 0.10) 0%, transparent 55%),
-      radial-gradient(ellipse 100% 60% at 50% 115%, rgba(10, 100, 90, 0.08) 0%, transparent 55%),
-      linear-gradient(180deg, #03100e 0%, #020a09 100%);
-  }
-  /* Grille technique en teal très subtil */
-  [data-game='flechettes'] body::before {
-    background-image:
-      linear-gradient(rgba(20, 184, 166, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(20, 184, 166, 0.025) 1px, transparent 1px);
+      radial-gradient(ellipse 60% 40% at 50% -5%, rgba(0, 216, 194, 0.15) 0%, transparent 55%),
+      radial-gradient(ellipse 100% 60% at 50% 115%, rgba(0, 130, 115, 0.11) 0%, transparent 55%),
+      linear-gradient(180deg, #031412 0%, #020a09 100%);
   }
 
   html,
@@ -126,7 +104,7 @@
        `background-attachment: fixed` du body ne peint pas la zone du home
        indicator → le blanc par défaut du WebView ressortait (bande blanche en
        bas). Cette base sombre garantit qu'aucun blanc ne transparaît. */
-    background-color: #0b0907;
+    background-color: #090b10;
     /* Verrou : seul <main> scrolle dans le shell mobile. html/body restent
        figés sur le viewport pour éviter le « double scroll » où l'utilisateur
        pouvait descendre sous le contenu. */
@@ -137,17 +115,17 @@
   body {
     margin: 0;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    /* Fond global "salle de jeu RPG" :
-       1. radial vignette dorée au centre — chaleur du HUD
-       2. radial vignette ambrée en bas — sol lumineux
-       3. base anthracite chaud
+    /* Fond global « Onyx Arena » :
+       1. radial vignette dorée au centre — renforcée : c'est elle qui flashe
+       2. radial vignette dorée en bas — sol lumineux
+       3. base anthracite FROIDE (gris-bleu) : fond neutre qui fait claquer l'or
        4. micro-grid technique très discret */
     background:
-      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255, 201, 74, 0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 100% 60% at 50% 110%, rgba(192, 138, 74, 0.06) 0%, transparent 55%),
-      linear-gradient(180deg, #100d09 0%, #0b0907 100%);
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255, 191, 32, 0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 60% at 50% 110%, rgba(255, 191, 32, 0.07) 0%, transparent 55%),
+      linear-gradient(180deg, #10141c 0%, #090b10 100%);
     background-attachment: fixed;
-    color: #ede4d3;
+    color: #e9eef6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow: hidden;
@@ -155,20 +133,8 @@
     touch-action: manipulation;
   }
 
-  /* Grille technique surimposée fixe (très subtile) — donne un feel "HUD". */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background-image:
-      linear-gradient(rgba(255, 201, 74, 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 201, 74, 0.025) 1px, transparent 1px);
-    background-size: 36px 36px;
-    mask-image: radial-gradient(ellipse 80% 70% at center, black 0%, transparent 90%);
-    -webkit-mask-image: radial-gradient(ellipse 80% 70% at center, black 0%, transparent 90%);
-  }
+  /* (Le quadrillage HUD global a été retiré : fond propre, la lumière vient
+     des vignettes colorées par univers.) */
 
   #root {
     position: relative;
@@ -251,27 +217,27 @@
     scroll-behavior: smooth;
   }
 
-  /* Glass effect — réchauffé vers du brun chaud, accent doré. */
+  /* Glass effect — anthracite froid, accent doré. */
   .glass {
-    background: rgba(21, 18, 14, 0.78);
+    background: rgba(15, 20, 28, 0.78);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
 
   .glass-strong {
-    background: rgba(12, 10, 8, 0.88);
+    background: rgba(9, 11, 16, 0.88);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
   }
 
-  /* Gradient text branding — or pur sur or chaud. */
+  /* Gradient text branding — or électrique. */
   .gradient-text-brand {
     background: linear-gradient(
       135deg,
       #fff7e4 0%,
-      #ffc94a 35%,
-      #f5b942 55%,
-      #c79122 100%
+      #ffd24a 35%,
+      #ffbf20 55%,
+      #e08c0a 100%
     );
     -webkit-background-clip: text;
     background-clip: text;
@@ -405,18 +371,18 @@
 
   /* ─── Nouvelles utilities premium ──────────────────────────────────── */
 
-  /* Plaque d'acier brossé — pour les stat cards (W/L/WR%/STREAK). */
+  /* Plaque d'acier brossé — pour les stat cards (W/L/WR%/STREAK). Refroidie gris-bleu. */
   .metal-plate {
     background:
       linear-gradient(
         180deg,
-        #2e2a22 0%,
-        #221d17 22%,
-        #1a1612 50%,
-        #221d17 78%,
-        #2e2a22 100%
+        #2a303c 0%,
+        #1d222c 22%,
+        #161a22 50%,
+        #1d222c 78%,
+        #2a303c 100%
       );
-    border: 1px solid #3a3022;
+    border: 1px solid #26303f;
     box-shadow:
       inset 0 1px 0 rgba(255, 215, 120, 0.12),
       inset 0 -1px 0 rgba(0, 0, 0, 0.5),
@@ -478,23 +444,11 @@
       0 2px 8px rgba(0, 0, 0, 0.5);
   }
 
-  /* Grille technique en surimpression (HUD). */
-  .hud-grid {
-    background-image:
-      linear-gradient(rgba(255, 201, 74, 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 201, 74, 0.045) 1px, transparent 1px);
-    background-size: 28px 28px;
-  }
-
-  /* Filigrane diagonale — bandes diagonales très discrètes. */
+  /* .hud-grid / .hud-diag : textures quadrillage & rayures retirées (demande
+     utilisateur). Classes conservées en no-op car encore posées dans le JSX. */
+  .hud-grid,
   .hud-diag {
-    background-image: repeating-linear-gradient(
-      135deg,
-      rgba(255, 201, 74, 0.03) 0px,
-      rgba(255, 201, 74, 0.03) 1px,
-      transparent 1px,
-      transparent 12px
-    );
+    background-image: none;
   }
 
   /* Hover glow doré — pour les cartes cliquables.
@@ -866,13 +820,10 @@
   -webkit-backdrop-filter: none;
 }
 
-/* (3) fond : on détache le background fixe (repaint au scroll) et on masque la
-   grille HUD fixe en surimpression. La teinte/dégradé du fond restent identiques. */
+/* (3) fond : on détache le background fixe (repaint au scroll).
+   La teinte/dégradé du fond restent identiques. */
 [data-perf='lite'] body {
   background-attachment: scroll;
-}
-[data-perf='lite'] body::before {
-  display: none;
 }
 
 /* (4) animations CSS infinies décoratives → figées. Les chiffres/badges gardent

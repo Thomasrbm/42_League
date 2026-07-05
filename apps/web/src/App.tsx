@@ -24,6 +24,7 @@ import { AnalyticsTracker } from './components/AnalyticsTracker';
  * pendant la navigation, ce qui garantit la compatibilité avec AnimatePresence.
  */
 function prefetchRouteChunks() {
+  void import('./pages/HomePage');
   void import('./pages/leaderboard');
   void import('./pages/profil');
   void import('./pages/tournois');
@@ -40,6 +41,9 @@ function prefetchRouteChunks() {
 // Code-splitting par page → bundle initial allégé (~50%+).
 // Chaque chunk est chargé à la demande au premier accès à la route.
 // La pré-loading peut être déclenchée au hover sur la TabBar plus tard.
+const HomePage = lazy(() =>
+  import('./pages/HomePage').then((m) => ({ default: m.HomePage })),
+);
 const DefisPage = lazy(() =>
   import('./pages/defis').then((m) => ({ default: m.DefisPage })),
 );
@@ -261,7 +265,7 @@ function AuthenticatedShell({ onReady }: { onReady?: () => void }) {
           <ErrorBoundary>
             <Suspense fallback={<PageSkeleton />}>
               <Routes>
-                <Route path="/" element={<Navigate to="/challenges" replace />} />
+                <Route path="/" element={<HomePage />} />
                 <Route path="/challenges" element={<DefisPage />} />
                 <Route path="/tournaments" element={<TournoisPage />} />
                 <Route path="/tournaments/create" element={<CreateTournamentPage />} />

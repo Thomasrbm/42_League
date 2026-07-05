@@ -57,6 +57,7 @@ import { CoinFlipOverlay } from '../components/tournois/CoinFlipOverlay';
 import TournamentLaunchCeremony from '../components/tournois/TournamentLaunchCeremony';
 import { VictoryOverlay } from '../components/tournois/VictoryOverlay';
 import { PlayerReactionOverlay } from '../components/PlayerReactionOverlay';
+import { TauntScene } from '../components/TauntOverlay';
 import { MysteryRevealModal } from '../components/shop/MysteryRevealModal';
 import type { MysteryReward } from '../lib/api';
 
@@ -4309,8 +4310,17 @@ function AnimationsTab({ myLogin }: { myLogin: string }) {
   }
   const accent = GAME_META[game].color;
 
-  type Anim = null | 'versus' | 'tversus' | 'ceremony' | 'victory';
+  type Anim = null | 'versus' | 'tversus' | 'ceremony' | 'victory' | 'taunt';
   const [anim, setAnim] = useState<Anim>(null);
+  // Narguage : émote suivante à chaque clic pour passer en revue les 10 choix.
+  const TAUNT_DEMO_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'];
+  const tauntIdx = useRef(0);
+  const [tauntEmote, setTauntEmote] = useState('😂');
+  const playTaunt = () => {
+    setTauntEmote(TAUNT_DEMO_EMOTES[tauntIdx.current % TAUNT_DEMO_EMOTES.length] ?? '😂');
+    tauntIdx.current += 1;
+    setAnim('taunt');
+  };
   // Passage de rang : chaque clic monte d'un palier (Étain → … → Diamant → GM),
   // pour passer en revue tous les emblèmes. Overlay global monté dans l'AppShell.
   const rankUpIdx = useRef(0);
@@ -4350,6 +4360,7 @@ function AnimationsTab({ myLogin }: { myLogin: string }) {
     { key: 'rage', label: 'Contestation (rage)', desc: 'Flash rouge + onde de choc + emojis de rage.', onClick: () => fireContestRage('sender') },
     { key: 'duel', label: 'Éclair de duel', desc: 'Foudre diagonale + VS au lancement/à l\'acceptation d\'un duel.', onClick: () => triggerDuelStrike({ meLogin, opponentLogin: opp.login, game, kind: 'challenge' }) },
     { key: 'victory', label: 'Champion (victoire)', desc: 'Confettis + portrait du vainqueur (duo affiché en 2v2).', onClick: () => setAnim('victory') },
+    { key: 'taunt', label: 'Narguage (émote)', desc: 'Versus puis émote du vainqueur — ce que voit le perdant d\'un 1v1 à sa reconnexion (émote suivante à chaque clic).', onClick: playTaunt },
     { key: 'reaction', label: 'Réaction (meme)', desc: 'Pop-up moqueur/élogieux selon la série (ici série chaude).', onClick: () => setReactionStreak((s) => (s >= 6 ? s + 1 : 6)) },
     { key: 'mystery-win', label: 'Boîte mystère (gain)', desc: 'Révélation animée du titre arc-en-ciel « Mysterious ».', onClick: () => setMystery('win') },
     { key: 'mystery-loss', label: 'Boîte mystère (perte)', desc: 'La boîte n\'offre rien : malus de −10 ELO (9 chances sur 10).', onClick: () => setMystery('loss') },
@@ -4413,6 +4424,18 @@ function AnimationsTab({ myLogin }: { myLogin: string }) {
         onDone={() => setAnim(null)}
         t={t}
       />
+      {anim === 'taunt' && (
+        <TauntScene
+          taunt={{
+            id: `demo-${tauntEmote}`,
+            game,
+            emote: tauntEmote,
+            createdAt: new Date().toISOString(),
+            winner: { login: opp.login, firstName: null, lastName: null, imageUrl: opp.imageUrl },
+          }}
+          onDone={() => setAnim(null)}
+        />
+      )}
       {reactionStreak > 0 && (
         <PlayerReactionOverlay signals={{ currentStreak: reactionStreak, winRate: 88, total: 30 }} />
       )}
@@ -4710,7 +4733,7 @@ function ItemsAdminTab() {
                   <span
                     key={b.code}
                     className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold border"
-                    style={{ color: b.color ?? '#a89880', borderColor: `${b.color ?? '#a89880'}55`, background: `${b.color ?? '#a89880'}1a` }}
+                    style={{ color: b.color ?? '#a9b6c9', borderColor: `${b.color ?? '#a9b6c9'}55`, background: `${b.color ?? '#a9b6c9'}1a` }}
                   >
                     <Icon className="w-3.5 h-3.5" strokeWidth={2.5} />
                     {b.label}

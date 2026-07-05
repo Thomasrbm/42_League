@@ -17,6 +17,10 @@ export const dict: Record<Lang, Dict> = {
     // ─── Passage de rang (cinématique RankUpOverlay) ────────────────────────
     'rankup.title': 'PASSAGE DE RANG',
 
+    // ─── Narguage post-défaite (TauntOverlay) ───────────────────────────────
+    'taunt.beatYou': 't’a battu',
+    'taunt.mocksYou': 'te nargue',
+
     // ─── G.O.A.T ───────────────────────────────────────────────────────────
     'goat.sub': 'Greatest Of All Time',
     'common.back': 'Retour',
@@ -249,6 +253,9 @@ export const dict: Record<Lang, Dict> = {
 
     'rankup.title': 'RANK UP',
 
+    'taunt.beatYou': 'beat you',
+    'taunt.mocksYou': 'is taunting you',
+
     'goat.sub': 'Greatest Of All Time',
     'common.back': 'Back',
     'goat.weight.elo': 'ELO 50%',
@@ -466,6 +473,9 @@ export const dict: Record<Lang, Dict> = {
     'trophy.sub': 'recompensas legendarias',
 
     'rankup.title': 'ASCENSO DE RANGO',
+
+    'taunt.beatYou': 'te ganó',
+    'taunt.mocksYou': 'se burla de ti',
 
     'goat.sub': 'Greatest Of All Time',
     'common.back': 'Volver',

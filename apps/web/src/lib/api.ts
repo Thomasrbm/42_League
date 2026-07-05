@@ -45,6 +45,23 @@ export interface LeaderboardEntry {
   favSf?: string[];
 }
 
+/** Entrée du ladder XP cross-jeux (GET /leaderboard/xp). */
+export interface XpLeaderboardEntry {
+  rank: number;
+  login: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  campus: string | null;
+  imageUrl: string | null;
+  title?: string | null;
+  /** XP cumulée à vie, toutes disciplines confondues. */
+  xp: number;
+  /** Niveau dérivé (même courbe que le passe de combat). */
+  level: number;
+  xpIntoLevel: number;
+  xpForNextLevel: number;
+}
+
 export interface PendingMatch {
   id: string;
   declarerLogin: string;
@@ -579,7 +596,33 @@ export interface MeResponse {
     eloMultUntil?: string | null;
     /** Réputation litiges : nb de litiges perdus (marque publique sur le profil). */
     disputesLost?: number;
+    /** Émote de victoire (narguage) — null = défaut. */
+    tauntEmote?: string | null;
   } | null;
+}
+
+/** Joueur « chaud » : dispo pour jouer pendant 30 min (cf. GET /hot). */
+export interface HotPlayer {
+  login: string;
+  game: Game;
+  until: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  imageUrl: string | null;
+}
+
+/** Narguage en attente : le vainqueur d'un 1v1 nargue le perdant à sa prochaine connexion. */
+export interface TauntData {
+  id: string;
+  game: string;
+  emote: string;
+  createdAt: string;
+  winner: {
+    login: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    imageUrl: string | null;
+  };
 }
 
 export const MODERATOR_PERMISSION_KEYS = [
@@ -908,6 +951,8 @@ export interface TournamentEntry {
   /** 2v2 : nom d'équipe optionnel (affiché à la place de « @cap & @partner »). */
   teamName?: string | null;
   joinedAt: string;
+  /** Check-in « je suis là » avant lancement — null = pas pointé. */
+  checkedInAt?: string | null;
   user?: { login: string; imageUrl: string | null; elo: number };
   /** 2v2 : utilisateur coéquipier résolu (avatar/elo) pour l'affichage des paires. */
   partner?: { login: string; imageUrl: string | null; elo: number } | null;
@@ -1040,6 +1085,15 @@ export interface SfSessionCurrent {
 
 export class AuthError extends Error {}
 
+/** Erreur API avec message humain (déjà affichable) + statut HTTP pour les appelants. */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -1064,7 +1118,31 @@ async function request<T>(
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}${body ? ` — ${body}` : ''}`);
+    // Le backend renvoie des messages humains (HTTPException) : on les affiche
+    // tels quels. Sinon, repli générique par famille de statut — on ne montre
+    // JAMAIS de « 409 Conflict — … » brut à l'utilisateur.
+    let msg = body.trim();
+    if (msg.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(msg) as { message?: unknown };
+        if (typeof parsed.message === 'string') msg = parsed.message;
+      } catch {
+        /* corps non-JSON : on garde le texte */
+      }
+    }
+    if (!msg || msg.length > 200 || /<[a-z!/]/i.test(msg)) {
+      msg =
+        res.status >= 500
+          ? 'Erreur serveur — réessaie dans un instant.'
+          : res.status === 403
+            ? 'Action non autorisée.'
+            : res.status === 404
+              ? 'Introuvable.'
+              : res.status === 429
+                ? 'Trop de requêtes — patiente un peu.'
+                : 'Requête impossible.';
+    }
+    throw new ApiError(msg, res.status);
   }
   return (await res.json()) as T;
 }
@@ -1287,6 +1365,9 @@ export const api = {
     request<LeaderboardEntry[]>(
       `/leaderboard${game && game !== 'babyfoot' ? `?game=${game}` : ''}`,
     ),
+  // Ladder XP cross-jeux : XP gagnée à chaque match joué (défaite comprise),
+  // identique quel que soit le mode → pas de paramètre game.
+  xpLeaderboard: () => request<XpLeaderboardEntry[]>('/leaderboard/xp'),
   // Token éphémère (scope SSE) à passer en ?token= pour ouvrir le flux /events,
   // afin de ne jamais exposer le Bearer 30 jours dans une URL (logs / Referer).
   streamToken: () => request<{ token: string }>('/auth/stream-token'),
@@ -1599,6 +1680,12 @@ export const api = {
         }),
       },
     ),
+  /** Check-in « je suis là » (present=false pour retirer son pointage). */
+  tournamentCheckin: (id: string, present: boolean) =>
+    request<{ ok: true; checkedIn: boolean }>(`/tournaments/${encodeURIComponent(id)}/checkin`, {
+      method: 'POST',
+      body: JSON.stringify({ present }),
+    }),
   leaveTournament: (id: string) =>
     request<{ id: string; left: true }>(
       `/tournaments/${encodeURIComponent(id)}/leave`,
@@ -2096,6 +2183,12 @@ export const api = {
     }),
   // ── Passe de combat (XP) ────────────────────────────────────────────────────
   battlePass: () => request<BattlePassResponse>('/me/battlepass'),
+  /** Réclame la récompense d'un palier atteint (403 non atteint, 409 déjà réclamé). */
+  battlePassClaimTier: (tier: number) =>
+    request<{ ok: true; tier: number }>(`/me/battlepass/claim/${tier}`, { method: 'POST' }),
+  /** Réclame d'un coup tous les paliers atteints non réclamés. */
+  battlePassClaimAll: () =>
+    request<{ ok: true; tiers: number[] }>('/me/battlepass/claim-all', { method: 'POST' }),
   adminBattlePassTiers: () => request<BattlePassTierAdmin[]>('/admin/battlepass/tiers'),
   adminSetBattlePassTier: (tier: number, input: Omit<BattlePassTierAdmin, 'tier'>) =>
     request<BattlePassTierAdmin>(`/admin/battlepass/tiers/${tier}`, {
@@ -2105,6 +2198,35 @@ export const api = {
   adminDeleteBattlePassTier: (tier: number) =>
     request<{ ok: true }>(`/admin/battlepass/tiers/${tier}`, {
       method: 'DELETE',
+    }),
+  // ── Émotes de narguage ─────────────────────────────────────────────────────
+  /** Narguages pas encore vus (max 3, plus ancien d'abord). */
+  tauntsPending: () => request<TauntData[]>('/me/taunts/pending'),
+  /** Marque un narguage comme vu (après la cinématique). */
+  tauntSeen: (id: string) =>
+    request<{ ok: true }>(`/me/taunts/${encodeURIComponent(id)}/seen`, { method: 'POST' }),
+  // ── Web Push ───────────────────────────────────────────────────────────────
+  /** Clé publique VAPID (null si le serveur n'a pas le push configuré). */
+  pushVapidKey: () => request<{ enabled: boolean; key: string | null }>('/push/vapid-key'),
+  /** Enregistre l'abonnement push de cet appareil. */
+  pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    request<{ ok: true }>('/me/push/subscribe', { method: 'POST', body: JSON.stringify(sub) }),
+  /** Désabonne cet appareil. */
+  pushUnsubscribe: (endpoint: string) =>
+    request<{ ok: true }>('/me/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
+  // ── « Je suis chaud » (dispo 30 min) ───────────────────────────────────────
+  /** Joueurs actuellement chauds pour jouer (non expirés). */
+  hotList: () => request<HotPlayer[]>('/hot'),
+  /** Se déclare chaud 30 min sur un jeu (ré-appel = prolonge). */
+  hotSet: (game: Game) =>
+    request<{ ok: true; until: string }>('/me/hot', { method: 'POST', body: JSON.stringify({ game }) }),
+  /** Se retire de la liste. */
+  hotClear: () => request<{ ok: true }>('/me/hot', { method: 'DELETE' }),
+  /** Choisit son émote de victoire (montrée aux joueurs battus). */
+  setTauntEmote: (emote: string) =>
+    request<{ ok: true; emote: string }>('/me/taunt-emote', {
+      method: 'PUT',
+      body: JSON.stringify({ emote }),
     }),
   // ── Suivi des coins (Shop GOD) ────────────────────────────────────────────
   /** Annuaire des joueurs avec leur solde (tri solde décroissant, recherche optionnelle). */

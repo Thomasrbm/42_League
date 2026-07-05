@@ -2,12 +2,12 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
+  Home,
   Swords,
   Trophy,
   BarChart3,
   Award,
   User,
-  Users,
   History,
   Settings,
   Cog,
@@ -15,7 +15,6 @@ import {
   Info,
   ShoppingBag,
   Store,
-  Zap,
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
 import { CoinCount } from '../components/CoinCount';
@@ -27,6 +26,7 @@ import { GAME_META } from '../lib/gameMeta';
 import { pickRating } from '../lib/gameStats';
 import { useT } from '../lib/i18n';
 import { UniverseTransition } from '../components/UniverseTransition';
+import { CommandPalette } from '../components/CommandPalette';
 
 interface NavDef {
   to: string;
@@ -35,14 +35,13 @@ interface NavDef {
 }
 
 const NAV: NavDef[] = [
+  { to: '/', labelKey: 'nav.home', Icon: Home },
   { to: '/challenges', labelKey: 'nav.defis', Icon: Swords },
   { to: '/tournaments', labelKey: 'nav.tournois', Icon: Trophy },
   { to: '/leaderboard', labelKey: 'nav.leaderboard', Icon: BarChart3 },
   { to: '/trophies', labelKey: 'nav.trophees', Icon: Award },
   { to: '/shop', labelKey: 'nav.shop', Icon: ShoppingBag },
-  { to: '/passe', labelKey: 'nav.passe', Icon: Zap },
   { to: '/profile', labelKey: 'nav.profil', Icon: User },
-  { to: '/teams', labelKey: 'nav.teams', Icon: Users },
 ];
 
 const NAV_SECONDARY: NavDef[] = [
@@ -85,7 +84,7 @@ export function DesktopShell({ children }: DesktopShellProps) {
   return (
     <div className="h-dvh flex flex-row relative overflow-hidden">
       {/* ─── Sidebar ─────────────────────────────────────────────────── */}
-      <aside className="relative flex flex-col w-64 h-dvh z-20 no-select overflow-hidden">
+      <aside className="relative flex flex-col h-dvh z-20 no-select overflow-hidden w-64">
         {/* Fond + grille HUD */}
         <div className="absolute inset-0 bg-gradient-to-b from-bg-1 via-bg-1/95 to-bg-0 hud-grid" />
 
@@ -98,7 +97,7 @@ export function DesktopShell({ children }: DesktopShellProps) {
         />
 
         {/* Brand */}
-        <div className="relative px-5 py-5 border-b border-gold/20">
+        <div className="relative border-b border-gold/20 px-5 py-5">
           <NavLink to="/" className="flex flex-col gap-1.5 group" aria-label="42 League">
             <img
               src="/logo-wordmark.webp"
@@ -116,7 +115,7 @@ export function DesktopShell({ children }: DesktopShellProps) {
         </div>
 
         {/* Navigation principale */}
-        <nav className="relative flex flex-col p-3 gap-1">
+        <nav className="relative flex flex-col gap-1 p-3">
           {NAV.map((n) => (
             <NavItem
               key={n.to}
@@ -128,12 +127,7 @@ export function DesktopShell({ children }: DesktopShellProps) {
           ))}
           <div className="my-2 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
           {NAV_SECONDARY.map((n) => (
-            <NavItem
-              key={n.to}
-              to={n.to}
-              label={t(n.labelKey)}
-              Icon={n.Icon}
-            />
+            <NavItem key={n.to} to={n.to} label={t(n.labelKey)} Icon={n.Icon} />
           ))}
           {(me?.role === 'ADMIN' || me?.role === 'SUPERADMIN') && (
             <>
@@ -149,34 +143,37 @@ export function DesktopShell({ children }: DesktopShellProps) {
             dans la section Défis (badge sur l'onglet) + la bannière popup. */}
 
         {/* Profil bas */}
-        <div className="relative mt-auto p-3 border-t border-gold/20">
+        <div className="relative mt-auto border-t border-gold/20 p-3">
           {me?.user ? (
             <div className="flex items-center gap-1">
-              <NavLink
-                to="/profile"
-                className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-gold/5 transition-colors group flex-1 min-w-0"
-              >
-                <Avatar login={login ?? '?'} imageUrl={me.user.imageUrl} size="md" />
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <div className="text-[15px] font-bold text-text-strong truncate group-hover:text-gold transition-colors">
-                    {login}
+                <NavLink
+                  to="/profile"
+                  className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-gold/5 transition-colors group flex-1 min-w-0"
+                >
+                  <Avatar login={login ?? '?'} imageUrl={me.user.imageUrl} size="md" />
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="text-[15px] font-bold text-text-strong truncate group-hover:text-gold transition-colors">
+                      {login}
+                    </div>
+                    <div className="text-xs text-gold uppercase tracking-wider font-extrabold tabular-nums flex items-center gap-1">
+                      {pickRating(me.user, game).elo} ELO
+                    </div>
+                    <div className="text-sm text-violet-300 font-extrabold tabular-nums flex items-center gap-1.5">
+                      <img src="/42coin.webp" alt="" className="w-4 h-4" />
+                      <CoinCount login={login} value={me.coins ?? 0} />
+                    </div>
                   </div>
-                  <div className="text-xs text-gold uppercase tracking-wider font-extrabold tabular-nums flex items-center gap-1">
-                    {pickRating(me.user, game).elo} ELO
-                  </div>
-                  <div className="text-sm text-violet-300 font-extrabold tabular-nums flex items-center gap-1.5">
-                    <img src="/42coin.webp" alt="" className="w-4 h-4" />
-                    <CoinCount login={login} value={me.coins ?? 0} />
-                  </div>
-                </div>
-              </NavLink>
-              <NotificationBell placement="up" />
-            </div>
+                </NavLink>
+                <NotificationBell placement="up" />
+              </div>
           ) : (
             <div className="text-xs text-muted-2">{t('auth.notConnected')}</div>
           )}
         </div>
       </aside>
+
+      {/* Palette de commande Cmd/Ctrl+K (desktop) */}
+      <CommandPalette />
 
       {/* ─── Main ────────────────────────────────────────────────────── */}
       <main ref={mainRef} className="flex-1 min-w-0 relative overflow-y-auto custom-scrollbar">
@@ -203,6 +200,7 @@ function NavItem({ to, label, Icon, badge = 0 }: NavItemProps) {
   return (
     <NavLink
       to={to}
+      end={to === '/'}
       className={({ isActive }) =>
         `relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold tracking-wide group transition-colors duration-150 ${
           isActive ? 'text-gold' : 'text-muted-2 hover:text-text'
@@ -217,9 +215,9 @@ function NavItem({ to, label, Icon, badge = 0 }: NavItemProps) {
               layoutId="desktop-nav-bg"
               className="absolute inset-0 rounded-lg"
               style={{
-                background: 'rgba(255,201,74,0.09)',
-                border: '1px solid rgba(255,201,74,0.22)',
-                boxShadow: 'inset 0 1px 0 rgba(255,215,120,0.10)',
+                background: 'rgb(var(--accent-gold) / 0.10)',
+                border: '1px solid rgb(var(--accent-gold) / 0.28)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
               }}
               transition={{ type: 'spring', stiffness: 500, damping: 38, mass: 0.7 }}
             />
@@ -230,18 +228,20 @@ function NavItem({ to, label, Icon, badge = 0 }: NavItemProps) {
               layoutId="desktop-nav-bar"
               className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
               style={{
-                background: 'linear-gradient(to bottom, #ffc94a, #e0a82a)',
-                boxShadow: '0 0 10px rgba(255,201,74,0.6)',
+                background: 'linear-gradient(to bottom, rgb(var(--accent-gold)), rgb(var(--accent-gold-dim)))',
+                boxShadow: '0 0 10px rgb(var(--accent-gold) / 0.65)',
               }}
               transition={{ type: 'spring', stiffness: 500, damping: 38, mass: 0.7 }}
             />
           )}
-          <Icon
-            className={`relative w-[18px] h-[18px] transition-all duration-150 ${
-              isActive ? 'text-gold' : 'text-muted-2 group-hover:text-text'
-            }`}
-            strokeWidth={isActive ? 2.5 : 2}
-          />
+          <span className="relative">
+            <Icon
+              className={`relative w-[18px] h-[18px] transition-all duration-150 ${
+                isActive ? 'text-gold' : 'text-muted-2 group-hover:text-text'
+              }`}
+              strokeWidth={isActive ? 2.5 : 2}
+            />
+          </span>
           <span className="relative flex-1">{label}</span>
           {badge > 0 && (
             <motion.span

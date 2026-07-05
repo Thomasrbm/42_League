@@ -71,7 +71,7 @@ export function GameModesSettings() {
               <span className="text-sm font-extrabold uppercase tracking-wide">{t(`game.${g.id}`)}</span>
               <span
                 className="relative w-10 h-5 rounded-full transition-colors"
-                style={{ background: active ? g.accent : '#3a3022' }}
+                style={{ background: active ? g.accent : '#26303f' }}
               >
                 <span
                   className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${

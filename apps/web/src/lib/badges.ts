@@ -63,7 +63,7 @@ export function badgeDef(code: string): BadgeDef {
     BADGE_CATALOG[code] ?? {
       label: code,
       description: 'Badge.',
-      color: '#a89880',
+      color: '#a9b6c9',
       icon: Award,
       obtain: 'Badge disponible en boutique ou attribué par un admin.',
     }

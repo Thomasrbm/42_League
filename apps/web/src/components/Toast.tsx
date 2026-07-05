@@ -14,7 +14,8 @@ export function Toast() {
             : 'glass-strong border-gold/60 text-text-strong shadow-gold-glow')
         }
         onClick={clear}
-        role="status"
+        role={isError ? 'alert' : 'status'}
+        aria-live={isError ? 'assertive' : 'polite'}
       >
         <span
           aria-hidden
@@ -23,6 +24,19 @@ export function Toast() {
           }`}
         />
         <span className="min-w-0 break-words">{flash.message}</span>
+        {flash.action && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              flash.action?.run();
+              clear();
+            }}
+            className="shrink-0 ml-1 px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wide bg-gold/15 border border-gold/50 text-gold hover:bg-gold/25 transition-colors"
+          >
+            {flash.action.label}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import { SectionHeader } from './shared/SectionHeader';
 import { RankingScopeToggle } from '../leaderboard/RankingScopeToggle';
 import { BetsPanel } from './BetsPanel';
 import { XpBar } from '../../components/XpBar';
+import { TauntEmotePicker } from '../../components/TauntEmotePicker';
 import { useProfilLogic } from './shared/useProfilLogic';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
@@ -66,6 +67,13 @@ export function ProfilMobile() {
         {/* Réaction meme contextuelle (série de défaites → « offre ton ELO ? »,
             série de victoires → « calme-toi le sweat »). Cf. lib/playerReactions. */}
         <PlayerReactionOverlay signals={stats} />
+
+        {/* Émote de victoire — bien visible dans le profil : celle que voient
+            tes victimes après un 1v1. 3 gratuites, le reste via le passe. */}
+        <section className="card-hud rounded-2xl px-4 pt-3 pb-4 border-gold/25">
+          <SectionHeader title={t('settings.tauntEmote')} />
+          <TauntEmotePicker />
+        </section>
 
         {/* Onglets : profil · paris. Les quêtes hebdo ont migré dans la Boutique
             (hub des League Coins). */}

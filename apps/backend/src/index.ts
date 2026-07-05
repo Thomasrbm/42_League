@@ -3,6 +3,7 @@ import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { HTTPException } from 'hono/http-exception';
 import { randomUUID, createHash } from 'node:crypto';
+import webpush from 'web-push';
 import { z } from 'zod';
 import {
   DeclareMatchSchema,
@@ -405,6 +406,52 @@ function toPublicUser<T extends Record<string, unknown>>(
   return clone as Omit<T, (typeof PUBLIC_USER_OMIT)[number]>;
 }
 
+// ── Web Push ─────────────────────────────────────────────────────────────
+// Notifications quand l'app est FERMÉE. Activé seulement si les clés VAPID
+// sont posées en env (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT).
+// Best effort : un push raté ne casse jamais l'action métier ; un endpoint
+// mort (404/410) est purgé au passage.
+
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? '';
+const pushEnabled = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (pushEnabled) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT ?? 'mailto:contact@42league.app',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY,
+  );
+} else {
+  console.log('[push] VAPID keys absentes — Web Push désactivé');
+}
+
+async function sendWebPush(tos: string[], n: { title: string; body?: string; link?: string }): Promise<void> {
+  if (!pushEnabled || tos.length === 0) return;
+  try {
+    const subs = await prisma.pushSubscription.findMany({ where: { userLogin: { in: tos } } });
+    if (subs.length === 0) return;
+    const payload = JSON.stringify({ title: n.title, body: n.body ?? '', link: n.link ?? '/' });
+    await Promise.allSettled(
+      subs.map(async (s) => {
+        try {
+          await webpush.sendNotification(
+            { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+            payload,
+            { TTL: 60 * 60 },
+          );
+        } catch (err) {
+          const status = (err as { statusCode?: number }).statusCode;
+          if (status === 404 || status === 410) {
+            await prisma.pushSubscription.delete({ where: { id: s.id } }).catch(() => {});
+          }
+        }
+      }),
+    );
+  } catch {
+    /* best effort */
+  }
+}
+
 // ── Notifications in-app ──────────────────────────────────────────────────
 // Crée une notification et pousse un signal SSE 'notification' pour rafraîchir
 // la cloche instantanément (le front poll aussi toutes les 30s en secours).
@@ -426,6 +473,7 @@ async function notify(to: string, n: NotifInput): Promise<void> {
       data: { id: randomUUID(), recipientLogin: to, type: n.type, title: n.title, body: n.body ?? null, link: n.link ?? null, game: n.game ?? null, refId: n.refId ?? null },
     });
     emit([to], { type: 'notification', payload: {} });
+    void sendWebPush([to], n);
   } catch {
     /* noop — best effort */
   }
@@ -438,6 +486,7 @@ async function notifyMany(tos: string[], n: NotifInput): Promise<void> {
       data: tos.map((to) => ({ id: randomUUID(), recipientLogin: to, type: n.type, title: n.title, body: n.body ?? null, link: n.link ?? null, game: n.game ?? null, refId: n.refId ?? null })),
     });
     emit(tos, { type: 'notification', payload: {} });
+    void sendWebPush(tos, n);
   } catch {
     /* noop */
   }
@@ -1703,6 +1752,32 @@ app.get('/leaderboard', async (c) => {
       badges: badgesByLogin.get(u.login) ?? [],
       titleColor: titleColorByLogin.get(u.login) ?? null,
     })),
+  );
+});
+
+// ── Classement XP (cross-jeux) ────────────────────────────────────────────────
+// L'XP est créditée à CHAQUE match joué (défaite comprise), quel que soit le
+// mode de jeu → un seul ladder global, sans paramètre `game`. Trie sur
+// User.xp ; expose aussi le niveau dérivé (même courbe que le passe).
+app.get('/leaderboard/xp', async (c) => {
+  await getCurrentLogin(c);
+  const users = await prisma.user.findMany({
+    where: { ...VISIBLE_USER_WHERE, xp: { gt: 0 } },
+    orderBy: { xp: 'desc' },
+    take: MAX_PUBLIC_LIST,
+  });
+  return c.json(
+    users.map((u, i) => {
+      const lv = levelFromXp(u.xp);
+      return {
+        rank: i + 1,
+        ...toPublicUser(u),
+        xp: u.xp,
+        level: lv.level,
+        xpIntoLevel: lv.xpIntoLevel,
+        xpForNextLevel: lv.xpForNextLevel,
+      };
+    }),
   );
 });
 
@@ -6171,6 +6246,33 @@ app.post('/tournaments/:id/leave', async (c) => {
   return c.json({ id, left: true });
 });
 
+// Check-in « je suis là » : un inscrit (capitaine ou coéquipier 2v2) pointe sa
+// présence avant le lancement — l'organisateur voit qui est vraiment là au lieu
+// de lancer un bracket avec des absents. Re-cliquer retire le pointage. Le
+// broadcastOnMutation du préfixe /tournaments/* pousse la maj à tous.
+app.post('/tournaments/:id/checkin', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const present = (body as { present?: unknown }).present !== false;
+  const t = await prisma.tournament.findUnique({ where: { id }, select: { status: true } });
+  if (!t) throw new HTTPException(404, { message: 'tournament not found' });
+  if (t.status !== 'registration') {
+    throw new HTTPException(409, { message: 'le check-in est clos (tournoi lancé)' });
+  }
+  const entry = await prisma.tournamentEntry.findFirst({
+    where: { tournamentId: id, OR: [{ login: me }, { partnerLogin: me }] },
+  });
+  if (!entry) {
+    throw new HTTPException(403, { message: 'tu n’es pas inscrit à ce tournoi' });
+  }
+  await prisma.tournamentEntry.update({
+    where: { tournamentId_login: { tournamentId: id, login: entry.login } },
+    data: { checkedInAt: present ? new Date() : null },
+  });
+  return c.json({ ok: true, checkedIn: present });
+});
+
 // Organisateur/admin : retire un inscrit (en 2v2, l'inscription EST l'équipe → tout
 // le duo est retiré) en cas d'erreur de saisie. Uniquement en phase d'inscription.
 // `login` = login du CAPITAINE (clé de l'inscription). Rembourse les paris ouverts
@@ -10425,6 +10527,52 @@ app.get('/me/battlepass', async (c) => {
   });
 });
 
+// POST /me/battlepass/claim/:tier — réclame la récompense d'un palier atteint.
+// 400 palier invalide, 403 palier non atteint, 409 déjà réclamé.
+app.post('/me/battlepass/claim/:tier', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const tier = Number(c.req.param('tier'));
+  if (!Number.isInteger(tier) || tier < 1 || tier > BATTLE_PASS_MAX_TIERS) {
+    throw new HTTPException(400, { message: 'palier invalide' });
+  }
+  const user = await prisma.user.findUnique({ where: { login }, select: { xp: true } });
+  const { level } = levelFromXp(user?.xp ?? 0);
+  if (tier > level) {
+    throw new HTTPException(403, { message: 'palier non atteint' });
+  }
+  const claimed = await prisma.$transaction((tx) => claimBattlePassTierTx(tx, login, tier));
+  if (!claimed) {
+    throw new HTTPException(409, { message: 'palier déjà réclamé' });
+  }
+  return c.json({ ok: true, tier });
+});
+
+// POST /me/battlepass/claim-all — réclame d'un coup tous les paliers atteints
+// non réclamés (ordre croissant). Renvoie la liste des paliers réclamés.
+app.post('/me/battlepass/claim-all', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const user = await prisma.user.findUnique({ where: { login }, select: { xp: true } });
+  const { level } = levelFromXp(user?.xp ?? 0);
+  const claims = await prisma.battlePassClaim.findMany({
+    where: { userLogin: login },
+    select: { tier: true },
+  });
+  const done = new Set(claims.map((cl) => cl.tier));
+  const todo: number[] = [];
+  for (let t = 1; t <= Math.min(level, BATTLE_PASS_MAX_TIERS); t++) {
+    if (!done.has(t)) todo.push(t);
+  }
+  const tiers: number[] = [];
+  await prisma.$transaction(async (tx) => {
+    for (const t of todo) {
+      if (await claimBattlePassTierTx(tx, login, t)) tiers.push(t);
+    }
+  });
+  return c.json({ ok: true, tiers });
+});
+
 // GET /admin/battlepass/tiers — tous les paliers configurés (admin).
 app.get('/admin/battlepass/tiers', async (c) => {
   const me = await getCurrentLogin(c);
@@ -10470,6 +10618,221 @@ app.delete('/admin/battlepass/tiers/:tier', async (c) => {
     throw new HTTPException(400, { message: 'tier invalide' });
   }
   await prisma.battlePassTier.delete({ where: { tier } }).catch(() => {});
+  return c.json({ ok: true });
+});
+
+// ── Web Push : abonnements ────────────────────────────────────────────────────
+
+const PushSubscribeSchema = z.object({
+  endpoint: z.string().url().max(1000),
+  keys: z.object({ p256dh: z.string().min(1).max(300), auth: z.string().min(1).max(100) }),
+});
+
+// GET /push/vapid-key — clé publique pour l'abonnement côté navigateur.
+app.get('/push/vapid-key', async (c) => {
+  await getCurrentLogin(c);
+  return c.json({ enabled: pushEnabled, key: VAPID_PUBLIC_KEY || null });
+});
+
+// POST /me/push/subscribe — enregistre l'abonnement de CET appareil.
+// Upsert par endpoint : un appareil qui change de compte est réattribué.
+app.post('/me/push/subscribe', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  if (!pushEnabled) {
+    throw new HTTPException(503, { message: 'notifications push non configurées' });
+  }
+  const body = await c.req.json().catch(() => null);
+  const parsed = PushSubscribeSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: 'abonnement invalide' });
+  }
+  const { endpoint, keys } = parsed.data;
+  await prisma.pushSubscription.upsert({
+    where: { endpoint },
+    update: { userLogin: login, p256dh: keys.p256dh, auth: keys.auth },
+    create: { userLogin: login, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+  });
+  return c.json({ ok: true });
+});
+
+// DELETE /me/push/subscribe — désabonne CET appareil (le sien uniquement).
+app.delete('/me/push/subscribe', async (c) => {
+  const login = await getCurrentLogin(c);
+  const body = await c.req.json().catch(() => null);
+  const endpoint = typeof (body as { endpoint?: unknown })?.endpoint === 'string'
+    ? (body as { endpoint: string }).endpoint
+    : null;
+  if (!endpoint) {
+    throw new HTTPException(400, { message: 'endpoint requis' });
+  }
+  await prisma.pushSubscription.deleteMany({ where: { endpoint, userLogin: login } });
+  return c.json({ ok: true });
+});
+
+// ── « Je suis chaud » : disponibilité éphémère pour jouer (30 min) ───────────
+// Volontairement EN MÉMOIRE (perdu au redéploiement, assumé) : c'est de la
+// présence, pas de la donnée. login → { game, until }.
+
+const HOT_DURATION_MS = 30 * 60 * 1000;
+const hotPlayers = new Map<string, { game: string; until: number }>();
+
+function pruneHotPlayers(): void {
+  const now = Date.now();
+  for (const [login, h] of hotPlayers) {
+    if (h.until <= now) hotPlayers.delete(login);
+  }
+}
+
+const HotGameSchema = z.object({
+  game: z.enum(['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes']),
+});
+
+// GET /hot — joueurs actuellement « chauds » (non expirés), plus anciens d'abord.
+app.get('/hot', async (c) => {
+  await getCurrentLogin(c);
+  pruneHotPlayers();
+  const logins = [...hotPlayers.keys()];
+  const users = logins.length
+    ? await prisma.user.findMany({
+        where: { login: { in: logins } },
+        select: { login: true, firstName: true, lastName: true, imageUrl: true },
+      })
+    : [];
+  const byLogin = new Map(users.map((u) => [u.login, u]));
+  return c.json(
+    [...hotPlayers.entries()]
+      .sort((a, b) => a[1].until - b[1].until)
+      .map(([login, h]) => ({
+        login,
+        game: h.game,
+        until: new Date(h.until).toISOString(),
+        firstName: byLogin.get(login)?.firstName ?? null,
+        lastName: byLogin.get(login)?.lastName ?? null,
+        imageUrl: byLogin.get(login)?.imageUrl ?? null,
+      })),
+  );
+});
+
+// POST /me/hot — se déclare chaud pour 30 min sur un jeu (ré-appel = prolonge).
+app.post('/me/hot', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const body = await c.req.json().catch(() => null);
+  const parsed = HotGameSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: 'jeu invalide' });
+  }
+  pruneHotPlayers();
+  const until = Date.now() + HOT_DURATION_MS;
+  hotPlayers.set(login, { game: parsed.data.game, until });
+  broadcast({ type: 'hot:update', payload: {} });
+  return c.json({ ok: true, until: new Date(until).toISOString() });
+});
+
+// DELETE /me/hot — se retire de la liste.
+app.delete('/me/hot', async (c) => {
+  const login = await getCurrentLogin(c);
+  hotPlayers.delete(login);
+  broadcast({ type: 'hot:update', payload: {} });
+  return c.json({ ok: true });
+});
+
+// ── Émotes de narguage (fin de 1v1 : le vainqueur nargue le perdant) ─────────
+
+/** Émotes proposées au joueur (PUT /me/taunt-emote). La première est le défaut.
+ *  Économie (garder en synchro avec le front, cf. lib/tauntEmotes.ts) :
+ *  - index 0 : émote par défaut de tout le monde ;
+ *  - index 1-2 : gratuites ;
+ *  - index 3+ : débloquées par le PASSE DE COMBAT, une tous les 7 niveaux
+ *    (niveau 7, 14, 21, … — cf. tauntEmoteUnlockLevel). */
+const TAUNT_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'] as const;
+const DEFAULT_TAUNT_EMOTE = TAUNT_EMOTES[0];
+/** Nombre d'émotes gratuites (défaut inclus) en tête de liste. */
+const FREE_TAUNT_EMOTES = 3;
+/** Une émote payante se débloque tous les N niveaux de passe. */
+const TAUNT_EMOTE_LEVEL_STEP = 7;
+
+/** Niveau de passe requis pour équiper l'émote (0 = gratuite). */
+function tauntEmoteUnlockLevel(emote: string): number {
+  const idx = (TAUNT_EMOTES as readonly string[]).indexOf(emote);
+  if (idx < FREE_TAUNT_EMOTES) return 0;
+  return (idx - FREE_TAUNT_EMOTES + 1) * TAUNT_EMOTE_LEVEL_STEP;
+}
+
+// GET /me/taunt-emotes — catalogue des émotes avec leur état de déblocage.
+app.get('/me/taunt-emotes', async (c) => {
+  const login = await getCurrentLogin(c);
+  const user = await getOrCreateUser(login);
+  const level = levelFromXp(user.xp).level;
+  return c.json({
+    current: user.tauntEmote ?? DEFAULT_TAUNT_EMOTE,
+    level,
+    emotes: TAUNT_EMOTES.map((emote) => {
+      const unlockLevel = tauntEmoteUnlockLevel(emote);
+      return { emote, unlockLevel, unlocked: level >= unlockLevel };
+    }),
+  });
+});
+
+// PUT /me/taunt-emote — choisit l'émote montrée aux joueurs qu'on bat.
+// Les émotes du passe ne sont équipables qu'au niveau requis.
+app.put('/me/taunt-emote', async (c) => {
+  const login = await getCurrentLogin(c);
+  const user = await getOrCreateUser(login);
+  const body = await c.req.json().catch(() => null);
+  const parsed = z.object({ emote: z.enum(TAUNT_EMOTES) }).safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: 'émote invalide' });
+  }
+  const required = tauntEmoteUnlockLevel(parsed.data.emote);
+  const level = levelFromXp(user.xp).level;
+  if (level < required) {
+    throw new HTTPException(403, {
+      message: `émote verrouillée — atteins le niveau ${required} du passe pour l'équiper`,
+    });
+  }
+  await prisma.user.update({ where: { login }, data: { tauntEmote: parsed.data.emote } });
+  return c.json({ ok: true, emote: parsed.data.emote });
+});
+
+// GET /me/taunts/pending — narguages pas encore vus (max 3, plus ancien d'abord).
+// Consommé au chargement du site ; chaque narguage est marqué vu via /seen.
+app.get('/me/taunts/pending', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const taunts = await prisma.emoteTaunt.findMany({
+    where: { loserLogin: login, seenAt: null },
+    orderBy: { createdAt: 'asc' },
+    take: 3,
+    include: {
+      winner: { select: { login: true, firstName: true, lastName: true, imageUrl: true } },
+    },
+  });
+  return c.json(
+    taunts.map((tn) => ({
+      id: tn.id,
+      game: tn.game,
+      emote: tn.emote,
+      createdAt: tn.createdAt.toISOString(),
+      winner: {
+        login: tn.winner.login,
+        firstName: tn.winner.firstName,
+        lastName: tn.winner.lastName,
+        imageUrl: tn.winner.imageUrl,
+      },
+    })),
+  );
+});
+
+// POST /me/taunts/:id/seen — marque un narguage comme vu (le sien uniquement).
+app.post('/me/taunts/:id/seen', async (c) => {
+  const login = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  await prisma.emoteTaunt.updateMany({
+    where: { id, loserLogin: login, seenAt: null },
+    data: { seenAt: new Date() },
+  });
   return c.json({ ok: true });
 });
 
@@ -10950,8 +11313,9 @@ async function awardMatchEconomyTx(
 //
 // L'XP est cumulative à vie (User.xp, jamais reset). Le niveau dérive de l'XP
 // via une courbe purement serveur — le front n'affiche que ce que l'API renvoie.
-// 1 niveau = 1 palier (BattlePassTier) ; atteindre un niveau accorde la
-// récompense du palier correspondant (reconcileBattlePassTx, idempotent).
+// 1 niveau = 1 palier (BattlePassTier) ; atteindre un niveau DÉBLOQUE le palier,
+// que le joueur réclame ensuite via POST /me/battlepass/claim/:tier (ou
+// claim-all). L'octroi est idempotent grâce à BattlePassClaim.
 
 /** Nombre de paliers affichés sur la piste du passe (échelle complète 1..N). */
 const BATTLE_PASS_MAX_TIERS = 100;
@@ -11074,61 +11438,105 @@ async function awardMatchExperienceTx(
     }
     const amount = Math.max(0, Math.round(xp * decayFactor));
     if (amount > 0) {
-      await grantXpTx(tx, p.login, amount, {
+      const next = await grantXpTx(tx, p.login, amount, {
         type: 'match',
         meta: { game, won: isDraw ? null : p.won },
       });
+      // Signale les paliers franchis grâce à cet apport d'XP (le joueur devra
+      // les RÉCLAMER lui-même via POST /me/battlepass/claim/:tier).
+      if (next != null) {
+        const prevLevel = levelFromXp(next - amount).level;
+        const newLevel = levelFromXp(next).level;
+        await notifyBattlePassTiersTx(tx, p.login, prevLevel, newLevel);
+      }
     }
-    // Accorde immédiatement les paliers franchis grâce à cet apport d'XP.
-    await reconcileBattlePassTx(tx, p.login);
+  }
+
+  // Narguage : en 1v1 (hors nulle), le vainqueur laisse son émote au perdant —
+  // montrée à sa prochaine connexion (écran versus puis émote, cf. /me/taunts).
+  if (!isDraw && participants.length === 2) {
+    const winner = participants.find((p) => p.won);
+    const loser = participants.find((p) => !p.won);
+    if (winner && loser && winner.login !== loser.login) {
+      const w = await tx.user.findUnique({
+        where: { login: winner.login },
+        select: { tauntEmote: true },
+      });
+      await tx.emoteTaunt.create({
+        data: {
+          loserLogin: loser.login,
+          winnerLogin: winner.login,
+          game,
+          emote: w?.tauntEmote ?? DEFAULT_TAUNT_EMOTE,
+        },
+      });
+    }
   }
 }
 
 /**
- * Octroie automatiquement, dans l'ordre croissant, les paliers de passe de
- * combat dont le niveau est atteint (tier <= level) et pas encore réclamés.
- * Idempotent grâce à BattlePassClaim. Émet `battlepass:tier` si des paliers ont
- * été accordés. À appeler dans la même transaction que le gain d'XP.
+ * Émet `battlepass:tier` pour les paliers nouvellement FRANCHIS porteurs d'une
+ * récompense configurée. N'accorde RIEN : depuis le passage au claim manuel,
+ * la récompense n'est remise que par claimBattlePassTierTx (routes de claim).
  */
-async function reconcileBattlePassTx(tx: Prisma.TransactionClient, login: string): Promise<void> {
-  const user = await tx.user.findUnique({ where: { login }, select: { xp: true } });
-  if (!user) return;
-  const { level } = levelFromXp(user.xp);
-  const [tiers, claims] = await Promise.all([
-    tx.battlePassTier.findMany({ where: { tier: { lte: level } }, orderBy: { tier: 'asc' } }),
-    tx.battlePassClaim.findMany({ where: { userLogin: login }, select: { tier: true } }),
-  ]);
-  const claimed = new Set(claims.map((c) => c.tier));
-  const granted: number[] = [];
-  for (const t of tiers) {
-    if (claimed.has(t.tier)) continue;
-    switch (t.rewardKind) {
-      case 'item':
-        if (t.itemId) await grantItemTx(tx, login, t.itemId, false);
-        break;
-      case 'coins':
-        if (t.coins && t.coins > 0)
-          await grantCoinsTx(tx, login, t.coins, { type: 'battlepass_tier', refId: String(t.tier) });
-        break;
-      case 'consumable':
-        if (t.consumableKind) {
-          await tx.consumableInventory.upsert({
-            where: { userLogin_kind: { userLogin: login, kind: t.consumableKind } },
-            update: { quantity: { increment: 1 } },
-            create: { userLogin: login, kind: t.consumableKind, quantity: 1 },
-          });
-        }
-        break;
-      case 'none':
-      default:
-        break;
-    }
-    await tx.battlePassClaim.create({ data: { userLogin: login, tier: t.tier } });
-    granted.push(t.tier);
+async function notifyBattlePassTiersTx(
+  tx: Prisma.TransactionClient,
+  login: string,
+  prevLevel: number,
+  newLevel: number,
+): Promise<void> {
+  if (newLevel <= prevLevel) return;
+  const tiers = await tx.battlePassTier.findMany({
+    where: { tier: { gt: prevLevel, lte: newLevel }, rewardKind: { not: 'none' } },
+    orderBy: { tier: 'asc' },
+    select: { tier: true },
+  });
+  if (tiers.length > 0) {
+    emit([login], { type: 'battlepass:tier', payload: { tiers: tiers.map((t) => t.tier) } });
   }
-  if (granted.length > 0) {
-    emit([login], { type: 'battlepass:tier', payload: { tiers: granted } });
+}
+
+/**
+ * Réclame un palier : enregistre le claim (idempotence par la PK
+ * BattlePassClaim) PUIS remet la récompense configurée, le tout dans la même
+ * transaction. Renvoie false si le palier était déjà réclamé. Le contrôle
+ * « palier atteint » est fait par l'appelant (routes de claim).
+ */
+async function claimBattlePassTierTx(
+  tx: Prisma.TransactionClient,
+  login: string,
+  tier: number,
+): Promise<boolean> {
+  const existing = await tx.battlePassClaim.findUnique({
+    where: { userLogin_tier: { userLogin: login, tier } },
+  });
+  if (existing) return false;
+  // Le claim d'abord : en cas de course, la contrainte unique fait échouer la
+  // transaction AVANT toute remise de récompense (aucun double octroi possible).
+  await tx.battlePassClaim.create({ data: { userLogin: login, tier } });
+  const t = await tx.battlePassTier.findUnique({ where: { tier } });
+  switch (t?.rewardKind) {
+    case 'item':
+      if (t.itemId) await grantItemTx(tx, login, t.itemId, false);
+      break;
+    case 'coins':
+      if (t.coins && t.coins > 0)
+        await grantCoinsTx(tx, login, t.coins, { type: 'battlepass_tier', refId: String(tier) });
+      break;
+    case 'consumable':
+      if (t.consumableKind) {
+        await tx.consumableInventory.upsert({
+          where: { userLogin_kind: { userLogin: login, kind: t.consumableKind } },
+          update: { quantity: { increment: 1 } },
+          create: { userLogin: login, kind: t.consumableKind, quantity: 1 },
+        });
+      }
+      break;
+    default:
+      // Palier sans récompense configurée : le claim vaut simple pointage.
+      break;
   }
+  return true;
 }
 
 // ─── Paris : règlement / remboursement (volet C) ─────────────────────────────

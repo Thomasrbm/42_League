@@ -1,3 +1,4 @@
+import { autoCinematicsEnabled } from '../lib/cinematics';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -34,7 +35,7 @@ export function LevelUpOverlay() {
   useEffect(() => {
     if (typeof level !== 'number') return;
     if (prevLevel.current !== undefined && level > prevLevel.current) {
-      triggerLevelUp(level);
+      if (autoCinematicsEnabled()) triggerLevelUp(level);
       haptic('heavy');
     }
     prevLevel.current = level;

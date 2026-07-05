@@ -10,13 +10,15 @@ import { GameOnboarding } from '../components/GameOnboarding';
 const NotifBanner        = lazy(() => import('../components/NotifBanner').then(m => ({ default: m.NotifBanner })));
 const OpsRevealOverlay   = lazy(() => import('../components/OpsRevealOverlay').then(m => ({ default: m.OpsRevealOverlay })));
 const AnnouncementPopup  = lazy(() => import('../components/AnnouncementPopup').then(m => ({ default: m.AnnouncementPopup })));
-const GameTransitionOverlay = lazy(() => import('../components/GameTransitionOverlay').then(m => ({ default: m.GameTransitionOverlay })));
 const MatchmakingOverlay = lazy(() => import('../components/MatchmakingOverlay').then(m => ({ default: m.MatchmakingOverlay })));
 const DuelStrikeOverlay  = lazy(() => import('../components/DuelStrikeOverlay').then(m => ({ default: m.DuelStrikeOverlay })));
 const ContestRageOverlay = lazy(() => import('../components/ContestRageOverlay').then(m => ({ default: m.ContestRageOverlay })));
 const RankUpOverlay      = lazy(() => import('../components/RankUpOverlay').then(m => ({ default: m.RankUpOverlay })));
 const LevelUpOverlay     = lazy(() => import('../components/LevelUpOverlay').then(m => ({ default: m.LevelUpOverlay })));
 const RewardUnlockOverlay = lazy(() => import('../components/RewardUnlockOverlay').then(m => ({ default: m.RewardUnlockOverlay })));
+const TauntOverlay       = lazy(() => import('../components/TauntOverlay').then(m => ({ default: m.TauntOverlay })));
+const XpGainToast        = lazy(() => import('../components/XpGainToast').then(m => ({ default: m.XpGainToast })));
+const AppBadge           = lazy(() => import('../components/AppBadge').then(m => ({ default: m.AppBadge })));
 
 interface AppShellProps {
   children: ReactNode;
@@ -52,8 +54,9 @@ export function AppShell({ children }: AppShellProps) {
       <Suspense>
         {/* Annonces générales (admin) — popup « une seule fois » à la connexion */}
         <AnnouncementPopup />
-        {/* Overlay cinématique de changement d'univers — pointer-events-none */}
-        <GameTransitionOverlay />
+        {/* Une SEULE cinématique de changement d'univers : le ballet de tuiles
+            (UniverseTransition dans les shells). L'ancien GameTransitionOverlay
+            doublait l'animation à chaque switch — retiré. */}
         {/* Overlay VERSUS global */}
         <MatchmakingOverlay />
         {/* Réaction « rage » plein écran quand une game est contestée */}
@@ -66,6 +69,12 @@ export function AppShell({ children }: AppShellProps) {
             débloquée » (event SSE battlepass:tier) */}
         <LevelUpOverlay />
         <RewardUnlockOverlay />
+        {/* Narguage post-défaite : écran versus puis émote du vainqueur, à la connexion */}
+        <TauntOverlay />
+        {/* Feedback immédiat des gains d'XP (+N XP + barre du niveau) */}
+        <XpGainToast />
+        {/* Compteur sur l'icône de la PWA installée (App Badging API) */}
+        <AppBadge />
       </Suspense>
     </>
   );

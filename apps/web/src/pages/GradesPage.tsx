@@ -212,7 +212,7 @@ export function GradesPage() {
                 {/* Pastille palier — Grand Master abrégé en « GM » pour tenir dans la case */}
                 <div
                   className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded-full font-gaming text-[9px] font-extrabold uppercase tracking-wider whitespace-nowrap ring-2 ring-bg-1 max-w-[120%]"
-                  style={{ background: displayTier.color, color: '#15120e' }}
+                  style={{ background: displayTier.color, color: '#0f141c' }}
                 >
                   <TierIcon tierKey={displayTier.key} label={displayTier.label} className="w-3 h-3 flex-shrink-0 ring-1 ring-black/20" />
                   <span className="truncate">
@@ -323,13 +323,15 @@ export function GradesPage() {
           </h2>
         </header>
 
-        {/* Règle de fin de saison : reset au plancher du grade, sauf Étain → Bronze. */}
+        {/* Règle de fin de saison : soft reset d'un grade (Or → Argent…). */}
         <p className="relative text-[11px] leading-relaxed text-muted-2 mb-2 -mt-1">
-          En fin de saison, chacun est remis au plancher de son grade. Les{' '}
-          <span className="font-extrabold" style={{ color: RANK_TIERS[0]?.color ?? '#9aa4ad' }}>Étain</span>{' '}
-          sont remontés en{' '}
+          En fin de saison, chacun redémarre au plancher du grade{' '}
+          <span className="font-extrabold text-text">juste en dessous</span> du sien
+          (Or → Argent, Diamant → Or…). Les{' '}
           <span className="font-extrabold" style={{ color: RANK_TIERS[1]?.color ?? '#cd7f32' }}>Bronze</span>{' '}
-          — personne ne reste coincé sous le Bronze d'une saison à l'autre.
+          restent à 1000. L'ELO ne descend jamais sous{' '}
+          <span className="font-extrabold" style={{ color: RANK_TIERS[0]?.color ?? '#9aa4ad' }}>975</span>{' '}
+          — et battre un joueur coincé au plancher ne rapporte presque rien.
         </p>
 
         {/* Règle Grand Master : top N de la discipline ET déjà Diamant. */}
@@ -493,7 +495,7 @@ function FriseTrack({
         >
           <span
             className="absolute -top-1 left-1/2 -translate-x-1/2 text-[8px] font-gaming font-extrabold uppercase tracking-widest whitespace-nowrap px-1.5 py-0.5 rounded"
-            style={{ background: `${myTierColor ?? '#ffc94a'}`, color: '#15120e' }}
+            style={{ background: `${myTierColor ?? '#ffc94a'}`, color: '#0f141c' }}
           >
             Toi
           </span>
@@ -578,7 +580,7 @@ function TierCard({
       {isMine && (
         <span
           className="absolute top-1.5 right-1.5 text-[7px] font-gaming font-extrabold uppercase tracking-widest px-1 py-0.5 rounded"
-          style={{ background: tier.color, color: '#15120e' }}
+          style={{ background: tier.color, color: '#0f141c' }}
         >
           Toi
         </span>

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, Swords, X, Clock, Zap, Users, Target } from 'lucide-react';
+import { EmptyState } from '../../components/EmptyState';
 import { Panel } from '../../components/Panel';
 import { Avatar } from '../../components/Avatar';
 import { SheldonApostleAura, SHELDON_COLORS, isSheldonTitle } from '../../components/SheldonApostle';
@@ -450,6 +452,40 @@ function HeroCTAs({
         )}
       </AnimatePresence>
     </motion.div>
+
+    {/* Le 2v2 vit ICI, dans Défis : bannière d'accès direct (babyfoot only).
+        Ouvre la carte Déclarer déjà basculée en 2v2, ou renvoie vers les
+        équipes (page /teams retirée de la nav). */}
+    {game === 'babyfoot' && openCard === null && (
+      <div className="relative -mt-4 mb-8 rounded-xl border border-gold/35 bg-gradient-to-r from-gold/12 via-gold/4 to-transparent px-4 py-3 flex flex-wrap items-center gap-3">
+        <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-gold/15 text-gold shrink-0">
+          <Users className="w-5 h-5" strokeWidth={2.2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-extrabold text-text-strong tracking-wide">
+            2 vs 2 — jouez en équipe
+          </div>
+          <div className="text-xs text-muted">
+            Déclarez ou lancez un défi en équipe : bascule « 2 vs 2 » dans Déclarer / Défier.
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => { setDeclareMode('2v2'); onOpen('declare'); }}
+            className="px-3.5 py-2 rounded-lg bg-gold text-bg-0 text-xs font-extrabold uppercase tracking-wider hover:shadow-gold-glow transition-shadow"
+          >
+            Déclarer en 2v2
+          </button>
+          <Link
+            to="/teams"
+            className="px-3.5 py-2 rounded-lg border border-gold/40 text-gold text-xs font-extrabold uppercase tracking-wider hover:bg-gold/10 transition-colors"
+          >
+            Équipes &amp; classement →
+          </Link>
+        </div>
+      </div>
+    )}
     </>
   );
 }
@@ -798,7 +834,7 @@ function PlayerPool({ players, leaderboard: _lb, game: _game, onChallenge, onDec
       </div>
 
       {players.length === 0 ? (
-        <div className="text-center text-muted-2 py-8 text-sm">{t('defis.empty')}</div>
+        <EmptyState Icon={Users} title={t('defis.empty')} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
           {filtered.map((u) => (

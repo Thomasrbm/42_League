@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Swords, UserPlus, UserCheck } from 'lucide-react';
+import { OnlineBadge } from '../components/OnlineBadge';
 import { Panel } from '../components/Panel';
 import { Tooltip } from '../components/Tooltip';
 import { Button } from '../components/Button';
@@ -29,10 +30,30 @@ export function PlayerPage() {
   const login = rawLogin ?? '';
   const navigate = useNavigate();
   const t = useT();
-  const { me, opsMe, matches, playedDarts, refresh, activeSeasonId } = useLeagueData();
+  const { me, opsMe, matches, playedDarts, refresh, activeSeasonId, locations } = useLeagueData();
   const { game } = useGameMode();
   const flash = useFlash();
   const confirm = useConfirm();
+
+  // Rivalité : mon bilan 1v1 contre ce joueur (tous jeux confondus), calculé
+  // depuis l'historique déjà chargé. null = jamais affrontés.
+  const myLoginForRivalry = me?.login ?? null;
+  const rivalry = useMemo(() => {
+    if (!myLoginForRivalry || !login || myLoginForRivalry === login) return null;
+    let wins = 0;
+    let losses = 0;
+    for (const m of matches) {
+      if (m.mode === '2v2') continue;
+      const isPair =
+        (m.playerALogin === myLoginForRivalry && m.playerBLogin === login) ||
+        (m.playerBLogin === myLoginForRivalry && m.playerALogin === login);
+      if (!isPair || m.winner === 'draw') continue;
+      const winnerLogin = m.winner === 'A' ? m.playerALogin : m.playerBLogin;
+      if (winnerLogin === myLoginForRivalry) wins++;
+      else losses++;
+    }
+    return wins + losses > 0 ? { wins, losses } : null;
+  }, [matches, myLoginForRivalry, login]);
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,6 +134,13 @@ export function PlayerPage() {
       {/* Carte héro — même design que le profil perso (sans le sélecteur de titre) */}
       <ProfileHeroCard stats={stats} user={p.user} badges={p.badges} customBadges={p.customBadges} titleColor={p.titleColor} equippedBadge={p.equippedBadge} equippedBanner={p.equippedBanner} isMe={isMe} coins={p.coins} />
 
+      {/* Présence au cluster (API 42 locations) — visible sur toute fiche */}
+      {locations.get(login) && (
+        <div className="flex justify-center -mt-2">
+          <OnlineBadge host={locations.get(login)!} />
+        </div>
+      )}
+
       {/* Actions propres à la fiche d'un autre joueur : suivre + head-to-head */}
       {!isMe && myLogin && (
         <div className="flex flex-wrap items-center gap-2">
@@ -140,6 +168,20 @@ export function PlayerPage() {
             >
               <Swords className="w-3.5 h-3.5 mr-1.5" strokeWidth={2.5} />
               Head-to-Head
+              {rivalry && (
+                <span
+                  className={`ml-2 px-1.5 py-0.5 rounded-md text-[11px] font-extrabold tabular-nums ${
+                    rivalry.wins > rivalry.losses
+                      ? 'bg-emerald-500/15 text-emerald-300'
+                      : rivalry.wins < rivalry.losses
+                        ? 'bg-red/15 text-[#ffb3bf]'
+                        : 'bg-bg-2 text-muted-2'
+                  }`}
+                  title={`${rivalry.wins} victoires — ${rivalry.losses} défaites contre ce joueur`}
+                >
+                  {rivalry.wins}–{rivalry.losses}
+                </span>
+              )}
             </Button>
           </Tooltip>
         </div>

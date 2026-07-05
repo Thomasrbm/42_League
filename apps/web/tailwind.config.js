@@ -2,18 +2,34 @@
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
+    // Échelle de rayons resserrée « Onyx » : mêmes classes partout dans le code,
+    // valeurs plus carrées (2xl passe de 16px à 10px, xl de 12 à 8, etc.).
+    // `full` reste rond pour les avatars/pills.
+    borderRadius: {
+      none: '0',
+      sm: '2px',
+      DEFAULT: '3px',
+      md: '4px',
+      lg: '6px',
+      xl: '8px',
+      '2xl': '10px',
+      '3xl': '12px',
+      full: '9999px',
+    },
     extend: {
       screens: {
         xs: '420px',
       },
       colors: {
-        // Fonds anthracite chauds, légèrement teintés (gris-brun), pour un rendu RPG/HUD premium.
-        'bg-0': '#0c0a08',
-        'bg-1': '#15120e',
-        'bg-2': '#1d1914',
-        'bg-3': '#2a241c',
-        border: '#3a3022',
-        'border-strong': '#5c4a2a',
+        // Fonds anthracite FROIDS (gris-bleu) : le fond neutre fait claquer
+        // l'or et les accents d'univers — l'inverse du gris-brun d'avant qui
+        // noyait tout dans la même dominante bronze.
+        'bg-0': '#090b10',
+        'bg-1': '#0f141c',
+        'bg-2': '#151b26',
+        'bg-3': '#1f2836',
+        border: '#26303f',
+        'border-strong': '#3c4c63',
 
         // « teal » conservé comme NOM d'API (utilisé partout dans le code), mais
         // remappé sur la palette d'accent via variables CSS : OR en babyfoot,
@@ -36,11 +52,11 @@ export default {
           dim: '#8a5e2a',
           deep: '#4a3014',
         },
-        // Acier brossé — plaques de stats.
+        // Acier brossé — plaques de stats. Refroidi pour coller aux fonds gris-bleu.
         steel: {
-          DEFAULT: '#7d7468',
-          light: '#a8a094',
-          dark: '#3d362c',
+          DEFAULT: '#7c8698',
+          light: '#a7b1c2',
+          dark: '#333b49',
         },
 
         // Rouge plus sourd, plus dramatique (sang séché plutôt que néon).
@@ -50,16 +66,20 @@ export default {
         // Vert utilisé pour le badge TOP %.
         accent: '#7fd66e',
 
-        muted: '#7d6e54',
-        'muted-2': '#a89880',
-        text: '#ede4d3',
-        'text-strong': '#fff7e4',
+        // Gris-bleu froids (le bronze #988768 appartenait à l'ancienne palette
+        // chaude). #93a0b4 porte du texte 9-11px partout : ≥5:1 sur bg-0…bg-3,
+        // AA conservé.
+        muted: '#93a0b4',
+        'muted-2': '#a9b6c9',
+        text: '#e9eef6',
+        'text-strong': '#ffffff',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'SF Mono', 'Menlo', 'Consolas', 'monospace'],
-        // Display = typo gaming (titres, ELO, scores, brand).
-        display: ['"Orbitron"', '"Rajdhani"', '"Russo One"', 'Inter', 'system-ui', 'sans-serif'],
+        // Display = typo esport condensée (titres, ELO, scores, brand).
+        // Saira Condensed remplace Orbitron : puissance sport plutôt que sci-fi.
+        display: ['"Saira Condensed"', '"Rajdhani"', '"Russo One"', 'Inter', 'system-ui', 'sans-serif'],
         // Gaming = typo HUD / RPG (sections, labels héroïques).
         gaming: ['"Rajdhani"', '"Russo One"', 'Inter', 'system-ui', 'sans-serif'],
       },
@@ -86,17 +106,18 @@ export default {
         svh: '100svh',
       },
       boxShadow: {
-        // Glow doré — utilisé partout pour le hover/focus premium.
-        'teal-glow': '0 0 18px rgba(245, 185, 66, 0.45), 0 0 36px rgba(245, 185, 66, 0.18)',
-        'teal-glow-lg': '0 0 32px rgba(245, 185, 66, 0.55), 0 0 64px rgba(245, 185, 66, 0.25)',
-        'gold-glow': '0 0 20px rgba(255, 201, 74, 0.5), 0 0 40px rgba(255, 201, 74, 0.2)',
-        'gold-glow-lg': '0 0 38px rgba(255, 201, 74, 0.6), 0 0 76px rgba(255, 201, 74, 0.3)',
+        // Glows accent — suivent la variable d'univers (or en babyfoot, rouge
+        // en smash, vert aux échecs…) et renforcés pour le rendu « flashy ».
+        'teal-glow': '0 0 18px rgb(var(--accent-teal) / 0.55), 0 0 40px rgb(var(--accent-teal) / 0.22)',
+        'teal-glow-lg': '0 0 32px rgb(var(--accent-teal) / 0.65), 0 0 70px rgb(var(--accent-teal) / 0.3)',
+        'gold-glow': '0 0 20px rgb(var(--accent-gold) / 0.6), 0 0 44px rgb(var(--accent-gold) / 0.25)',
+        'gold-glow-lg': '0 0 38px rgb(var(--accent-gold) / 0.7), 0 0 80px rgb(var(--accent-gold) / 0.35)',
         'brass-glow': '0 0 14px rgba(192, 138, 74, 0.4)',
-        'red-glow': '0 0 18px rgba(255, 83, 102, 0.45)',
+        'red-glow': '0 0 18px rgba(255, 45, 85, 0.5)',
 
         sheet:
           '0 -8px 32px rgba(0, 0, 0, 0.65), 0 -2px 8px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(255, 201, 74, 0.12) inset',
-        'card-hover': '0 14px 28px -10px rgba(255, 201, 74, 0.3)',
+        'card-hover': '0 14px 30px -10px rgb(var(--accent-gold) / 0.4)',
         // Effet "plaque en relief" — pour les stat cards en acier brossé.
         'plate':
           'inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3)',
@@ -110,12 +131,9 @@ export default {
         xs: '2px',
       },
       backgroundImage: {
-        // Grillage technique — texture HUD subtile pour les fonds.
-        'mesh-grid':
-          "linear-gradient(rgba(255, 201, 74, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 201, 74, 0.06) 1px, transparent 1px)",
-        // Plaque d'acier brossée verticale.
+        // Plaque d'acier brossée verticale (refroidie gris-bleu).
         'plate-steel':
-          'linear-gradient(180deg, #2e2a22 0%, #211d17 22%, #1a1612 50%, #211d17 78%, #2e2a22 100%)',
+          'linear-gradient(180deg, #2a303c 0%, #1d222c 22%, #161a22 50%, #1d222c 78%, #2a303c 100%)',
         // Plaque dorée polie.
         'plate-gold':
           'linear-gradient(180deg, #f5d27a 0%, #c79122 22%, #8a5e10 50%, #c79122 78%, #f5d27a 100%)',

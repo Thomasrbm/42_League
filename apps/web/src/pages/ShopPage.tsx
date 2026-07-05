@@ -29,6 +29,7 @@ import { CoinCount } from '../components/CoinCount';
 import { Skeleton } from '../mobile/primitives/Skeleton';
 import { badgeIcon } from '../lib/badgeIcons';
 import { useLeagueData } from '../hooks/useLeagueData';
+import { useConfirm } from '../hooks/useConfirm';
 import { useFlash } from '../hooks/useFlash';
 import { useT } from '../lib/i18n';
 import {
@@ -380,6 +381,7 @@ export function ShopPage() {
   const t = useT();
   const navigate = useNavigate();
   const { show } = useFlash();
+  const confirm = useConfirm();
   const { me, refresh } = useLeagueData();
   // Onglets du shop : boutique (cosmétiques) · quêtes hebdo · paris. Les quêtes et
   // paris vivent désormais ici (hub des League Coins), plus sur le profil.
@@ -454,6 +456,15 @@ export function ShopPage() {
 
   const buy = useCallback(
     async (item: ShopItemData) => {
+      // Dépenser des coins mérite une confirmation : le tap direct achetait
+      // sans filet (mauvais tap mobile = coins envolés).
+      const ok = await confirm({
+        title: t('shop.confirm.title'),
+        message: `${item.name} — ${item.price} coins`,
+        confirmLabel: t('shop.confirm.buy'),
+        cancelLabel: t('shop.confirm.cancel'),
+      });
+      if (!ok) return;
       setBusy(item.id);
       try {
         const res = await api.buyShopItem(item.id);
@@ -475,7 +486,7 @@ export function ShopPage() {
         setBusy(null);
       }
     },
-    [show, t, refresh, load],
+    [confirm, show, t, refresh, load],
   );
 
   const toggleEquip = useCallback(

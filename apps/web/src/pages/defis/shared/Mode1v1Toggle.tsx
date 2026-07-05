@@ -26,17 +26,20 @@ export function Mode1v1Toggle({
   if (game !== 'babyfoot') return null;
 
   return (
-    <div className={`flex gap-1 p-1 rounded-xl bg-bg-1/60 border border-border ${className}`}>
+    <div className={`flex gap-1.5 p-1.5 rounded-xl bg-bg-1/70 border border-border ${className}`}>
       {(['1v1', '2v2'] as const).map((m) => (
         <button
           key={m}
           type="button"
           onClick={() => onChange(m)}
-          className={`flex-1 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-all ${
-            mode === m ? 'bg-gold/15 text-gold border border-gold/40' : 'text-muted-2 hover:text-gold/80'
+          aria-pressed={mode === m}
+          className={`flex-1 py-2.5 rounded-lg text-sm font-display font-extrabold uppercase tracking-wider transition-all ${
+            mode === m
+              ? 'bg-gold text-bg-0 shadow-gold-glow'
+              : 'text-muted-2 border border-transparent hover:text-gold hover:border-gold/30'
           }`}
         >
-          {m === '1v1' ? '1 vs 1' : '2 vs 2'}
+          {m === '1v1' ? '1 vs 1' : '2 vs 2 · équipe'}
         </button>
       ))}
     </div>

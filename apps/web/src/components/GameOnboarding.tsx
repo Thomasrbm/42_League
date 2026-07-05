@@ -162,7 +162,7 @@ export function GameOnboarding() {
                   style={
                     active
                       ? { background: accent, borderColor: accent, color: '#06160c' }
-                      : { borderColor: '#3a3022', color: 'transparent' }
+                      : { borderColor: '#26303f', color: 'transparent' }
                   }
                 >
                   <Check className="w-3.5 h-3.5" strokeWidth={3} />
