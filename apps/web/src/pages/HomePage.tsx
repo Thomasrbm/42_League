@@ -26,7 +26,7 @@ import { Avatar } from '../components/Avatar';
 import { EmptyState } from '../components/EmptyState';
 import { PlayerLink } from '../components/PlayerLink';
 import { useLeagueData } from '../hooks/useLeagueData';
-import { api } from '../lib/api';
+import { api, type StakeMatchDTO } from '../lib/api';
 import { fmtRelative } from '../lib/format';
 import { GAME_META } from '../lib/gameMeta';
 import { useI18n, useT } from '../lib/i18n';
@@ -90,6 +90,66 @@ const WHATS_NEW: { to: string; Icon: LucideIcon; color: string; title: string; d
   },
 ];
 
+/** Bandeau très visible « Match à enjeu annoncé » — n'apparaît que s'il existe un
+ *  match à enjeu à venir sur lequel parier (auto-rafraîchi). */
+function StakeMatchBanner() {
+  const [m, setM] = useState<StakeMatchDTO | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      api
+        .stakeMatches()
+        .then((d) => {
+          if (!alive) return;
+          const soonest =
+            d.announced.find((x) => new Date(x.scheduledAt).getTime() > Date.now()) ?? null;
+          setM(soonest);
+        })
+        .catch(() => {});
+    void load();
+    const iv = setInterval(() => void load(), 20000);
+    return () => {
+      alive = false;
+      clearInterval(iv);
+    };
+  }, []);
+  if (!m) return null;
+  const mins = Math.max(0, Math.floor((new Date(m.scheduledAt).getTime() - Date.now()) / 60000));
+  const cd = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <Link
+        to="/enjeu"
+        className="relative block card-hud rounded-2xl px-4 py-3.5 overflow-hidden border !border-gold/50 shadow-gold-glow hover:brightness-110 transition-all"
+      >
+        <div
+          className="absolute inset-0 pointer-events-none opacity-60"
+          style={{ background: 'radial-gradient(ellipse at top left, rgb(var(--accent-gold) / 0.12), transparent 55%)' }}
+        />
+        <div className="relative flex items-center gap-3">
+          <span className="shrink-0 w-10 h-10 rounded-xl bg-gold/20 border border-gold/50 flex items-center justify-center text-gold animate-pulse">
+            <Zap className="w-5 h-5" strokeWidth={2.5} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-gold">
+              ⚡ Match à enjeu annoncé
+            </span>
+            <div className="text-sm font-gaming font-black text-text-strong truncate">
+              {m.playerA.login} <span className="text-muted-2 font-bold">vs</span> {m.playerB.login}
+            </div>
+            <div className="text-[11px] text-muted-2 truncate">
+              {GAME_META[m.game].label} · cotes ×{m.multA.toFixed(1)} / ×{m.multB.toFixed(1)} · clôture dans {cd}
+            </div>
+          </div>
+          <span className="shrink-0 rounded-lg bg-gold text-bg-0 font-extrabold text-[12px] px-3 py-1.5">
+            Parier
+          </span>
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
+
 /** Bloc pleine largeur « Nouveautés à tester » — vitrine flashy des features fraîches. */
 function WhatsNewCard() {
   return (
@@ -114,6 +174,36 @@ function WhatsNewCard() {
           Nouveau
         </span>
       </div>
+
+      {/* Nouveauté PHARE — mise en avant, plus grosse que les autres. */}
+      <Link
+        to="/enjeu"
+        className="relative block mb-2.5 rounded-xl overflow-hidden border border-gold/60 bg-gradient-to-br from-gold/20 via-bg-2/40 to-bg-2/40 px-4 py-3.5 hover:brightness-110 transition-all group"
+      >
+        <div className="flex items-center gap-3">
+          <span className="shrink-0 w-11 h-11 rounded-xl bg-gold/20 border border-gold/50 flex items-center justify-center text-gold">
+            <Zap className="w-6 h-6" strokeWidth={2.4} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="flex items-center gap-2">
+              <span className="text-[15px] font-gaming font-black text-text-strong leading-tight">
+                Matchs à enjeu
+              </span>
+              <span className="text-[9px] font-extrabold uppercase tracking-widest text-gold bg-gold/15 border border-gold/50 rounded-full px-2 py-0.5 animate-pulse">
+                Nouveau
+              </span>
+            </span>
+            <span className="block text-[12px] text-muted-2 leading-snug mt-0.5">
+              Défie un joueur, misez gros chacun, et toute la ligue parie sur vous — grosse cote à la clé.
+              1 match à enjeu par jour.
+            </span>
+          </span>
+          <ChevronRight
+            className="shrink-0 w-5 h-5 text-gold group-hover:translate-x-0.5 transition-all"
+            strokeWidth={2.5}
+          />
+        </div>
+      </Link>
 
       <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-2">
         {WHATS_NEW.map((item) => (
@@ -399,6 +489,8 @@ export function HomePage() {
       )}
 
       {/* Nouveautés à tester — vitrine pleine largeur */}
+      <StakeMatchBanner />
+
       <WhatsNewCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:items-start">

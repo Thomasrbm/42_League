@@ -1398,6 +1398,36 @@ export interface StatsOverview {
   activityTimeline: DayPoint[];
 }
 
+export interface StakeMatchPlayer {
+  login: string;
+  imageUrl: string | null;
+}
+
+export interface StakeMatchDTO {
+  id: string;
+  game: Game;
+  status: string;
+  scheduledAt: string;
+  playerA: StakeMatchPlayer;
+  playerB: StakeMatchPlayer;
+  stakeA: number;
+  stakeB: number;
+  multA: number;
+  multB: number;
+  poolA: number;
+  poolB: number;
+  isParticipant: boolean;
+  myBet: { choiceLogin: string; stake: number } | null;
+}
+
+export interface StakeMatchesResponse {
+  coins: number;
+  canDeclareToday: boolean;
+  announced: StakeMatchDTO[];
+  incoming: StakeMatchDTO[];
+  outgoing: StakeMatchDTO[];
+}
+
 export const api = {
   me: () => request<MeResponse>('/me'),
   // Sélection de titre self-service : `null`/'' retire le titre. Le serveur
@@ -2462,6 +2492,39 @@ export const api = {
       `/tournaments/${encodeURIComponent(tournamentId)}/gambler-claim`,
       { method: 'POST', body: JSON.stringify({}) },
     ),
+
+  // ── Matchs à enjeu (matchs à parier) ──────────────────────────────────────
+  stakeMatches: () => request<StakeMatchesResponse>('/stake-matches'),
+  declareStakeMatch: (input: { game: Game; opponentLogin: string; scheduledAt: string; stake: number }) =>
+    request<{ stakeMatch: { id: string } }>('/stake-matches', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  acceptStakeMatch: (id: string, stake: number) =>
+    request<{ stakeMatch: { id: string } }>(`/stake-matches/${encodeURIComponent(id)}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ stake }),
+    }),
+  declineStakeMatch: (id: string) =>
+    request<{ ok: boolean }>(`/stake-matches/${encodeURIComponent(id)}/decline`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  cancelStakeMatch: (id: string) =>
+    request<{ ok: boolean }>(`/stake-matches/${encodeURIComponent(id)}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  placeStakeBet: (id: string, choiceLogin: string, stake: number) =>
+    request<{ bet: { id: string }; coins: number; multiplier: number }>(
+      `/stake-matches/${encodeURIComponent(id)}/bet`,
+      { method: 'POST', body: JSON.stringify({ choiceLogin, stake }) },
+    ),
+  reportStakeMatch: (id: string, winner: string, scores?: { a: number; b: number }) =>
+    request<{ status: string }>(`/stake-matches/${encodeURIComponent(id)}/report`, {
+      method: 'POST',
+      body: JSON.stringify({ winner, scoreA: scores?.a, scoreB: scores?.b }),
+    }),
 
   // ── SF Club Sessions ──────────────────────────────────────────────────────
 

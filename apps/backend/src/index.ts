@@ -67,6 +67,12 @@ import {
   ownedTitles,
   computeGoat,
   trophyCountsByLogin,
+  stakeBetMultiplier,
+  stakeBetPayout,
+  stakeWinnerPayout,
+  STAKE_MIN,
+  STAKE_BET_MAX,
+  STAKE_LEAD_MIN_MS,
   type GameBoards,
   type TrophyMatch,
 } from '@42-league/shared';
@@ -11617,6 +11623,9 @@ type CoinTxType =
   | 'dispute_malus'
   | 'battlepass_tier'
   | 'gambler_bonus'
+  | 'stake_place'
+  | 'stake_win'
+  | 'stake_refund'
   | 'admin_grant';
 
 interface CoinTxEntry {
@@ -13026,6 +13035,548 @@ app.post('/bets/match', async (c) => {
   return c.json({ bet: result.bet, coins: result.balance }, 201);
 });
 
+// ─── Matchs à enjeu (matchs à parier) ────────────────────────────────────────
+// Duel programmé où les DEUX participants misent gros ; une fois l'adversaire
+// engagé, le match est annoncé à toute la ligue et les autres parient à une cote
+// fixe dérivée de la mise de chaque participant (cf. @42-league/shared).
+// Cycle : pending → announced → settled (ou declined/cancelled/disputed).
+
+/** Début du jour courant (UTC) — sert au quota « 1 match à enjeu par jour ». */
+function stakeDayStart(now: Date = new Date()): Date {
+  const d = new Date(now);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Le joueur a-t-il déjà « consommé » son match à enjeu du jour (comme participant
+ *  engagé) ? A compte dès la déclaration ; B seulement une fois qu'il a accepté. */
+async function usedStakeMatchToday(
+  tx: Prisma.TransactionClient,
+  login: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const n = await tx.stakeMatch.count({
+    where: {
+      createdAt: { gte: stakeDayStart(now) },
+      OR: [
+        { playerALogin: login, status: { in: ['pending', 'announced', 'settled'] } },
+        { playerBLogin: login, status: { in: ['announced', 'settled'] } },
+      ],
+    },
+  });
+  return n > 0;
+}
+
+/** Rembourse toutes les mises (participants + paris ouverts) d'un match à enjeu et
+ *  le passe à `newStatus`. Renvoie les logins crédités (pour un emit après commit). */
+async function refundStakeMatchTx(
+  tx: Prisma.TransactionClient,
+  sm: { id: string; playerALogin: string; playerBLogin: string; stakeA: number; stakeB: number },
+  newStatus: string,
+): Promise<string[]> {
+  const credited: string[] = [];
+  const refundParticipant = async (login: string, amount: number) => {
+    if (amount <= 0) return;
+    await grantCoinsTx(tx, login, amount, {
+      type: 'stake_refund',
+      refId: sm.id,
+      meta: { stakeMatchId: sm.id, reason: newStatus },
+    });
+    credited.push(login);
+  };
+  await refundParticipant(sm.playerALogin, sm.stakeA);
+  if (newStatus !== 'declined') await refundParticipant(sm.playerBLogin, sm.stakeB);
+  const openBets = await tx.bet.findMany({ where: { stakeMatchId: sm.id, status: 'open' } });
+  const now = new Date();
+  for (const b of openBets) {
+    await grantCoinsTx(tx, b.bettorLogin, b.stake, {
+      type: 'bet_refund',
+      refId: b.id,
+      meta: { targetType: 'stake', stakeMatchId: sm.id, choiceLogin: b.choiceLogin, stake: b.stake },
+    });
+    await tx.bet.update({ where: { id: b.id }, data: { status: 'refunded', payout: b.stake, settledAt: now } });
+    credited.push(b.bettorLogin);
+  }
+  await tx.stakeMatch.update({ where: { id: sm.id }, data: { status: newStatus, settledAt: now } });
+  return credited;
+}
+
+/** Règle un match à enjeu dont le vainqueur est connu : paie le participant gagnant
+ *  (sa mise + mise adverse + bonus) et les paris extérieurs gagnants (cote figée).
+ *  Renvoie les logins crédités. */
+async function settleStakeMatchTx(
+  tx: Prisma.TransactionClient,
+  sm: {
+    id: string;
+    playerALogin: string;
+    playerBLogin: string;
+    stakeA: number;
+    stakeB: number;
+    multA: number;
+    multB: number;
+  },
+  winnerLogin: string,
+  scoreA: number | null,
+  scoreB: number | null,
+): Promise<string[]> {
+  const now = new Date();
+  const winnerIsA = winnerLogin === sm.playerALogin;
+  const winnerStake = winnerIsA ? sm.stakeA : sm.stakeB;
+  const loserStake = winnerIsA ? sm.stakeB : sm.stakeA;
+  const winnerMult = winnerIsA ? sm.multA : sm.multB;
+  const credited: string[] = [];
+  // Participant gagnant : récupère sa mise + rafle la mise adverse + petit bonus.
+  await grantCoinsTx(tx, winnerLogin, stakeWinnerPayout(winnerStake, loserStake), {
+    type: 'stake_win',
+    refId: sm.id,
+    meta: { stakeMatchId: sm.id, ownStake: winnerStake, opponentStake: loserStake },
+  });
+  credited.push(winnerLogin);
+  // Paris extérieurs : cote fixe du vainqueur.
+  const openBets = await tx.bet.findMany({ where: { stakeMatchId: sm.id, status: 'open' } });
+  for (const b of openBets) {
+    const won = b.choiceLogin === winnerLogin;
+    const payout = won ? Math.round(b.stake * winnerMult) : 0;
+    if (payout > 0) {
+      await grantCoinsTx(tx, b.bettorLogin, payout, {
+        type: 'bet_win',
+        refId: b.id,
+        meta: { targetType: 'stake', stakeMatchId: sm.id, choiceLogin: b.choiceLogin, stake: b.stake },
+      });
+      credited.push(b.bettorLogin);
+    }
+    await tx.bet.update({
+      where: { id: b.id },
+      data: { status: won ? 'won' : 'lost', payout, settledAt: now },
+    });
+  }
+  await tx.stakeMatch.update({
+    where: { id: sm.id },
+    data: { status: 'settled', winnerLogin, scoreA, scoreB, settledAt: now },
+  });
+  return credited;
+}
+
+/** Filet de sécurité (boot + périodique) : rembourse les matchs à enjeu jamais
+ *  aboutis. Pending non accepté passé l'heure → refund du déclarant. Announced sans
+ *  résultat 6h après le coup d'envoi → refund de tout le monde. */
+const STAKE_REPORT_GRACE_MS = 6 * 60 * 60 * 1000;
+async function sweepExpiredStakeMatches(now: Date = new Date()): Promise<void> {
+  try {
+    const stale = await prisma.stakeMatch.findMany({
+      where: {
+        OR: [
+          { status: 'pending', scheduledAt: { lt: now } },
+          { status: 'announced', scheduledAt: { lt: new Date(now.getTime() - STAKE_REPORT_GRACE_MS) } },
+        ],
+      },
+    });
+    for (const sm of stale) {
+      const credited = await prisma.$transaction((tx) =>
+        refundStakeMatchTx(tx, sm, sm.status === 'pending' ? 'declined' : 'cancelled'),
+      );
+      if (credited.length) emit(credited, { type: 'panel:update', payload: {} });
+    }
+  } catch {
+    /* best effort */
+  }
+}
+
+// ── Endpoints ──
+
+const DeclareStakeSchema = z.object({
+  game: z.string().min(1),
+  opponentLogin: z.string().min(1),
+  scheduledAt: z.string().min(1),
+  stake: z.number().int().positive(),
+});
+
+// POST /stake-matches — déclarer un match à enjeu (≥15 min à l'avance). Débite ma
+// grosse mise (séquestre) et notifie l'adversaire, qui devra accepter ET miser.
+app.post('/stake-matches', async (c) => {
+  const me = await getCurrentLogin(c);
+  await assertNotBanned(me);
+  await assertNotPenalized(me, 'déclarer un match');
+  const parsed = DeclareStakeSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
+  const game = parseGameId(parsed.data.game);
+  const opponent = parsed.data.opponentLogin;
+  const stake = parsed.data.stake;
+  if (opponent === me) throw new HTTPException(400, { message: 'choisis un adversaire' });
+  if (stake < STAKE_MIN) throw new HTTPException(400, { message: `mise minimale : ${STAKE_MIN} coins` });
+  const now = new Date();
+  const scheduledAt = new Date(parsed.data.scheduledAt);
+  if (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() < now.getTime() + STAKE_LEAD_MIN_MS) {
+    throw new HTTPException(400, { message: 'le match doit être programmé au moins 15 min à l\'avance' });
+  }
+  const sm = await prisma.$transaction(async (tx) => {
+    const opp = await tx.user.findFirst({
+      where: { login: opponent, ...VISIBLE_USER_WHERE },
+      select: { login: true },
+    });
+    if (!opp) throw new HTTPException(404, { message: 'adversaire introuvable' });
+    if (await usedStakeMatchToday(tx, me, now)) {
+      throw new HTTPException(409, { message: 'tu as déjà un match à enjeu aujourd\'hui (1 par jour)' });
+    }
+    const u = await tx.user.findUnique({ where: { login: me }, select: { leagueCoins: true } });
+    if (!u) throw new HTTPException(404, { message: 'utilisateur introuvable' });
+    if (u.leagueCoins < stake) throw new HTTPException(409, { message: 'solde insuffisant' });
+    const created = await tx.stakeMatch.create({
+      data: {
+        id: randomUUID(),
+        game,
+        playerALogin: me,
+        playerBLogin: opponent,
+        stakeA: stake,
+        status: 'pending',
+        scheduledAt,
+      },
+    });
+    await grantCoinsTx(tx, me, -stake, {
+      type: 'stake_place',
+      refId: created.id,
+      meta: { stakeMatchId: created.id, role: 'A', stake },
+    });
+    return created;
+  });
+  void notify(opponent, {
+    type: 'stake_challenge',
+    title: '⚡ Défi à enjeu reçu',
+    body: `${me} te défie sur un match à parier — accepte et pose ta mise`,
+    link: '/enjeu',
+    game,
+    refId: sm.id,
+  });
+  emit([me, opponent], { type: 'panel:update', payload: {} });
+  return c.json({ stakeMatch: sm }, 201);
+});
+
+const AcceptStakeSchema = z.object({ stake: z.number().int().positive() });
+
+// POST /stake-matches/:id/accept — l'adversaire accepte et pose SA mise. Le match
+// devient « annoncé » : cotes figées, notif à TOUTE la ligue, paris ouverts.
+app.post('/stake-matches/:id/accept', async (c) => {
+  const me = await getCurrentLogin(c);
+  await assertNotBanned(me);
+  await assertNotPenalized(me, 'parier');
+  const id = c.req.param('id');
+  const parsed = AcceptStakeSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
+  const stake = parsed.data.stake;
+  if (stake < STAKE_MIN) throw new HTTPException(400, { message: `mise minimale : ${STAKE_MIN} coins` });
+  const now = new Date();
+  const sm = await prisma.$transaction(async (tx) => {
+    const m = await tx.stakeMatch.findUnique({ where: { id } });
+    if (!m) throw new HTTPException(404, { message: 'match introuvable' });
+    if (m.playerBLogin !== me) throw new HTTPException(403, { message: 'ce défi ne t\'est pas adressé' });
+    if (m.status !== 'pending') throw new HTTPException(409, { message: 'ce défi n\'est plus en attente' });
+    if (new Date(m.scheduledAt).getTime() <= now.getTime()) {
+      throw new HTTPException(409, { message: 'trop tard : l\'heure du match est passée' });
+    }
+    if (await usedStakeMatchToday(tx, me, now)) {
+      throw new HTTPException(409, { message: 'tu as déjà un match à enjeu aujourd\'hui (1 par jour)' });
+    }
+    const u = await tx.user.findUnique({ where: { login: me }, select: { leagueCoins: true } });
+    if (!u) throw new HTTPException(404, { message: 'utilisateur introuvable' });
+    if (u.leagueCoins < stake) throw new HTTPException(409, { message: 'solde insuffisant' });
+    await grantCoinsTx(tx, me, -stake, {
+      type: 'stake_place',
+      refId: m.id,
+      meta: { stakeMatchId: m.id, role: 'B', stake },
+    });
+    return tx.stakeMatch.update({
+      where: { id: m.id },
+      data: {
+        stakeB: stake,
+        multA: stakeBetMultiplier(m.stakeA),
+        multB: stakeBetMultiplier(stake),
+        status: 'announced',
+        announcedAt: now,
+      },
+    });
+  });
+  // Annonce à toute la ligue (in-app + push + SSE temps réel).
+  const everyone = await prisma.user.findMany({ where: VISIBLE_USER_WHERE, select: { login: true }, take: MAX_PUBLIC_LIST });
+  void notifyMany(
+    everyone.map((u) => u.login),
+    {
+      type: 'stake_announced',
+      title: '⚡ Match à enjeu annoncé !',
+      body: `${sm.playerALogin} vs ${sm.playerBLogin} — mise tes coins avant le coup d'envoi`,
+      link: '/enjeu',
+      game: sm.game,
+      refId: sm.id,
+    },
+  );
+  broadcast({ type: 'stakematch:announced', payload: { id: sm.id } });
+  return c.json({ stakeMatch: sm });
+});
+
+// POST /stake-matches/:id/decline — l'adversaire refuse (rembourse le déclarant).
+app.post('/stake-matches/:id/decline', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  const sm = await prisma.$transaction(async (tx) => {
+    const m = await tx.stakeMatch.findUnique({ where: { id } });
+    if (!m) throw new HTTPException(404, { message: 'match introuvable' });
+    if (m.playerBLogin !== me) throw new HTTPException(403, { message: 'ce défi ne t\'est pas adressé' });
+    if (m.status !== 'pending') throw new HTTPException(409, { message: 'ce défi n\'est plus en attente' });
+    await refundStakeMatchTx(tx, m, 'declined');
+    return m;
+  });
+  void notify(sm.playerALogin, {
+    type: 'stake_declined',
+    title: 'Défi à enjeu refusé',
+    body: `${me} a refusé ton match à enjeu — ta mise t'est remboursée`,
+    link: '/enjeu',
+    refId: sm.id,
+  });
+  emit([sm.playerALogin, me], { type: 'panel:update', payload: {} });
+  return c.json({ ok: true });
+});
+
+// POST /stake-matches/:id/cancel — un participant annule avant le résultat
+// (rembourse participants + parieurs).
+app.post('/stake-matches/:id/cancel', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  const result = await prisma.$transaction(async (tx) => {
+    const m = await tx.stakeMatch.findUnique({ where: { id } });
+    if (!m) throw new HTTPException(404, { message: 'match introuvable' });
+    if (m.playerALogin !== me && m.playerBLogin !== me) {
+      throw new HTTPException(403, { message: 'tu n\'es pas participant de ce match' });
+    }
+    if (m.status !== 'pending' && m.status !== 'announced' && m.status !== 'disputed') {
+      throw new HTTPException(409, { message: 'ce match ne peut plus être annulé' });
+    }
+    const credited = await refundStakeMatchTx(tx, m, 'cancelled');
+    return { m, credited };
+  });
+  const others = result.credited.filter((l) => l !== me);
+  void notifyMany(others, {
+    type: 'stake_cancelled',
+    title: 'Match à enjeu annulé',
+    body: 'Le match à enjeu a été annulé — ta mise t\'est remboursée',
+    link: '/enjeu',
+    refId: id,
+  });
+  emit(result.credited.concat(me), { type: 'panel:update', payload: {} });
+  broadcast({ type: 'stakematch:announced', payload: { id } });
+  return c.json({ ok: true });
+});
+
+const StakeBetSchema = z.object({
+  choiceLogin: z.string().min(1),
+  stake: z.number().int().positive(),
+});
+
+// POST /stake-matches/:id/bet — parier (joueur extérieur) sur l'un des deux
+// participants, à la cote fixe dérivée de sa mise. Fermé au coup d'envoi.
+app.post('/stake-matches/:id/bet', async (c) => {
+  const me = await getCurrentLogin(c);
+  await assertNotPenalized(me, 'parier');
+  const id = c.req.param('id');
+  const parsed = StakeBetSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
+  const { choiceLogin, stake } = parsed.data;
+  if (stake > STAKE_BET_MAX) throw new HTTPException(400, { message: `mise maximale : ${STAKE_BET_MAX} coins` });
+  const now = new Date();
+  const result = await prisma.$transaction(async (tx) => {
+    const m = await tx.stakeMatch.findUnique({ where: { id } });
+    if (!m) throw new HTTPException(404, { message: 'match introuvable' });
+    if (m.status !== 'announced') throw new HTTPException(409, { message: 'les paris sont fermés' });
+    if (new Date(m.scheduledAt).getTime() <= now.getTime()) {
+      throw new HTTPException(409, { message: 'les paris sont fermés : le match a commencé' });
+    }
+    if (me === m.playerALogin || me === m.playerBLogin) {
+      throw new HTTPException(403, { message: 'tu ne peux pas parier sur ton propre match' });
+    }
+    if (choiceLogin !== m.playerALogin && choiceLogin !== m.playerBLogin) {
+      throw new HTTPException(400, { message: 'pronostic invalide' });
+    }
+    const dup = await tx.bet.findFirst({ where: { bettorLogin: me, status: 'open', stakeMatchId: id } });
+    if (dup) throw new HTTPException(409, { message: 'tu as déjà un pari ouvert sur ce match' });
+    const u = await tx.user.findUnique({ where: { login: me }, select: { leagueCoins: true } });
+    if (!u) throw new HTTPException(404, { message: 'utilisateur introuvable' });
+    if (u.leagueCoins < stake) throw new HTTPException(409, { message: 'solde insuffisant' });
+    await grantCoinsTx(tx, me, -stake, {
+      type: 'bet_place',
+      refId: id,
+      meta: { targetType: 'stake', stakeMatchId: id, choiceLogin, stake },
+    });
+    const bet = await tx.bet.create({
+      data: {
+        id: randomUUID(),
+        bettorLogin: me,
+        targetType: 'stake',
+        stakeMatchId: id,
+        choiceLogin,
+        stake,
+      },
+    });
+    const mult = choiceLogin === m.playerALogin ? m.multA : m.multB;
+    return { bet, balance: u.leagueCoins - stake, mult };
+  });
+  emit([me], { type: 'panel:update', payload: {} });
+  broadcast({ type: 'stakematch:announced', payload: { id } });
+  return c.json({ bet: result.bet, coins: result.balance, multiplier: result.mult }, 201);
+});
+
+const ReportStakeSchema = z.object({
+  winner: z.string().min(1),
+  scoreA: z.number().int().nonnegative().optional(),
+  scoreB: z.number().int().nonnegative().optional(),
+});
+
+// POST /stake-matches/:id/report — un participant déclare le vainqueur. Quand les
+// DEUX déclarations concordent → règlement (participants + paris). Discordance →
+// litige (statut 'disputed', re-déclaration possible).
+app.post('/stake-matches/:id/report', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  const parsed = ReportStakeSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
+  const { winner, scoreA, scoreB } = parsed.data;
+  const outcome = await prisma.$transaction(async (tx) => {
+    const m = await tx.stakeMatch.findUnique({ where: { id } });
+    if (!m) throw new HTTPException(404, { message: 'match introuvable' });
+    if (m.playerALogin !== me && m.playerBLogin !== me) {
+      throw new HTTPException(403, { message: 'tu n\'es pas participant de ce match' });
+    }
+    if (m.status !== 'announced' && m.status !== 'disputed') {
+      throw new HTTPException(409, { message: 'ce match n\'est pas en attente de résultat' });
+    }
+    if (winner !== m.playerALogin && winner !== m.playerBLogin) {
+      throw new HTTPException(400, { message: 'vainqueur invalide' });
+    }
+    const meIsA = me === m.playerALogin;
+    const reportAWinner = meIsA ? winner : m.reportAWinner;
+    const reportBWinner = meIsA ? m.reportBWinner : winner;
+    // Concordance des deux déclarations → règlement.
+    if (reportAWinner && reportBWinner && reportAWinner === reportBWinner) {
+      await tx.stakeMatch.update({
+        where: { id: m.id },
+        data: { reportAWinner, reportBWinner },
+      });
+      const credited = await settleStakeMatchTx(
+        tx,
+        m,
+        reportAWinner,
+        scoreA ?? m.scoreA ?? null,
+        scoreB ?? m.scoreB ?? null,
+      );
+      return { status: 'settled' as const, winner: reportAWinner, credited, m };
+    }
+    // Sinon : enregistre ma déclaration ; discordance éventuelle → litige.
+    const disputed = !!(reportAWinner && reportBWinner);
+    await tx.stakeMatch.update({
+      where: { id: m.id },
+      data: {
+        reportAWinner,
+        reportBWinner,
+        scoreA: scoreA ?? m.scoreA ?? null,
+        scoreB: scoreB ?? m.scoreB ?? null,
+        status: disputed ? 'disputed' : m.status,
+      },
+    });
+    return { status: disputed ? ('disputed' as const) : ('pending' as const), m };
+  });
+  if (outcome.status === 'settled') {
+    const parts = [outcome.m.playerALogin, outcome.m.playerBLogin];
+    void notifyMany(parts, {
+      type: 'stake_result',
+      title: outcome.winner === me ? '🏆 Tu remportes le match à enjeu' : 'Match à enjeu réglé',
+      body: `Vainqueur : ${outcome.winner}`,
+      link: '/enjeu',
+      refId: outcome.m.id,
+    });
+    const bettors = outcome.credited.filter((l) => !parts.includes(l));
+    void notifyMany(bettors, {
+      type: 'stake_bet_result',
+      title: '💰 Pari gagné !',
+      body: `Ton pari sur le match à enjeu est payé (${outcome.winner})`,
+      link: '/enjeu',
+      refId: outcome.m.id,
+    });
+    emit(outcome.credited, { type: 'panel:update', payload: {} });
+    broadcast({ type: 'stakematch:announced', payload: { id } });
+  }
+  return c.json({ status: outcome.status });
+});
+
+// GET /stake-matches — matchs annoncés (à parier) + mes défis en attente. Alimente
+// la section « Match à enjeu annoncé » de l'accueil et la page /enjeu.
+app.get('/stake-matches', async (c) => {
+  const me = await getCurrentLogin(c);
+  await sweepExpiredStakeMatches();
+  const now = new Date();
+  const userSel = { select: { login: true, imageUrl: true } };
+  const [announced, incoming, outgoing, myBets, meU] = await Promise.all([
+    prisma.stakeMatch.findMany({
+      where: { status: 'announced' },
+      orderBy: { scheduledAt: 'asc' },
+      take: 50,
+      include: { playerA: userSel, playerB: userSel },
+    }),
+    prisma.stakeMatch.findMany({
+      where: { status: 'pending', playerBLogin: me },
+      orderBy: { scheduledAt: 'asc' },
+      include: { playerA: userSel, playerB: userSel },
+    }),
+    prisma.stakeMatch.findMany({
+      where: { status: 'pending', playerALogin: me },
+      orderBy: { scheduledAt: 'asc' },
+      include: { playerA: userSel, playerB: userSel },
+    }),
+    prisma.bet.findMany({ where: { bettorLogin: me, targetType: 'stake', status: 'open' } }),
+    prisma.user.findUnique({ where: { login: me }, select: { leagueCoins: true } }),
+  ]);
+  // Cagnottes par côté (mises extérieures ouvertes) pour affichage.
+  const ids = announced.map((m) => m.id);
+  const pools = ids.length
+    ? await prisma.bet.groupBy({
+        by: ['stakeMatchId', 'choiceLogin'],
+        where: { stakeMatchId: { in: ids }, status: 'open' },
+        _sum: { stake: true },
+        _count: { _all: true },
+      })
+    : [];
+  const myBetBySm = new Map(myBets.map((b) => [b.stakeMatchId, b]));
+  const shape = (m: (typeof announced)[number]) => {
+    const poolA = pools
+      .filter((p) => p.stakeMatchId === m.id && p.choiceLogin === m.playerALogin)
+      .reduce((s, p) => s + (p._sum.stake ?? 0), 0);
+    const poolB = pools
+      .filter((p) => p.stakeMatchId === m.id && p.choiceLogin === m.playerBLogin)
+      .reduce((s, p) => s + (p._sum.stake ?? 0), 0);
+    const mine = myBetBySm.get(m.id) ?? null;
+    return {
+      id: m.id,
+      game: m.game,
+      status: m.status,
+      scheduledAt: m.scheduledAt,
+      playerA: { login: m.playerA.login, imageUrl: m.playerA.imageUrl },
+      playerB: { login: m.playerB.login, imageUrl: m.playerB.imageUrl },
+      stakeA: m.stakeA,
+      stakeB: m.stakeB,
+      multA: m.multA,
+      multB: m.multB,
+      poolA,
+      poolB,
+      isParticipant: m.playerALogin === me || m.playerBLogin === me,
+      myBet: mine ? { choiceLogin: mine.choiceLogin, stake: mine.stake } : null,
+    };
+  };
+  const canDeclareToday = !(await usedStakeMatchToday(prisma, me, now));
+  return c.json({
+    coins: meU?.leagueCoins ?? 0,
+    canDeclareToday,
+    announced: announced.map(shape),
+    incoming: incoming.map(shape),
+    outgoing: outgoing.map(shape),
+  });
+});
+
 // Prime « gambler » : montant fixe offert une seule fois par tournoi en cours.
 const GAMBLER_BONUS_COINS = 150;
 
@@ -13959,6 +14510,10 @@ if (process.env.NODE_ENV !== 'test') {
     // Solde les paris d'ops expirés pendant l'arrêt du process (timers perdus).
     sweepExpiredOpsBets().catch((err) => {
       console.error('failed to sweep expired ops bets', err);
+    });
+    // Rembourse les matchs à enjeu jamais aboutis (jamais acceptés / sans résultat).
+    sweepExpiredStakeMatches().catch((err) => {
+      console.error('failed to sweep expired stake matches', err);
     });
     const runDailyPurges = () => {
       purgeOldAuditLogs().catch((err) => {
