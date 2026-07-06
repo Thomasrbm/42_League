@@ -1760,10 +1760,15 @@ app.get('/leaderboard', async (c) => {
   // Classement par jeu : trie sur l'Elo de la discipline et expose ses compteurs
   // sous les mêmes clés (elo / matchesPlayed / tournamentsWon) pour un front unifié.
   const game = parseGame(c.req.query('game'));
-  // N'apparaissent au classement d'un mode que les joueurs qui y adhèrent (games)
-  // et qui ont disputé au moins un match (évite le vide entre 1001 et 999 ELO).
+  // `scope=all` → ANNUAIRE complet : TOUS les inscrits visibles, même ceux qui n'ont
+  // jamais joué ni rejoint la discipline (onglet « Tous », qui doit voir les simples
+  // inscrits). Sinon → classement classé du mode : n'apparaissent que les joueurs qui
+  // y adhèrent (games) et qui ont disputé au moins un match (évite le vide 1001↔999).
+  const all = c.req.query('scope') === 'all';
   const users = await prisma.user.findMany({
-    where: { ...VISIBLE_USER_WHERE, games: { has: game }, ...playedFilter(game) },
+    where: all
+      ? { ...VISIBLE_USER_WHERE }
+      : { ...VISIBLE_USER_WHERE, games: { has: game }, ...playedFilter(game) },
     orderBy: eloOrderBy(game),
     take: MAX_PUBLIC_LIST,
   });

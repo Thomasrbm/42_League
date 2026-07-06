@@ -260,7 +260,7 @@ export interface TeamProfile extends BabyfootTeamEntry {
 
 // ─── League Coin · Boutique ───────────────────────────────────────────────────
 
-export type ShopCategory = 'title' | 'banner' | 'badge' | 'mystery_box' | 'consumable' | 'avatar_frame' | 'sticker'; // 'badge' conservé pour rétrocompatibilité inventaire ; 'avatar_frame' = ornement de photo de profil ; 'sticker' = autocollant collé dans un coin de la carte profil
+export type ShopCategory = 'title' | 'banner' | 'badge' | 'mystery_box' | 'consumable' | 'avatar_frame' | 'sticker' | 'win_emote'; // 'badge' conservé pour rétrocompatibilité inventaire ; 'avatar_frame' = ornement de photo de profil ; 'sticker' = autocollant collé dans un coin de la carte profil ; 'win_emote' = émote de victoire (narguage)
 
 /** Type de consommable (cf. ConsumableInventory backend). */
 export type ConsumableKind = 'anti_ops' | 'elo_mult' | 'force_duel' | 'mini_ops';
@@ -446,7 +446,7 @@ export type ProposalRewardKind = 'credit' | 'coins' | 'xp' | 'none';
 export interface ShopProposal {
   id: string;
   proposerLogin: string;
-  category: 'title' | 'banner';
+  category: 'title' | 'banner' | 'win_emote';
   name: string;
   color: string | null;
   payload: Record<string, unknown> | null;
@@ -463,7 +463,7 @@ export interface CosmeticRequest {
   userLogin: string;
   itemId: string;
   itemName: string | null;
-  category: 'title' | 'banner';
+  category: 'title' | 'banner' | 'win_emote';
   payload: Record<string, unknown> | null;
   createdAt: string;
 }
@@ -598,6 +598,8 @@ export interface MeResponse {
   equippedAvatarFrameAnimated?: string | null;
   /** Autocollant équipé (data-URL) — collé dans un coin vide de la carte profil. */
   equippedSticker?: string | null;
+  /** Émote de victoire ÉQUIPÉE (cosmétique win_emote) — prioritaire sur tauntEmote au narguage. */
+  equippedWinEmote?: { emoji: string; phrase: string } | null;
   /** Palmarès par saison. */
   palmares?: PalmaresEntry[];
   /** Annonces générales non encore vues — affichées en popup à la connexion. */
@@ -652,13 +654,27 @@ export interface TauntData {
   id: string;
   game: string;
   emote: string;
+  /** Punchline custom figée au match (émote de victoire perso). Null = générée côté front. */
+  phrase?: string | null;
   createdAt: string;
   winner: {
     login: string;
     firstName?: string | null;
     lastName?: string | null;
     imageUrl: string | null;
+    /** Titre ÉQUIPÉ du vainqueur (affiché sous son nom dans l'animation). */
+    title?: string | null;
+    titleColor?: string | null;
   };
+}
+
+/** Catalogue des émotes de narguage + état de déblocage (GET /me/taunt-emotes). */
+export interface TauntEmotesData {
+  current: string;
+  level: number;
+  emotes: { emote: string; unlockLevel: number; unlocked: boolean }[];
+  /** Émotes SECRÈTES : `emote` null tant que verrouillée (tuile « ? »). */
+  eggs: { id: string; emote: string | null; unlocked: boolean; hint: string | null }[];
 }
 
 export const MODERATOR_PERMISSION_KEYS = [
@@ -921,6 +937,8 @@ export interface UserProfile {
   equippedAvatarFrameAnimated?: string | null;
   /** Autocollant équipé (data-URL) — collé dans un coin vide de la carte profil. */
   equippedSticker?: string | null;
+  /** Émote de victoire ÉQUIPÉE (cosmétique win_emote) — visible via l'aperçu de narguage. */
+  equippedWinEmote?: { emoji: string; phrase: string } | null;
 }
 
 export interface FollowPrefs {
@@ -1423,6 +1441,12 @@ export const api = {
   leaderboard: (game?: Game) =>
     request<LeaderboardEntry[]>(
       `/leaderboard${game && game !== 'babyfoot' ? `?game=${game}` : ''}`,
+    ),
+  // Annuaire complet (onglet « Tous ») : TOUS les inscrits visibles, y compris ceux
+  // qui n'ont jamais joué ni rejoint la discipline. Stats projetées sur `game`.
+  directory: (game?: Game) =>
+    request<LeaderboardEntry[]>(
+      `/leaderboard?scope=all${game && game !== 'babyfoot' ? `&game=${game}` : ''}`,
     ),
   // Ladder XP cross-jeux : XP gagnée à chaque match joué (défaite comprise),
   // identique quel que soit le mode → pas de paramètre game.
@@ -2205,6 +2229,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ title, color: color ?? null }),
     }),
+  /** Soumet une émote de victoire perso (emoji + punchline). Réponse `{ pending: true }` si validation admin requise. */
+  submitCustomWinEmote: (id: string, emoji: string, phrase: string) =>
+    request<{ ok?: true; pending?: true }>(`/me/inventory/${encodeURIComponent(id)}/win-emote`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji, phrase }),
+    }),
   // ── Consommables ───────────────────────────────────────────────────────────
   consumables: () => request<ConsumablesResponse>('/me/consumables'),
   useConsumable: (
@@ -2255,7 +2285,7 @@ export const api = {
     }),
   // ── Propositions de cosmétiques (joueur → relecture admin) ──────────────────
   submitShopProposal: (input: {
-    category: 'title' | 'banner';
+    category: 'title' | 'banner' | 'win_emote';
     name: string;
     color?: string | null;
     payload: Record<string, unknown>;
@@ -2310,6 +2340,8 @@ export const api = {
   // ── Émotes de narguage ─────────────────────────────────────────────────────
   /** Narguages pas encore vus (max 3, plus ancien d'abord). */
   tauntsPending: () => request<TauntData[]>('/me/taunts/pending'),
+  /** Catalogue des émotes (passe + secrètes) avec état de déblocage. */
+  tauntEmotes: () => request<TauntEmotesData>('/me/taunt-emotes'),
   /** Marque un narguage comme vu (après la cinématique). */
   tauntSeen: (id: string) =>
     request<{ ok: true }>(`/me/taunts/${encodeURIComponent(id)}/seen`, { method: 'POST' }),
