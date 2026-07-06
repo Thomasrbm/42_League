@@ -26,6 +26,9 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
   const [preview, setPreview] = useState<string | null>(null);
   const current = localEmote ?? me?.user?.tauntEmote ?? TAUNT_EMOTES[0];
   const noneSelected = current === '';
+  // Nom affiché comme « vainqueur » dans la punchline de l'aperçu (ton propre nom).
+  const myName =
+    [me?.user?.firstName, me?.user?.lastName].filter(Boolean).join(' ') || me?.login || 'Toi';
 
   // Émotes SECRÈTES (easter eggs) — état de déblocage calculé serveur. La condition
   // reste cachée tant que verrouillée : tuile « ? », emoji non révélé.
@@ -53,7 +56,7 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
 
   return (
     <div>
-      <TauntEmotePreview emote={preview} onDone={() => setPreview(null)} />
+      <TauntEmotePreview emote={preview} winner={myName} onDone={() => setPreview(null)} />
       {/* Liste scrollable : borne la hauteur pour rester compacte même avec beaucoup d'émotes. */}
       <div className={`grid ${compact ? 'grid-cols-5' : 'grid-cols-5 sm:grid-cols-10'} gap-2 max-h-56 overflow-y-auto pr-1`}>
         {/* « Aucune » — le joueur ne nargue pas quand il gagne. */}

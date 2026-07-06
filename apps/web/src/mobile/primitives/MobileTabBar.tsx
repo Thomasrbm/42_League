@@ -28,20 +28,20 @@ interface TabDef {
   Icon: typeof Swords;
 }
 
-// 4 destinations directes + « Plus ». Le Passe a un slot direct (feature
-// d'engagement) ; Profil/Trophées & co vivent dans la sheet « Plus » — une
-// bottom sheet reste dans la zone du pouce, contrairement à un burger en haut.
+// Sur mobile, la barre principale se limite à l'essentiel — Profil, Duel
+// (Défis) et Leaderboard — pour rester dans la zone du pouce. TOUT le reste
+// (Tournois, Passe, Boutique…) vit dans la sheet « Plus » (le « burger »).
 const TABS: TabDef[] = [
+  { to: '/profile', labelKey: 'nav.profil', Icon: User },
   { to: '/challenges', labelKey: 'nav.defis', Icon: Swords },
-  { to: '/tournaments', labelKey: 'nav.tournois', Icon: Trophy },
   { to: '/leaderboard', labelKey: 'nav.leaderboard', Icon: BarChart3 },
-  { to: '/passe', labelKey: 'nav.passe', Icon: Zap },
 ];
 
-/** Destinations de la sheet « Plus » (règle aussi les pages orphelines du mobile). */
+/** Destinations de la sheet « Plus » (le burger) — tout le secondaire du mobile. */
 const MORE: TabDef[] = [
   { to: '/', labelKey: 'nav.home', Icon: HomeIcon },
-  { to: '/profile', labelKey: 'nav.profil', Icon: User },
+  { to: '/tournaments', labelKey: 'nav.tournois', Icon: Trophy },
+  { to: '/passe', labelKey: 'nav.passe', Icon: Zap },
   { to: '/trophies', labelKey: 'nav.trophees', Icon: Award },
   { to: '/shop', labelKey: 'nav.shop', Icon: ShoppingBag },
   { to: '/teams', labelKey: 'nav.teams', Icon: Users },

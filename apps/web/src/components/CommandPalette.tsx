@@ -78,6 +78,8 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Raccourci global Cmd/Ctrl+K (toggle) — Échap géré par l'input.
+  // Aussi ouvrable au clic depuis le bouton de recherche visible de la sidebar
+  // (événement `commandpalette:open`) → le raccourci est découvrable, pas caché.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -85,8 +87,13 @@ export function CommandPalette() {
         setOpen((o) => !o);
       }
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('commandpalette:open', onOpen);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('commandpalette:open', onOpen);
+    };
   }, []);
 
   useEffect(() => {

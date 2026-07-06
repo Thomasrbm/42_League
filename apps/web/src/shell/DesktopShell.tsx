@@ -15,6 +15,7 @@ import {
   Info,
   ShoppingBag,
   Store,
+  Search,
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
 import { CoinCount } from '../components/CoinCount';
@@ -73,6 +74,7 @@ export function DesktopShell({ children }: DesktopShellProps) {
   const mainRef = useRef<HTMLElement>(null);
 
   const pendingCount = pending.filter((p) => p.opponentLogin === me?.login).length;
+  const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || navigator.userAgent);
 
   // Remet le contenu en haut à chaque changement de page. Le classement n'a plus
   // d'auto-scroll : on arrive en haut, le recentrage sur sa place se fait à la
@@ -112,6 +114,23 @@ export function DesktopShell({ children }: DesktopShellProps) {
               {GAME_META[game].label} · Ranked
             </div>
           </NavLink>
+        </div>
+
+        {/* Recherche globale — rend le raccourci Cmd/Ctrl+K découvrable (clic = même
+            palette). Cherche pages, joueurs et tournois avec liens directs. */}
+        <div className="relative px-3 pt-3">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('commandpalette:open'))}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/70 bg-bg-2/50 text-muted-2 hover:text-text hover:border-gold/40 transition-colors group"
+            aria-label={t('palette.title')}
+          >
+            <Search className="w-4 h-4 shrink-0 group-hover:text-gold transition-colors" strokeWidth={2.2} />
+            <span className="flex-1 text-left text-[13px] font-semibold truncate">{t('palette.title')}</span>
+            <kbd className="px-1.5 py-0.5 rounded-md bg-bg-1 border border-border/70 text-[10px] font-bold tracking-wide">
+              {isMac ? '⌘K' : 'Ctrl K'}
+            </kbd>
+          </button>
         </div>
 
         {/* Navigation principale */}
