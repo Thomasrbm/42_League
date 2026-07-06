@@ -7,4 +7,5 @@ export * from './rank.js';
 export * from './titles.js';
 export * from './goat.js';
 export * from './tournament-economy.js';
+export * from './stake-economy.js';
 export * from './trophies.js';

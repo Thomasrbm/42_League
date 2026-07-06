@@ -156,6 +156,8 @@ model User {
   // Économie de coins — progression des quêtes hebdo + paris placés.
   weeklyQuests              WeeklyQuestProgress[]   @relation("userQuests")
   bets                      Bet[]                   @relation("userBets")
+  stakeMatchesAsA           StakeMatch[]            @relation("stakeMatchA")
+  stakeMatchesAsB           StakeMatch[]            @relation("stakeMatchB")
   // Journal des mouvements de coins (chaque gain/perte, pour le suivi GOD).
   coinTransactions          CoinTransaction[]       @relation("userCoinTx")
   analyticsEvents           AnalyticsEvent[]        @relation("userAnalytics")
@@ -1074,11 +1076,12 @@ model WeeklyQuestProgress {
 model Bet {
   id           String    @id @default(uuid())
   bettorLogin  String    @map("bettor_login")
-  targetType   String    @map("target_type") // 'tournament' | 'match' | 'ops'
+  targetType   String    @map("target_type") // 'tournament' | 'match' | 'ops' | 'stake'
   tournamentId String?   @map("tournament_id") // renseigné pour 'tournament'/'match' ; null pour 'ops'
   matchId      String?   @map("match_id") // TournamentMatch.id quand targetType='match'
   opsId        String?   @map("ops_id") // Ops.id quand targetType='ops' (le duel appartient à cet ops)
   challengeId  String?   @map("challenge_id") // Challenge.id du duel d'ops parié (targetType='ops')
+  stakeMatchId String?   @map("stake_match_id") // StakeMatch.id quand targetType='stake'
   choiceLogin  String    @map("choice_login") // vainqueur pronostiqué
   // Pronostic de SCORE EXACT (paris match uniquement) : optionnel pour un parieur
   // extérieur (bonus ×4 si pile), OBLIGATOIRE pour un joueur qui parie sur son
@@ -1095,13 +1098,58 @@ model Bet {
   tournament Tournament? @relation("tournamentBets", fields: [tournamentId], references: [id], onDelete: Cascade)
   ops        Ops?        @relation("opsBets", fields: [opsId], references: [id], onDelete: Cascade)
   challenge  Challenge?  @relation("challengeBets", fields: [challengeId], references: [id], onDelete: Cascade)
+  stakeMatch StakeMatch? @relation("stakeMatchBets", fields: [stakeMatchId], references: [id], onDelete: Cascade)
 
   @@index([bettorLogin])
   @@index([tournamentId, status])
   @@index([matchId, status])
   @@index([opsId, status])
   @@index([challengeId, status])
+  @@index([stakeMatchId, status])
   @@map("bets")
+}
+
+// ─── Matchs à enjeu (matchs à parier) ────────────────────────────────────────
+// Un duel programmé (≥15 min à l'avance) où les DEUX participants misent une
+// grosse somme (séquestre). Une fois que l'adversaire a accepté ET posé sa mise,
+// le match est ANNONCÉ à toute la ligue et les autres joueurs peuvent parier sur
+// l'issue à une cote fixe dérivée de la mise de chaque participant (« audace »,
+// cf. @42-league/shared stake-economy). Au résultat (déclaré et concordant entre
+// les deux participants), le gagnant rafle la mise adverse + un petit bonus et les
+// paris extérieurs gagnants sont payés `mise × cote`. Refus/annulation/expiration
+// → remboursement de toutes les mises et de tous les paris.
+model StakeMatch {
+  id           String  @id @default(uuid())
+  game         String // discipline (cf. GameSchema)
+  playerALogin String  @map("player_a_login") // déclarant
+  playerBLogin String  @map("player_b_login") // adversaire invité
+  stakeA       Int     @map("stake_a") // mise du déclarant (débitée à la déclaration)
+  stakeB       Int     @default(0) @map("stake_b") // mise de l'adversaire (posée à l'acceptation)
+  // Cotes FIGÉES à l'annonce (parieurs extérieurs) : 1 + mise / BASE, plafonné.
+  multA        Float   @default(0) @map("mult_a")
+  multB        Float   @default(0) @map("mult_b")
+  // 'pending' (attend l'acceptation) | 'announced' (paris ouverts) | 'settled'
+  // | 'declined' (refusé) | 'cancelled' (annulé) | 'disputed' (résultats discordants)
+  status       String  @default("pending")
+  scheduledAt  DateTime  @map("scheduled_at") // coup d'envoi = clôture des paris
+  announcedAt  DateTime? @map("announced_at")
+  // Déclaration du résultat par les deux participants (login du vainqueur déclaré).
+  reportAWinner String? @map("report_a_winner")
+  reportBWinner String? @map("report_b_winner")
+  scoreA        Int?    @map("score_a")
+  scoreB        Int?    @map("score_b")
+  winnerLogin   String? @map("winner_login") // figé au règlement
+  settledAt     DateTime? @map("settled_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  playerA User  @relation("stakeMatchA", fields: [playerALogin], references: [login], onDelete: Cascade)
+  playerB User  @relation("stakeMatchB", fields: [playerBLogin], references: [login], onDelete: Cascade)
+  bets    Bet[] @relation("stakeMatchBets")
+
+  @@index([status, scheduledAt])
+  @@index([playerALogin])
+  @@index([playerBLogin])
+  @@map("stake_matches")
 }
 
 // ─── Économie de coins : journal des mouvements (suivi GOD) ───────────────────
