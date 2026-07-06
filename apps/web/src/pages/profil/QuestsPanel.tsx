@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Flame } from 'lucide-react';
-import { api, type QuestsResponse, type QuestView, type StreakView } from '../../lib/api';
+import { Check } from 'lucide-react';
+import { api, type QuestsResponse, type QuestView } from '../../lib/api';
 import { trackEvent } from '../../lib/analytics';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useT } from '../../lib/i18n';
@@ -13,63 +13,6 @@ function CoinAmount({ value, className = '' }: { value: number; className?: stri
       <img src="/42coin.webp" alt="" className="w-4 h-4" />
       {value}
     </span>
-  );
-}
-
-/** Carte « Série d'assiduité » : jours consécutifs, bonus ELO, prochain palier de coins. */
-function StreakCard({ streak }: { streak: StreakView }) {
-  const { current, best, eloActive, next } = streak;
-  const pct = next.day > 0 ? Math.min(100, Math.round((current / next.day) * 100)) : 0;
-  const toBonus = Math.max(0, 3 - current);
-  const hint = eloActive
-    ? `Bonus +10% d'ELO actif sur tes gains. Continue jusqu'à J${next.day} → +${next.coins} coins.`
-    : current > 0
-      ? `Encore ${toBonus} jour${toBonus > 1 ? 's' : ''} pour activer le +10% d'ELO.`
-      : "Reviens chaque jour : +10% d'ELO dès 3 jours d'affilée, et des paliers de coins.";
-  return (
-    <div className="rounded-2xl border border-orange-400/20 bg-gradient-to-br from-orange-500/[0.08] to-bg-1/70 p-4 mb-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Flame
-            className={`w-7 h-7 shrink-0 ${current > 0 ? 'text-orange-400' : 'text-muted-2'}`}
-            fill={current > 0 ? 'currentColor' : 'none'}
-            strokeWidth={2}
-          />
-          <div className="min-w-0">
-            <div className="font-extrabold text-text-strong text-sm flex items-center gap-2">
-              Série d'assiduité
-              {eloActive && (
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-orange-300 bg-orange-500/15 border border-orange-400/30 rounded px-1.5 py-0.5">
-                  +10% ELO
-                </span>
-              )}
-            </div>
-            <div className="text-[12px] text-muted-2 mt-0.5">
-              {current > 0 ? `${current} jour${current > 1 ? 's' : ''} d'affilée` : 'Aucune série en cours'}
-            </div>
-          </div>
-        </div>
-        <div className="text-right shrink-0">
-          <div className="text-2xl font-extrabold tabular-nums text-orange-400 leading-none">{current}</div>
-          <div className="text-[10px] text-muted-2 mt-1">record {best}</div>
-        </div>
-      </div>
-
-      {/* Progression vers le prochain palier de coins */}
-      <div className="mt-3 flex items-center gap-3">
-        <div className="relative h-2 flex-1 rounded-full bg-bg-2/80 overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-[width] duration-500"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="text-[11px] font-mono text-muted-2 tabular-nums shrink-0 inline-flex items-center gap-1">
-          J{next.day} · +{next.coins}
-          <img src="/42coin.webp" alt="" className="w-3 h-3" />
-        </span>
-      </div>
-      <p className="mt-1.5 text-[11px] text-muted-2 leading-snug">{hint}</p>
-    </div>
   );
 }
 
@@ -143,7 +86,7 @@ function QuestRow({
 
 export function QuestsPanel() {
   const t = useT();
-  const { me, refresh } = useLeagueData();
+  const { refresh } = useLeagueData();
   const [data, setData] = useState<QuestsResponse | null>(null);
   const [error, setError] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
@@ -187,8 +130,6 @@ export function QuestsPanel() {
         {data && <CoinAmount value={data.coins} className="text-gold font-extrabold" />}
       </div>
       <p className="text-[12px] text-muted-2 px-1 mb-3">{t('quests.subtitle')}</p>
-
-      {me?.streak && <StreakCard streak={me.streak} />}
 
       {error && <div className="text-center text-muted-2 py-8 text-sm">{t('quests.error')}</div>}
       {!error && !data && (

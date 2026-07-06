@@ -1306,6 +1306,9 @@ app.get('/me', async (c) => {
     penaltyCooldownUntil: user?.penaltyCooldownUntil ? user.penaltyCooldownUntil.toISOString() : null,
     // Série d'assiduité ranked : série courante, record, bonus ELO actif, prochain palier.
     streak: streakView(user),
+    // Récolte quotidienne (présence sur le site) : jour de série + récompense du
+    // jour à réclamer (ou déjà prise) et récompense de demain.
+    dailyClaim: dailyClaimView(user),
     isAdmin: isAdmin(login),
     // Permissions de modération (MODERATOR uniquement, {} si aucune accordée) —
     // pilote les sections visibles du panneau /moodo côté front.
@@ -8037,13 +8040,13 @@ app.post('/ops', async (c) => {
     type: 'follow_ops',
     title: `@${me} a lancé un OPS`,
     body: `Cible : @${target} — parie sur l'issue du duel !`,
-    link: '/profile?tab=bets',
+    link: '/shop?tab=bets',
   });
   void notifyFollowers(target, 'notifyOps', {
     type: 'follow_ops',
     title: `@${target} est pris pour cible`,
     body: `Traqueur : @${me} — parie sur l'issue du duel !`,
-    link: '/profile?tab=bets',
+    link: '/shop?tab=bets',
   });
   // Programme l'émission de `ops:update` à l'expiration + fin de cooldown.
   scheduleOpsTimers(me, target, ops.expiresAt);
@@ -10404,6 +10407,60 @@ function streakView(
   return { current, best: u?.rankedStreakBest ?? 0, eloActive, next };
 }
 
+// ─── Récolte quotidienne (présence sur le site) ──────────────────────────────
+// Récompense légère à réclamer 1×/jour juste en venant sur le site (aucun match
+// requis), indépendante de l'assiduité RANKED ci-dessus. Le montant grimpe avec
+// les jours consécutifs (mêmes jours UTC + même tolérance d'1 jour de grâce que
+// l'assiduité, via advanceStreak), plafonné pour rester modeste. But : fidéliser
+// la présence sans déséquilibrer l'économie.
+const DAILY_CLAIM_XP_BASE = 10;
+const DAILY_CLAIM_XP_STEP = 5;
+const DAILY_CLAIM_XP_CAP = 75; // atteint vers J14
+const DAILY_CLAIM_COINS_BASE = 5;
+const DAILY_CLAIM_COINS_STEP = 3;
+const DAILY_CLAIM_COINS_CAP = 45; // atteint vers J14
+
+/** Récompense (XP + coins) de la récolte du `n`-ième jour consécutif (n ≥ 1). */
+function dailyClaimReward(streak: number): { xp: number; coins: number } {
+  const n = Math.max(1, streak);
+  return {
+    xp: Math.min(DAILY_CLAIM_XP_CAP, DAILY_CLAIM_XP_BASE + DAILY_CLAIM_XP_STEP * (n - 1)),
+    coins: Math.min(DAILY_CLAIM_COINS_CAP, DAILY_CLAIM_COINS_BASE + DAILY_CLAIM_COINS_STEP * (n - 1)),
+  };
+}
+
+/**
+ * Vue « récolte quotidienne » pour le front : jour de série (celui en cours OU
+ * déjà réclamé aujourd'hui), record, si la récolte du jour est encore à prendre,
+ * la récompense du jour et celle de demain. Fonction pure — mêmes règles de série
+ * que la récolte réelle (advanceStreak) pour un affichage cohérent avant le claim.
+ */
+function dailyClaimView(
+  u: { dailyClaimStreak: number; dailyClaimBest: number; dailyClaimDay: string | null } | null,
+  now: Date = new Date(),
+): {
+  streak: number;
+  best: number;
+  claimedToday: boolean;
+  reward: { xp: number; coins: number };
+  next: { xp: number; coins: number };
+} {
+  const today = dayKey(now);
+  const claimedToday = u?.dailyClaimDay === today;
+  // Jour représenté : si déjà réclamé, la série stockée ; sinon le jour qu'on
+  // atteindrait en réclamant maintenant (avec grâce/reset).
+  const streak = claimedToday
+    ? (u?.dailyClaimStreak ?? 0)
+    : advanceStreak(u?.dailyClaimStreak ?? 0, u?.dailyClaimDay ?? null, today).streak;
+  return {
+    streak,
+    best: Math.max(u?.dailyClaimBest ?? 0, streak),
+    claimedToday,
+    reward: dailyClaimReward(streak),
+    next: dailyClaimReward(streak + 1),
+  };
+}
+
 /** Type de consommable d'un objet boutique (via payload.kind), sinon null. */
 function consumableKindOf(item: { category: string; payload: Prisma.JsonValue | null }): ConsumableKind | null {
   if (item.category !== 'consumable') return null;
@@ -11631,6 +11688,7 @@ type CoinTxType =
   | 'stake_place'
   | 'stake_win'
   | 'stake_refund'
+  | 'daily_claim'
   | 'admin_grant';
 
 interface CoinTxEntry {
@@ -12109,7 +12167,7 @@ function xpToAdvanceLevels(currentLevel: number, levels: number): number {
   return xp;
 }
 
-type XpTxType = 'match' | 'admin_grant' | 'tier_bonus' | 'quest' | 'tournament';
+type XpTxType = 'match' | 'admin_grant' | 'tier_bonus' | 'quest' | 'tournament' | 'daily_claim';
 
 interface XpTxEntry {
   type: XpTxType;
@@ -12658,6 +12716,48 @@ app.post('/quests/:id/claim', async (c) => {
   });
   emit([me], { type: 'panel:update', payload: {} });
   return c.json({ id: quest.id, reward: quest.reward, xpReward: quest.xpReward, coins: result.coins, xp: result.xp });
+});
+
+// Récolte quotidienne : réclame la récompense (XP + coins) du jour. Idempotent
+// par jour UTC (anti double-claim via verrou de ligne + dailyClaimDay). La série
+// avance avec 1 jour de grâce (advanceStreak) ; le montant grimpe avec les jours.
+app.post('/daily/claim', async (c) => {
+  const me = await getCurrentLogin(c);
+  await getOrCreateUser(me);
+  const today = dayKey(new Date());
+  const result = await prisma.$transaction(async (tx) => {
+    // Verrou de ligne : sérialise les réclamations concurrentes (anti double-claim).
+    await tx.$executeRaw`SELECT 1 FROM users WHERE login = ${me} FOR UPDATE`;
+    const u = await tx.user.findUnique({
+      where: { login: me },
+      select: { dailyClaimStreak: true, dailyClaimBest: true, dailyClaimDay: true },
+    });
+    if (!u) throw new HTTPException(404, { message: 'utilisateur inconnu' });
+    if (u.dailyClaimDay === today) {
+      throw new HTTPException(409, { message: 'récolte déjà réclamée aujourd\'hui' });
+    }
+    const { streak } = advanceStreak(u.dailyClaimStreak, u.dailyClaimDay, today);
+    const reward = dailyClaimReward(streak);
+    await tx.user.update({
+      where: { login: me },
+      data: {
+        dailyClaimStreak: streak,
+        dailyClaimDay: today,
+        dailyClaimBest: Math.max(u.dailyClaimBest, streak),
+      },
+    });
+    const coins = await grantCoinsTx(tx, me, reward.coins, { type: 'daily_claim', refId: today });
+    const xp = await grantXpTx(tx, me, reward.xp, { type: 'daily_claim', refId: today });
+    return { streak, reward, coins: coins ?? 0, xp: xp ?? 0 };
+  });
+  emit([me], { type: 'panel:update', payload: {} });
+  return c.json({
+    streak: result.streak,
+    xp: result.reward.xp,
+    coins: result.reward.coins,
+    balance: result.coins,
+    totalXp: result.xp,
+  });
 });
 
 // ─── Endpoints : paris (volet C) ─────────────────────────────────────────────

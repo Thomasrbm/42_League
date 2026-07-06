@@ -549,6 +549,20 @@ export interface StreakView {
   next: { day: number; coins: number };
 }
 
+/** Récolte quotidienne (présence sur le site) — cf. GET /me & POST /daily/claim. */
+export interface DailyClaimView {
+  /** Jour de série en cours (celui à réclamer, ou déjà réclamé aujourd'hui). */
+  streak: number;
+  /** Record perso de jours consécutifs réclamés. */
+  best: number;
+  /** True si la récolte du jour a déjà été prise. */
+  claimedToday: boolean;
+  /** Récompense de la récolte du jour (à prendre, ou déjà créditée). */
+  reward: { xp: number; coins: number };
+  /** Récompense de demain (si la série continue). */
+  next: { xp: number; coins: number };
+}
+
 export interface MeResponse {
   login: string;
   isAdmin?: boolean;
@@ -573,6 +587,8 @@ export interface MeResponse {
   penaltyCooldownUntil?: string | null;
   /** Série d'assiduité ranked : série courante, record, bonus ELO, prochain palier. */
   streak?: StreakView;
+  /** Récolte quotidienne (présence sur le site) : série + récompense du jour/demain. */
+  dailyClaim?: DailyClaimView;
   /** True si l'utilisateur n'a pas (encore) consenti à la version courante de la politique. */
   consentRequired?: boolean;
   /** True si le login est autorisé sur l'env staging (cf. STAGING_ALLOWED backend). */
@@ -2468,6 +2484,12 @@ export const api = {
   claimQuest: (id: string) =>
     request<{ id: string; reward: number; xpReward: number; coins: number; xp: number }>(
       `/quests/${encodeURIComponent(id)}/claim`,
+      { method: 'POST', body: JSON.stringify({}) },
+    ),
+  /** Réclame la récolte quotidienne (XP + coins). 409 si déjà prise aujourd'hui. */
+  claimDaily: () =>
+    request<{ streak: number; xp: number; coins: number; balance: number; totalXp: number }>(
+      '/daily/claim',
       { method: 'POST', body: JSON.stringify({}) },
     ),
   bets: () => request<BetsResponse>('/bets'),

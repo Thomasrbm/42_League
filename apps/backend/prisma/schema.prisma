@@ -84,6 +84,13 @@ model User {
   rankedStreak        Int       @default(0) @map("ranked_streak")
   rankedStreakBest    Int       @default(0) @map("ranked_streak_best")
   rankedStreakDay     String?   @map("ranked_streak_day")
+  // Récolte quotidienne (présence sur le site, indépendante du jeu classé) :
+  // jours (UTC) consécutifs où le joueur a réclamé sa récompense (XP + coins).
+  // Même tolérance d'1 jour de grâce que l'assiduité. `dailyClaimDay` = dernier
+  // jour réclamé ("YYYY-MM-DD") ; sert d'anti-double-claim (1 récolte / jour).
+  dailyClaimStreak    Int       @default(0) @map("daily_claim_streak")
+  dailyClaimBest      Int       @default(0) @map("daily_claim_best")
+  dailyClaimDay       String?   @map("daily_claim_day")
   // Reset admin du cooldown d'ops (cf. POST /admin/ops/:login/reset-cooldown).
   // Quand renseigné, tout ops dont `expiresAt` <= cette date est ignoré pour le
   // calcul du cooldown (POST /ops & GET /ops/me) : le joueur peut re-déclarer.

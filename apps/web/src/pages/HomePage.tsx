@@ -25,6 +25,7 @@ import {
 import { Avatar } from '../components/Avatar';
 import { EmptyState } from '../components/EmptyState';
 import { PlayerLink } from '../components/PlayerLink';
+import { StreakCard, DailyClaimCard } from '../components/DailyRewards';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { api, type StakeMatchDTO } from '../lib/api';
 import { fmtRelative } from '../lib/format';
@@ -310,7 +311,7 @@ function WeeklyIdeasCard() {
 export function HomePage() {
   const t = useT();
   const { lang } = useI18n();
-  const { me, challenges, pending, tournaments, matches, leaderboard } = useLeagueData();
+  const { me, challenges, pending, tournaments, matches, leaderboard, refresh } = useLeagueData();
   const myLogin = me?.login ?? null;
 
   // Paliers de passe réclamables — compteur léger, rechargé à chaque visite.
@@ -431,6 +432,15 @@ export function HomePage() {
           </span>
         </div>
       </motion.div>
+
+      {/* Récompenses de fidélité : assiduité (ranked, déplacée du shop) + récolte
+          quotidienne (présence sur le site). Juste sous la bannière de saison. */}
+      {(me?.streak || me?.dailyClaim) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {me?.streak && <StreakCard streak={me.streak} />}
+          {me?.dailyClaim && <DailyClaimCard daily={me.dailyClaim} onClaimed={refresh} />}
+        </div>
+      )}
 
       {/* À faire */}
       {todo.length > 0 ? (
