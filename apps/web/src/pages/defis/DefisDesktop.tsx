@@ -42,6 +42,7 @@ import {
   LOSER_SCORE_MAX,
 } from './shared/DeclareGameFlow';
 import { ChallengeFlow } from './shared/ChallengeFlow';
+import { StakeMatchDefisSection } from '../enjeu';
 import { Declare2v2GameFlow } from './shared/Declare2v2GameFlow';
 import { Challenge2v2Flow } from './shared/Challenge2v2Flow';
 import { Mode1v1Toggle, type DuelMode } from './shared/Mode1v1Toggle';
@@ -205,6 +206,11 @@ export function DefisDesktop() {
         onClose={() => { setOpenCard(null); setPresetOpp(null); }}
         onDone={refresh}
       />
+
+      {/* ── 1b. MATCHS À ENJEU ───────────────────────────────────────────── */}
+      <div className="mb-6">
+        <StakeMatchDefisSection />
+      </div>
 
       {/* ── 2. ACTIVITÉ (flux compact, en dessous des CTAs) ──────────────── */}
       {hasActivity && (

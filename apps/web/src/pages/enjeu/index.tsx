@@ -1,12 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Zap, Clock, Trophy, X } from 'lucide-react';
-import { api, type StakeMatchDTO, type StakeMatchesResponse } from '../../lib/api';
+import { api, type LeaderboardEntry, type StakeMatchDTO, type StakeMatchesResponse } from '../../lib/api';
 import type { Game } from '../../lib/gameMode';
 import { GAME_META } from '../../lib/gameMeta';
 import { CoinAmount } from '../../components/bets/BetPrimitives';
+import { useLeagueData } from '../../hooks/useLeagueData';
+import { PlayerSearch } from '../defis/shared/PlayerSearch';
+import { useDefisLogic } from '../defis/shared/useDefisLogic';
 import { STAKE_MIN, STAKE_BET_MAX, stakeBetMultiplier } from '@42-league/shared';
 
 const GAMES_LIST = Object.keys(GAME_META) as Game[];
+
+/** Presets rapides de délai avant le coup d'envoi. */
+const TIME_PRESETS: { label: string; min: number }[] = [
+  { label: '15 min', min: 15 },
+  { label: '30 min', min: 30 },
+  { label: '45 min', min: 45 },
+  { label: '1 h', min: 60 },
+  { label: '2 h', min: 120 },
+  { label: '3 h', min: 180 },
+];
 
 /** Libellé de compte à rebours jusqu'au coup d'envoi. */
 function countdown(iso: string): string {
@@ -19,10 +33,10 @@ function countdown(iso: string): string {
 }
 
 function fmtMult(m: number): string {
-  return `×${m.toFixed(2).replace(/\.00$/, '').replace(/0$/, '')}`;
+  return `×${m.toFixed(2).replace(/\.?0+$/, '')}`;
 }
 
-/** Valeur `datetime-local` par défaut : maintenant + 20 min (au-dessus du minimum de 15). */
+/** Valeur `datetime-local` par défaut : maintenant + 20 min. */
 function defaultScheduled(): string {
   const d = new Date(Date.now() + 20 * 60 * 1000);
   d.setSeconds(0, 0);
@@ -44,7 +58,8 @@ function Avatar({ src, login }: { src: string | null; login: string }) {
   );
 }
 
-export function EnjeuPage() {
+/** Données + actions des matchs à enjeu, partagées entre la page /enjeu et la section Défis. */
+export function useStakeMatches() {
   const [data, setData] = useState<StakeMatchesResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -79,6 +94,12 @@ export function EnjeuPage() {
     [reload],
   );
 
+  return { data, err, busy, reload, run };
+}
+
+export function EnjeuPage() {
+  const { data, err, busy, run } = useStakeMatches();
+
   if (!data) {
     return <div className="max-w-2xl mx-auto p-6 text-muted-2 text-sm">Chargement…</div>;
   }
@@ -105,7 +126,6 @@ export function EnjeuPage() {
         <div className="rounded-lg border border-red/40 bg-red/10 text-red text-[12px] px-3 py-2">{err}</div>
       )}
 
-      {/* Défis reçus (à accepter avec ma mise) */}
       {data.incoming.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-gold">Défis reçus</h2>
@@ -115,7 +135,6 @@ export function EnjeuPage() {
         </section>
       )}
 
-      {/* Mes défis en attente d'acceptation */}
       {data.outgoing.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-muted-2">
@@ -145,10 +164,8 @@ export function EnjeuPage() {
         </section>
       )}
 
-      {/* Déclarer un nouveau match à enjeu */}
       <DeclareForm canDeclare={data.canDeclareToday} coins={data.coins} busy={busy} run={run} />
 
-      {/* Matchs annoncés — pari ouvert */}
       <section className="space-y-2">
         <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-gold flex items-center gap-1.5">
           <Zap className="w-3.5 h-3.5" /> Matchs annoncés
@@ -161,6 +178,49 @@ export function EnjeuPage() {
           ))
         )}
       </section>
+    </div>
+  );
+}
+
+/**
+ * Section compacte des matchs à enjeu pour la page Défis : défis reçus (à
+ * accepter/refuser) + accès rapide pour en lancer un. La déclaration complète et
+ * les paris se font sur /enjeu.
+ */
+export function StakeMatchDefisSection({ variant = 'desktop' }: { variant?: 'desktop' | 'mobile' }) {
+  const { data, busy, run } = useStakeMatches();
+  if (!data) return null;
+  const hasAny = data.incoming.length > 0 || data.announced.length > 0;
+  return (
+    <div className={`space-y-2 ${variant === 'mobile' ? 'px-3' : ''}`}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-gold flex items-center gap-1.5">
+          <Zap className="w-3.5 h-3.5" /> Matchs à enjeu
+        </h3>
+        <Link
+          to="/enjeu"
+          className="text-[11px] font-bold text-gold hover:brightness-110 border border-gold/40 rounded-lg px-2.5 py-1"
+        >
+          {data.canDeclareToday ? 'Lancer un défi à enjeu' : 'Voir les matchs à enjeu'}
+        </Link>
+      </div>
+      {data.incoming.map((m) => (
+        <IncomingCard key={m.id} m={m} coins={data.coins} busy={busy} run={run} />
+      ))}
+      {data.announced.length > 0 && (
+        <Link
+          to="/enjeu"
+          className="block rounded-xl border border-gold/40 bg-gold/[0.05] px-3 py-2 text-[12px] text-muted-2 hover:brightness-110"
+        >
+          <span className="text-gold font-bold">{data.announced.length}</span> match(s) annoncé(s) — mise tes
+          coins avant le coup d’envoi →
+        </Link>
+      )}
+      {!hasAny && (
+        <p className="text-[11px] text-muted-2">
+          Aucun match à enjeu en cours. Défie un joueur et fais parier toute la ligue.
+        </p>
+      )}
     </div>
   );
 }
@@ -229,28 +289,50 @@ function DeclareForm({
   busy: boolean;
   run: (fn: () => Promise<unknown>) => Promise<void>;
 }) {
+  const { locations } = useLeagueData();
+  const { others, recentOpponents, opponentCounts } = useDefisLogic();
+
   const [game, setGame] = useState<Game>('babyfoot');
-  const [opponent, setOpponent] = useState('');
-  const [when, setWhen] = useState(defaultScheduled());
+  const [opponent, setOpponent] = useState<LeaderboardEntry | null>(null);
   const [stake, setStake] = useState(String(STAKE_MIN));
+
+  // Heure : mode rapide (délai en min/h, presets) ou date précise.
+  const [timeMode, setTimeMode] = useState<'quick' | 'precise'>('quick');
+  const [amount, setAmount] = useState('15');
+  const [unit, setUnit] = useState<'min' | 'h'>('min');
+  const [precise, setPrecise] = useState(defaultScheduled());
+
+  const quickMinutes = Math.round((Number(amount) || 0) * (unit === 'h' ? 60 : 1));
+  const timeValid =
+    timeMode === 'precise'
+      ? !!precise && new Date(precise).getTime() >= Date.now() + 15 * 60 * 1000
+      : quickMinutes >= 15;
+
   const val = Number(stake);
   const ok =
-    canDeclare &&
-    opponent.trim().length > 0 &&
-    Number.isFinite(val) &&
-    val >= STAKE_MIN &&
-    val <= coins &&
-    !!when;
+    canDeclare && !!opponent && Number.isFinite(val) && val >= STAKE_MIN && val <= coins && timeValid;
+
+  const setPreset = (min: number) => {
+    if (min >= 60 && min % 60 === 0) {
+      setUnit('h');
+      setAmount(String(min / 60));
+    } else {
+      setUnit('min');
+      setAmount(String(min));
+    }
+  };
 
   const submit = () =>
     run(async () => {
+      const scheduledAt =
+        timeMode === 'precise' ? new Date(precise) : new Date(Date.now() + quickMinutes * 60 * 1000);
       await api.declareStakeMatch({
         game,
-        opponentLogin: opponent.trim(),
-        scheduledAt: new Date(when).toISOString(),
+        opponentLogin: opponent!.login,
+        scheduledAt: scheduledAt.toISOString(),
         stake: val,
       });
-      setOpponent('');
+      setOpponent(null);
       setStake(String(STAKE_MIN));
     });
 
@@ -264,6 +346,22 @@ function DeclareForm({
           Tu as déjà un match à enjeu aujourd’hui (1 par jour).
         </div>
       )}
+
+      {/* Adversaire — recherche dynamique parmi les inscrits */}
+      <div>
+        <div className="text-[11px] text-muted-2 mb-1">Adversaire</div>
+        <PlayerSearch
+          players={others}
+          recentPlayers={recentOpponents}
+          opponentCounts={opponentCounts}
+          selected={opponent}
+          onSelect={setOpponent}
+          onClear={() => setOpponent(null)}
+          locations={locations}
+        />
+      </div>
+
+      {/* Discipline + mise */}
       <div className="grid grid-cols-2 gap-2">
         <label className="text-[11px] text-muted-2 flex flex-col gap-1">
           Discipline
@@ -280,24 +378,6 @@ function DeclareForm({
           </select>
         </label>
         <label className="text-[11px] text-muted-2 flex flex-col gap-1">
-          Adversaire (login)
-          <input
-            value={opponent}
-            onChange={(e) => setOpponent(e.target.value)}
-            placeholder="login 42"
-            className="rounded-lg bg-bg-2 border border-border px-2 py-1.5 text-sm"
-          />
-        </label>
-        <label className="text-[11px] text-muted-2 flex flex-col gap-1">
-          Coup d’envoi (≥ 15 min)
-          <input
-            type="datetime-local"
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-            className="rounded-lg bg-bg-2 border border-border px-2 py-1.5 text-sm"
-          />
-        </label>
-        <label className="text-[11px] text-muted-2 flex flex-col gap-1">
           Ta mise (min {STAKE_MIN})
           <input
             type="number"
@@ -308,6 +388,83 @@ function DeclareForm({
           />
         </label>
       </div>
+
+      {/* Heure — presets rapides + manuel + date précise */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-2">Coup d’envoi</span>
+          <div className="ml-auto inline-flex rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setTimeMode('quick')}
+              className={`px-2 py-1 text-[11px] font-semibold ${timeMode === 'quick' ? 'bg-gold text-bg-0' : 'text-muted-2'}`}
+            >
+              Rapide
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeMode('precise')}
+              className={`px-2 py-1 text-[11px] font-semibold ${timeMode === 'precise' ? 'bg-gold text-bg-0' : 'text-muted-2'}`}
+            >
+              Date précise
+            </button>
+          </div>
+        </div>
+
+        {timeMode === 'quick' ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {TIME_PRESETS.map((p) => {
+                const active = quickMinutes === p.min;
+                return (
+                  <button
+                    key={p.min}
+                    type="button"
+                    onClick={() => setPreset(p.min)}
+                    className={`rounded-lg border px-2.5 py-1 text-[12px] font-semibold ${
+                      active ? 'border-gold bg-gold/15 text-gold' : 'border-border text-muted-2 hover:border-gold/40'
+                    }`}
+                  >
+                    dans {p.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-2">ou dans</span>
+              <input
+                type="number"
+                min={unit === 'h' ? 1 : 15}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-20 rounded-lg bg-bg-2 border border-border px-2 py-1.5 text-sm"
+              />
+              <select
+                value={unit}
+                onChange={(e) => setUnit(e.target.value as 'min' | 'h')}
+                className="rounded-lg bg-bg-2 border border-border px-2 py-1.5 text-sm"
+              >
+                <option value="min">minutes</option>
+                <option value="h">heures</option>
+              </select>
+            </div>
+            {!timeValid && <div className="text-[11px] text-red">15 minutes minimum à l’avance.</div>}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <input
+              type="datetime-local"
+              value={precise}
+              onChange={(e) => setPrecise(e.target.value)}
+              className="rounded-lg bg-bg-2 border border-border px-2 py-1.5 text-sm w-full"
+            />
+            {!timeValid && (
+              <div className="text-[11px] text-red">Choisis une heure au moins 15 min à l’avance.</div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] text-muted-2">
           Cote de tes parieurs : <span className="text-gold font-bold">{fmtMult(stakeBetMultiplier(val || 0))}</span>
@@ -350,7 +507,7 @@ function AnnouncedCard({
   );
 
   const betVal = Number(betStake);
-  const betOk = choice && Number.isFinite(betVal) && betVal >= 1 && betVal <= maxBet;
+  const betOk = !!choice && Number.isFinite(betVal) && betVal >= 1 && betVal <= maxBet;
 
   return (
     <div className="rounded-xl border border-border bg-bg-2/40 overflow-hidden">
@@ -364,7 +521,6 @@ function AnnouncedCard({
         </div>
       </div>
 
-      {/* Les deux camps + cotes */}
       <div className="grid grid-cols-2 divide-x divide-border/40">
         {sides.map((s) => (
           <div key={s.login} className="p-2.5 flex flex-col items-center gap-1 text-center">
@@ -381,7 +537,6 @@ function AnnouncedCard({
         ))}
       </div>
 
-      {/* Zone d'action */}
       <div className="p-2.5 border-t border-border/40">
         {m.isParticipant ? (
           closed ? (
