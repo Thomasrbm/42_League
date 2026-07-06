@@ -257,11 +257,23 @@ function buildTiles(
   // existent réellement, en respectant la bande de rareté du palier.
   const byRarity: Record<Rarity, ShopItemData[]> = { common: [], rare: [], epic: [], legendary: [] };
   for (const it of realPool) byRarity[resolveRarity(it)].push(it);
-  function realItemFor(tier: number, fn: FnRarity): ShopItemData | null {
+  // Dédup : chaque cosmétique réel (titre / BANNIÈRE / badge) n'apparaît qu'UNE
+  // fois sur toute la piste. On pré-marque les items déjà posés par les paliers
+  // configurés, puis realItemFor ne pioche que des items JAMAIS utilisés (bande de
+  // rareté d'abord, sinon pool global) ; épuisé → null (repli sur le visuel factice,
+  // pas de répétition). Sans ça, `bucket[tier % length]` répétait le même item.
+  const usedItemIds = new Set<string>();
+  for (const ti of data.tiers) if (ti.rewardKind === 'item' && ti.item) usedItemIds.add(ti.item.id);
+  function realItemFor(_tier: number, fn: FnRarity): ShopItemData | null {
     if (realPool.length === 0) return null;
     const want = FN_TO_SHOP[fn];
     const bucket = byRarity[want].length > 0 ? byRarity[want] : realPool;
-    return bucket[tier % bucket.length] ?? null;
+    const pick =
+      bucket.find((it) => !usedItemIds.has(it.id)) ??
+      realPool.find((it) => !usedItemIds.has(it.id)) ??
+      null;
+    if (pick) usedItemIds.add(pick.id);
+    return pick;
   }
 
   // Aucun palier configuré → piste 100% factice de 60 paliers pour la démo.

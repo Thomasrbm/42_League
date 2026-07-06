@@ -73,13 +73,6 @@ const WHATS_NEW: { to: string; Icon: LucideIcon; color: string; title: string; d
     title: 'Émotes de victoire',
     desc: 'Nargue tes victimes après un 1v1 — à choisir sur ton profil.',
   },
-  {
-    to: '/shop/propose',
-    Icon: ShoppingBag,
-    color: '#a78bfa',
-    title: 'Propose un item boutique',
-    desc: 'Imagine une bannière ou un titre : les admins le relisent et l’ajoutent.',
-  },
 ];
 
 /** Bloc pleine largeur « Nouveautés à tester » — vitrine flashy des features fraîches. */

@@ -47,6 +47,8 @@ const fr: Dict = {
 
   'shop.title': 'Boutique',
   'shop.sub': 'dépense tes League Coins',
+  'shop.propose.cta': 'Propose un item boutique',
+  'shop.propose.hint': 'Imagine un titre ou une bannière — les admins le relisent et l’ajoutent.',
   'shop.balance': 'Ton solde',
   'shop.buy': 'Acheter',
   'shop.buying': 'Achat…',
@@ -304,6 +306,8 @@ const en: Dict = {
 
   'shop.title': 'Shop',
   'shop.sub': 'spend your League Coins',
+  'shop.propose.cta': 'Propose a shop item',
+  'shop.propose.hint': 'Design a title or banner — admins review it and add it.',
   'shop.balance': 'Your balance',
   'shop.buy': 'Buy',
   'shop.buying': 'Buying…',
@@ -561,6 +565,8 @@ const es: Dict = {
 
   'shop.title': 'Tienda',
   'shop.sub': 'gasta tus League Coins',
+  'shop.propose.cta': 'Propón un objeto de la tienda',
+  'shop.propose.hint': 'Diseña un título o un banner — los admins lo revisan y lo añaden.',
   'shop.balance': 'Tu saldo',
   'shop.buy': 'Comprar',
   'shop.buying': 'Comprando…',
