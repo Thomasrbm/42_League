@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Clock, Swords } from 'lucide-react';
+import { Clock, LinkIcon, Swords } from 'lucide-react';
 import { SwipeableCard } from '../../../mobile/primitives/SwipeableCard';
 import { Avatar } from '../../../components/Avatar';
 import { Button } from '../../../components/Button';
@@ -108,6 +108,19 @@ export function ChallengeMobileCard({
           <Clock className="w-3 h-3" strokeWidth={2.5} />
           <span>{when.text}</span>
         </div>
+        {/* Coding : lien d'invitation cliquable vers la room de code (métadonnée). */}
+        {challenge.inviteUrl && (
+          <a
+            href={challenge.inviteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-teal hover:underline break-all"
+          >
+            <LinkIcon className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} />
+            <span className="truncate">{t('defis.inviteUrl.open')}</span>
+          </a>
+        )}
         {/* Cooldown 48h : un défi reçu non accepté sous ce délai expire (sans pénalité). */}
         {kind === 'incoming' && (
           <div className="mt-1">

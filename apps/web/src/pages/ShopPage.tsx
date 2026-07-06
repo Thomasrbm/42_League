@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { TiltCard } from '../components/TiltCard';
+import { Avatar } from '../components/Avatar';
 import { ProfilePreviewModal } from '../components/shop/ProfilePreviewModal';
 import { MysteryRevealModal } from '../components/shop/MysteryRevealModal';
 import { QuestsPanel } from './profil/QuestsPanel';
@@ -44,10 +45,10 @@ import { trackEvent } from '../lib/analytics';
 import { RARITY, RARITY_ORDER, resolveRarity, type Rarity } from '../lib/rarity';
 
 /** Catégories pour lesquelles « équiper » a du sens (titre / bannière actifs). */
-const EQUIPPABLE: ShopCategory[] = ['title', 'banner'];
+const EQUIPPABLE: ShopCategory[] = ['title', 'banner', 'avatar_frame'];
 
 /** Ordre d'affichage stable des catégories dans la barre de filtres. */
-const CATEGORY_ORDER: ShopCategory[] = ['title', 'banner', 'consumable', 'mystery_box'];
+const CATEGORY_ORDER: ShopCategory[] = ['title', 'banner', 'avatar_frame', 'consumable', 'mystery_box'];
 
 /** Catégories masquées de la boutique (achat impossible). */
 const HIDDEN_CATS: ShopCategory[] = ['badge'];
@@ -56,11 +57,12 @@ const PLACEHOLDER_CATS: ShopCategory[] = ['banner', 'title', 'badge'];
 
 /** Icône et libellé de chaque catégorie pour les séparateurs de section. */
 const CAT_META: Record<ShopCategory, { Icon: LucideIcon; label: string }> = {
-  title:       { Icon: Crown,       label: 'Titres' },
-  banner:      { Icon: ImageIcon,   label: 'Bannières' },
-  consumable:  { Icon: Zap,         label: 'Consommables' },
-  mystery_box: { Icon: PackageOpen, label: 'Boîtes Mystère' },
-  badge:       { Icon: Gem,         label: 'Badges' },
+  title:        { Icon: Crown,       label: 'Titres' },
+  banner:       { Icon: ImageIcon,   label: 'Bannières' },
+  avatar_frame: { Icon: Sparkles,    label: 'Ornements' },
+  consumable:   { Icon: Zap,         label: 'Consommables' },
+  mystery_box:  { Icon: PackageOpen, label: 'Boîtes Mystère' },
+  badge:        { Icon: Gem,         label: 'Badges' },
 };
 
 function isSheldonItem(item: ShopItemData): boolean {
@@ -260,6 +262,20 @@ function ShopItemVisual({ item, rarityHex }: { item: ShopItemData; rarityHex: st
         ) : (
           <ImageIcon className="relative w-7 h-7 text-muted-2" strokeWidth={1.8} />
         ))}
+
+      {item.category === 'avatar_frame' && (
+        <div className="relative">
+          <Avatar
+            login={item.name || 'aperçu'}
+            imageUrl={null}
+            size="xl"
+            noRing
+            fx={false}
+            frame={image}
+            frameAnimated={typeof p.animated === 'string' ? p.animated : null}
+          />
+        </div>
+      )}
 
       {item.category === 'title' && (
         <span className="relative inline-flex items-center gap-1.5 text-center text-[15px]">

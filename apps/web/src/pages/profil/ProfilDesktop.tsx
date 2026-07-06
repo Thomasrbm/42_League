@@ -23,6 +23,7 @@ import { ChessTrophy } from '../../components/ChessTrophy';
 import { FavoriteCharsRow } from '../../components/FavoriteCharsRow';
 import { FavoriteCharsEditor } from '../../components/FavoriteCharsEditor';
 import { favoritesForGame, type FightingGame } from '../../lib/chars';
+import type { Game } from '../../lib/gameMode';
 import { XpBar } from '../../components/XpBar';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
@@ -113,6 +114,8 @@ export function ProfilDesktop() {
   const effectiveTitleColor = isTarnished ? null : titleColor;
   const equippedBadge = me.equippedBadge ?? null;
   const equippedBanner = me.equippedBanner ?? null;
+  const equippedAvatarFrame = me.equippedAvatarFrame ?? null;
+  const equippedAvatarFrameAnimated = me.equippedAvatarFrameAnimated ?? null;
   // Jeux de combat où je suis inscrit → afficher/éditer mes persos favoris.
   const fightingGames = (['smash', 'streetfighter'] as const).filter((g) =>
     (u.games ?? ['babyfoot']).includes(g),
@@ -214,6 +217,8 @@ export function ProfilDesktop() {
               className="relative ring-2 ring-gold/45 ring-offset-2 ring-offset-bg-2"
               // La carte porte déjà l'aura complète → pas de double effet sur la PP.
               fx={false}
+              frame={equippedAvatarFrame}
+              frameAnimated={equippedAvatarFrameAnimated}
             />
           </div>
 
@@ -400,7 +405,7 @@ function TitlesCard({
   label: string;
   value: number;
   accent: string;
-  game: 'babyfoot' | 'smash' | 'chess' | 'streetfighter' | 'flechettes';
+  game: Game;
 }) {
   return (
     <div className="card-hud rounded-xl px-3 py-2.5 flex items-center gap-2.5">

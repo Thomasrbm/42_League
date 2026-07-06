@@ -76,6 +76,9 @@ export function PendingMatchCard({ match, myLogin, onDone }: PendingMatchCardPro
   const iWon = match.scoreOpponent > match.scoreDeclarer;
   // Nulle (échecs) : les deux scores égaux (0-0).
   const isDraw = match.game === 'chess' && match.scoreDeclarer === match.scoreOpponent;
+  // Disciplines binaires (échecs / coding / pokémon) : on affiche « V » côté vainqueur
+  // plutôt que le score chiffré (1/0).
+  const isBinaryGame = match.game === 'chess' || match.game === 'coding' || match.game === 'pokemon';
 
   // ── Confirmation 2v2 ──────────────────────────────────────────────────────────
   const handleConfirm2v2 = async () => {
@@ -261,7 +264,7 @@ export function PendingMatchCard({ match, myLogin, onDone }: PendingMatchCardPro
                   match.scoreDeclarer > match.scoreOpponent ? 'text-gold text-gold-emboss' : 'text-text-strong'
                 }`}
               >
-                {match.game === 'chess' && match.scoreDeclarer > match.scoreOpponent ? 'V' : match.scoreDeclarer}
+                {isBinaryGame && match.scoreDeclarer > match.scoreOpponent ? 'V' : match.scoreDeclarer}
               </span>
               <span className="text-2xl text-muted">–</span>
               <span
@@ -269,7 +272,7 @@ export function PendingMatchCard({ match, myLogin, onDone }: PendingMatchCardPro
                   match.scoreOpponent > match.scoreDeclarer ? 'text-gold text-gold-emboss' : 'text-text-strong'
                 }`}
               >
-                {match.game === 'chess' && match.scoreOpponent > match.scoreDeclarer ? 'V' : match.scoreOpponent}
+                {isBinaryGame && match.scoreOpponent > match.scoreDeclarer ? 'V' : match.scoreOpponent}
               </span>
             </div>
           )}

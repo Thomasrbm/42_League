@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { ChevronRight, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
@@ -26,6 +27,16 @@ export function ProfilMobile() {
   const { signOut } = useAuth();
   const t = useT();
   const navigate = useNavigate();
+
+  // Deep-link « /profile#taunt-emote » (depuis la carte de la page d'accueil) →
+  // fait défiler jusqu'à la carte de l'émote de victoire.
+  useEffect(() => {
+    if (window.location.hash !== '#taunt-emote') return;
+    const id = requestAnimationFrame(() => {
+      document.getElementById('taunt-emote')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   if (!me?.user) {
     return (
@@ -74,7 +85,7 @@ export function ProfilMobile() {
 
         {/* Émote de victoire — bien visible dans le profil : celle que voient
             tes victimes après un 1v1. 3 gratuites, le reste via le passe. */}
-        <section className="card-hud rounded-2xl px-4 pt-3 pb-4 border-gold/25">
+        <section id="taunt-emote" className="scroll-mt-24 card-hud rounded-2xl px-4 pt-3 pb-4 border-gold/25">
           <SectionHeader title={t('settings.tauntEmote')} />
           <TauntEmotePicker />
         </section>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
-import { ShieldBan, Swords, Flame, Loader2, Check, X, Crosshair, Upload, ImageIcon, ChevronDown, Package, type LucideIcon, type LucideProps } from 'lucide-react';
+import { ShieldBan, Swords, Flame, Loader2, Check, X, Crosshair, Upload, ImageIcon, ChevronDown, Package, Sparkles, type LucideIcon, type LucideProps } from 'lucide-react';
 import { api, type ConsumablesResponse, type ConsumableKind, type ConsumableState, type InventoryEntry } from '../../lib/api';
+import { Avatar } from '../../components/Avatar';
 import { useFlash } from '../../hooks/useFlash';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useEloBoostRemaining } from '../../components/EloBoost';
@@ -234,6 +235,92 @@ function BannersSection() {
   );
 }
 
+/**
+ * Ornements de photo de profil possédés (cadres superposés autour de l'avatar).
+ * Calqué sur `BannersSection` : chaque vignette est un Avatar factice cerclé de
+ * l'ornement ; un tap équipe / déséquipe (un seul à la fois côté serveur).
+ */
+function AvatarFramesSection() {
+  const { show } = useFlash();
+  const { refresh, me } = useLeagueData();
+  const [frames, setFrames] = useState<InventoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [equipping, setEquipping] = useState<string | null>(null);
+  const myLogin = me?.login ?? 'moi';
+
+  useEffect(() => {
+    api.inventory()
+      .then((rows) => setFrames(rows.filter((r) => r.item.category === 'avatar_frame')))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (frames.length === 0) return null;
+
+  async function toggleEquip(entry: InventoryEntry) {
+    setEquipping(entry.itemId);
+    try {
+      await api.equipItem(entry.itemId, !entry.equipped);
+      setFrames((prev) =>
+        prev.map((b) => ({
+          ...b,
+          equipped: b.item.category === 'avatar_frame' ? b.itemId === entry.itemId && !entry.equipped : b.equipped,
+        })),
+      );
+      void refresh();
+    } catch (err) {
+      show(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally {
+      setEquipping(null);
+    }
+  }
+
+  return (
+    <Folder title="Ornements" count={frames.length} Icon={Sparkles} color="#38bdf8">
+      <div className="grid grid-cols-3 gap-2">
+        {frames.map((b) => {
+          const p = b.item.payload as Record<string, unknown> | null;
+          const userImg = typeof b.userPayload?.image === 'string' ? b.userPayload.image : null;
+          const itemImg = typeof p?.image === 'string' ? p.image : null;
+          const displayImg = userImg ?? itemImg;
+          const animated = typeof p?.animated === 'string' ? p.animated : null;
+
+          return (
+            <button
+              key={b.itemId}
+              type="button"
+              disabled={equipping === b.itemId}
+              onClick={() => void toggleEquip(b)}
+              title={b.equipped ? `${b.item.name} — équipé` : `Équiper ${b.item.name}`}
+              className="relative rounded-xl border transition-colors flex flex-col items-center gap-1.5 p-2 tap-transparent"
+              style={{
+                borderColor: b.equipped ? 'rgba(56,189,248,0.65)' : 'rgba(255,255,255,0.08)',
+                boxShadow: b.equipped ? '0 0 14px -4px rgba(56,189,248,0.5)' : undefined,
+              }}
+            >
+              <Avatar login={myLogin} imageUrl={me?.user?.imageUrl ?? null} size="lg" noRing fx={false} frame={displayImg} frameAnimated={animated} />
+              <span className="font-gaming text-[10px] font-extrabold text-white/90 drop-shadow truncate max-w-full">
+                {b.item.name}
+              </span>
+              {b.equipped && (
+                <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-sky-400 flex items-center justify-center shadow">
+                  <Check className="w-3 h-3 text-[#04121a]" strokeWidth={3.5} />
+                </span>
+              )}
+              {equipping === b.itemId && (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-xl">
+                  <Loader2 className="w-4 h-4 animate-spin text-white" strokeWidth={2.5} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </Folder>
+  );
+}
+
 export function InventoryPanel() {
   const { show } = useFlash();
   const { refresh, leaderboard, me } = useLeagueData();
@@ -331,6 +418,7 @@ export function InventoryPanel() {
   return (
     <div className="space-y-3">
     <BannersSection />
+    <AvatarFramesSection />
     <Folder title="Consommables" count={totalConsumables} Icon={Package} color="#2dd4bf" defaultOpen>
       <div className="space-y-2.5">
         {data.items.map((c) => {

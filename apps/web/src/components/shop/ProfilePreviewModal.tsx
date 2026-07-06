@@ -58,6 +58,16 @@ export function ProfilePreviewModal({
   const isTitle = item.category === 'title';
   const isBanner = item.category === 'banner';
   const isBadge = item.category === 'badge';
+  const isAvatarFrame = item.category === 'avatar_frame';
+
+  // Ornement prévisualisé : l'objet si on prévisualise un ornement, sinon celui
+  // déjà équipé par le joueur.
+  const frame = isAvatarFrame
+    ? (typeof p.image === 'string' ? p.image : null)
+    : me.equippedAvatarFrame ?? null;
+  const frameAnimated = isAvatarFrame
+    ? (typeof p.animated === 'string' ? p.animated : null)
+    : me.equippedAvatarFrameAnimated ?? null;
 
   const baseTitle = u ? displayTitle(u.login, u.title, null) : null;
   const titleText = isTitle ? (typeof p.title === 'string' ? p.title : item.name) : baseTitle;
@@ -185,6 +195,8 @@ export function ProfilePreviewModal({
                     imageUrl={u?.imageUrl ?? null}
                     size="xl"
                     className="relative ring-2 ring-gold/50 ring-offset-2 ring-offset-bg-2"
+                    frame={frame}
+                    frameAnimated={frameAnimated}
                   />
                 </div>
 

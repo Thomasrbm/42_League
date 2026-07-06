@@ -95,6 +95,8 @@ export interface Challenge {
   createdAt: string;
   decidedAt: string | null;
   game?: Game;
+  /** Lien d'invitation vers la room du site de code (coding uniquement) — métadonnée. */
+  inviteUrl?: string | null;
   /** '2v2' pour un défi en équipe Babyfoot. */
   mode?: '2v2' | null;
   /** Coéquipier du challenger — présent uniquement en 2v2. */
@@ -258,7 +260,7 @@ export interface TeamProfile extends BabyfootTeamEntry {
 
 // ─── League Coin · Boutique ───────────────────────────────────────────────────
 
-export type ShopCategory = 'title' | 'banner' | 'badge' | 'mystery_box' | 'consumable'; // 'badge' conservé pour rétrocompatibilité inventaire
+export type ShopCategory = 'title' | 'banner' | 'badge' | 'mystery_box' | 'consumable' | 'avatar_frame'; // 'badge' conservé pour rétrocompatibilité inventaire ; 'avatar_frame' = ornement de photo de profil
 
 /** Type de consommable (cf. ConsumableInventory backend). */
 export type ConsumableKind = 'anti_ops' | 'elo_mult' | 'force_duel' | 'mini_ops';
@@ -570,6 +572,10 @@ export interface MeResponse {
   equippedBadge?: EquippedBadge | null;
   /** Bannière équipée (data-URL) — fond de la carte profil. */
   equippedBanner?: string | null;
+  /** Ornement de photo de profil équipé (data-URL) — cadre superposé autour de l'avatar. */
+  equippedAvatarFrame?: string | null;
+  /** Variante animée de l'ornement (data-URL webp/gif) — jouée au survol. */
+  equippedAvatarFrameAnimated?: string | null;
   /** Palmarès par saison. */
   palmares?: PalmaresEntry[];
   /** Annonces générales non encore vues — affichées en popup à la connexion. */
@@ -597,6 +603,12 @@ export interface MeResponse {
     eloFlechettes?: number;
     matchesPlayedFlechettes?: number;
     tournamentsWonFlechettes?: number;
+    eloCoding?: number;
+    matchesPlayedCoding?: number;
+    tournamentsWonCoding?: number;
+    eloPokemon?: number;
+    matchesPlayedPokemon?: number;
+    tournamentsWonPokemon?: number;
     // Babyfoot 2v2 : rating personnel distinct du 1v1 (cf. eloBabyfoot2v2 backend).
     eloBabyfoot2v2?: number;
     matchesPlayed2v2?: number;
@@ -676,6 +688,12 @@ export interface AdminUser {
   eloFlechettes?: number;
   matchesPlayedFlechettes?: number;
   tournamentsWonFlechettes?: number;
+  eloCoding?: number;
+  matchesPlayedCoding?: number;
+  tournamentsWonCoding?: number;
+  eloPokemon?: number;
+  matchesPlayedPokemon?: number;
+  tournamentsWonPokemon?: number;
   // Babyfoot 2v2 : rating personnel distinct du 1v1 (cf. eloBabyfoot2v2 backend).
   eloBabyfoot2v2?: number;
   matchesPlayed2v2?: number;
@@ -832,6 +850,12 @@ export interface UserProfile {
     eloFlechettes?: number;
     matchesPlayedFlechettes?: number;
     tournamentsWonFlechettes?: number;
+    eloCoding?: number;
+    matchesPlayedCoding?: number;
+    tournamentsWonCoding?: number;
+    eloPokemon?: number;
+    matchesPlayedPokemon?: number;
+    tournamentsWonPokemon?: number;
     // Babyfoot 2v2 : rating personnel distinct du 1v1 (cf. eloBabyfoot2v2 backend).
     eloBabyfoot2v2?: number;
     matchesPlayed2v2?: number;
@@ -869,6 +893,10 @@ export interface UserProfile {
   equippedBadge?: EquippedBadge | null;
   /** Bannière équipée (data-URL) — fond de la carte profil, visible de tous. */
   equippedBanner?: string | null;
+  /** Ornement de photo de profil équipé (data-URL) — cadre superposé autour de l'avatar. */
+  equippedAvatarFrame?: string | null;
+  /** Variante animée de l'ornement (data-URL webp/gif) — jouée au survol. */
+  equippedAvatarFrameAnimated?: string | null;
 }
 
 export interface FollowPrefs {
@@ -991,6 +1019,9 @@ export interface Tournament {
   // Match désigné « en cours » par l'organisateur (« match suivant ») : déclenche
   // l'écran VERSUS et le badge « EN COURS » dans l'arbre. null aux échecs.
   activeMatchId?: string | null;
+  // Prime « gambler » (150 coins/tournoi en cours) : le viewer l'a-t-il déjà
+  // réclamée ? Renseigné par GET /tournaments/:id (undefined sur les listes).
+  gamblerBonusClaimed?: boolean;
   entries?: TournamentEntry[];
   matches?: TournamentMatch[];
   winner?: { login: string; imageUrl: string | null } | null;
@@ -1167,6 +1198,8 @@ export interface AppNotification {
 export interface QuestView {
   id: string;
   reward: number;
+  /** Gros gain d'XP accordé au claim (en plus des coins). */
+  xpReward: number;
   target: number;
   progress: number;
   claimed: boolean;
@@ -1560,7 +1593,7 @@ export const api = {
     ),
 
   challenges: () => request<Challenge[]>('/challenges'),
-  createChallenge: (input: { opponentLogin: string; scheduledAt: string; game?: Game }) =>
+  createChallenge: (input: { opponentLogin: string; scheduledAt: string; game?: Game; inviteUrl?: string }) =>
     request<Challenge>('/challenges', {
       method: 'POST',
       body: JSON.stringify(input),
@@ -1903,6 +1936,12 @@ export const api = {
       eloFlechettes?: number;
       matchesPlayedFlechettes?: number;
       tournamentsWonFlechettes?: number;
+      eloCoding?: number;
+      matchesPlayedCoding?: number;
+      tournamentsWonCoding?: number;
+      eloPokemon?: number;
+      matchesPlayedPokemon?: number;
+      tournamentsWonPokemon?: number;
       games?: Game[];
     },
   ) =>
@@ -2302,7 +2341,7 @@ export const api = {
   // ── Économie de coins : quêtes hebdo + paris ──────────────────────────────
   quests: () => request<QuestsResponse>('/quests'),
   claimQuest: (id: string) =>
-    request<{ id: string; reward: number; coins: number }>(
+    request<{ id: string; reward: number; xpReward: number; coins: number; xp: number }>(
       `/quests/${encodeURIComponent(id)}/claim`,
       { method: 'POST', body: JSON.stringify({}) },
     ),
@@ -2322,6 +2361,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  // Prime « gambler » : 150 coins offerts une fois par tournoi en cours.
+  claimGamblerBonus: (tournamentId: string) =>
+    request<{ ok: true; coins: number; granted: number }>(
+      `/tournaments/${encodeURIComponent(tournamentId)}/gambler-claim`,
+      { method: 'POST', body: JSON.stringify({}) },
+    ),
 
   // ── SF Club Sessions ──────────────────────────────────────────────────────
 

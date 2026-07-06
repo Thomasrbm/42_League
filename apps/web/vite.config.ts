@@ -6,7 +6,7 @@ import { execSync } from 'node:child_process';
 
 // MAJOR.MINOR à bumper manuellement lors d'une refonte majeure.
 // BUILD = nombre de commits git → s'incrémente automatiquement à chaque commit.
-const RELEASE = '1.2';
+const RELEASE = '1.3';
 
 function formatDate(raw: string): string {
   // raw = "2026-05-29 14:30:22 +0200"

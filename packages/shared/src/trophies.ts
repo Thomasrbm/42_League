@@ -601,7 +601,7 @@ export function computeTrophies(
 
 export type GameBoards = Partial<Record<Game, TrophyUser[]>>;
 
-const MIX_GAMES: Game[] = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes'];
+const MIX_GAMES: Game[] = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes', 'coding', 'pokemon'];
 
 export function computeMixTrophies(boards: GameBoards, matches: TrophyMatch[]): TrophyResult[] {
   // Avatars + ELO cumulé depuis les 3 classements.

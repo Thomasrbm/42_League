@@ -29,6 +29,17 @@ interface AvatarProps {
    * purement décoratives.
    */
   fx?: boolean;
+  /**
+   * Ornement de photo de profil (façon Discord « avatar decorations ») : un PNG
+   * transparent carré superposé AUTOUR de la photo, débordant du cadre. Passé
+   * uniquement là où on dispose de la donnée (cartes profil), comme `equippedBanner`.
+   */
+  frame?: string | null;
+  /**
+   * Variante animée de l'ornement (webp/gif) jouée AU SURVOL. Si absente, un léger
+   * effet CSS (scale + glow) est appliqué à l'ornement statique au survol.
+   */
+  frameAnimated?: string | null;
 }
 
 const SIZE = {
@@ -66,7 +77,7 @@ function ringStyle(color: string, glow: number): CSSProperties {
 /**
  * Avatar rond — design friendly et coloré, cerclé d'un rebord de grade façon gemme.
  */
-export const Avatar = memo(function Avatar({ login, imageUrl, size = 'md', className = '', grayscale = false, coin = false, noRing = false, fx = true }: AvatarProps) {
+export const Avatar = memo(function Avatar({ login, imageUrl, size = 'md', className = '', grayscale = false, coin = false, noRing = false, fx = true, frame = null, frameAnimated = null }: AvatarProps) {
   // Nombre d'échecs de chargement de la photo. 0 = 1ʳᵉ tentative, 1 = réessai
   // anti-cache, 2 = on abandonne et on affiche l'initiale. Le réessai garantit
   // qu'une réponse cassée servie par un cache (SW opaque empoisonné, hoquet CDN)
@@ -103,7 +114,7 @@ export const Avatar = memo(function Avatar({ login, imageUrl, size = 'md', class
 
   return (
     <div
-      className={`relative flex-shrink-0 rounded-full flex items-center justify-center font-display font-bold uppercase ${SIZE[size]} ${grayscale ? 'grayscale opacity-80' : ''} ${className}`}
+      className={`group relative flex-shrink-0 rounded-full flex items-center justify-center font-display font-bold uppercase ${SIZE[size]} ${grayscale ? 'grayscale opacity-80' : ''} ${className}`}
     >
       {ring && (
         <div
@@ -146,6 +157,31 @@ export const Avatar = memo(function Avatar({ login, imageUrl, size = 'md', class
           <span className="relative z-10">{initial}</span>
         )}
       </div>
+      {/* Ornement de photo de profil (cadre superposé AUTOUR de l'avatar). Posé
+          en FRÈRE du conteneur `overflow-hidden` (sinon rogné), débordant du
+          cadre, au-dessus de la photo, non cliquable. Au survol : soit on révèle
+          la variante animée, soit — à défaut — un léger scale + glow sur le
+          statique pour le feedback. */}
+      {frame && (
+        <>
+          <img
+            src={frame}
+            alt=""
+            aria-hidden
+            className={`absolute -inset-[12%] w-[124%] h-[124%] object-contain pointer-events-none z-20 transition-all duration-300 ${
+              frameAnimated ? 'group-hover:opacity-0' : 'group-hover:scale-105 group-hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.55)]'
+            }`}
+          />
+          {frameAnimated && (
+            <img
+              src={frameAnimated}
+              alt=""
+              aria-hidden
+              className="absolute -inset-[12%] w-[124%] h-[124%] object-contain pointer-events-none z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            />
+          )}
+        </>
+      )}
     </div>
   );
 });

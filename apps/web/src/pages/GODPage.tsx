@@ -825,6 +825,8 @@ const USER_GAME_STATS: Record<Game, {
   chess: { elo: (u) => u.eloChess ?? 1000, matches: (u) => u.matchesPlayedChess ?? 0, trophies: (u) => u.tournamentsWonChess ?? 0 },
   streetfighter: { elo: (u) => u.eloSf ?? 1000, matches: (u) => u.matchesPlayedSf ?? 0, trophies: (u) => u.tournamentsWonSf ?? 0 },
   flechettes: { elo: (u) => u.eloFlechettes ?? 1000, matches: (u) => u.matchesPlayedFlechettes ?? 0, trophies: (u) => u.tournamentsWonFlechettes ?? 0 },
+  coding: { elo: (u) => u.eloCoding ?? 1000, matches: (u) => u.matchesPlayedCoding ?? 0, trophies: (u) => u.tournamentsWonCoding ?? 0 },
+  pokemon: { elo: (u) => u.eloPokemon ?? 1000, matches: (u) => u.matchesPlayedPokemon ?? 0, trophies: (u) => u.tournamentsWonPokemon ?? 0 },
 };
 
 function UserDetailPanel({

@@ -21,6 +21,12 @@ export interface RatingSource {
   eloFlechettes?: number;
   matchesPlayedFlechettes?: number;
   tournamentsWonFlechettes?: number;
+  eloCoding?: number;
+  matchesPlayedCoding?: number;
+  tournamentsWonCoding?: number;
+  eloPokemon?: number;
+  matchesPlayedPokemon?: number;
+  tournamentsWonPokemon?: number;
   // Babyfoot 2v2 : rating personnel distinct du 1v1.
   eloBabyfoot2v2?: number;
   matchesPlayed2v2?: number;
@@ -57,6 +63,20 @@ export function pickRating(
       elo: user.eloFlechettes ?? 1000,
       matchesPlayed: user.matchesPlayedFlechettes ?? 0,
       tournamentsWon: user.tournamentsWonFlechettes ?? 0,
+    };
+  }
+  if (game === 'coding') {
+    return {
+      elo: user.eloCoding ?? 1000,
+      matchesPlayed: user.matchesPlayedCoding ?? 0,
+      tournamentsWon: user.tournamentsWonCoding ?? 0,
+    };
+  }
+  if (game === 'pokemon') {
+    return {
+      elo: user.eloPokemon ?? 1000,
+      matchesPlayed: user.matchesPlayedPokemon ?? 0,
+      tournamentsWon: user.tournamentsWonPokemon ?? 0,
     };
   }
   return {

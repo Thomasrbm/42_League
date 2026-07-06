@@ -36,6 +36,8 @@ const ART: Record<Game, UniverseArt> = {
   chess:         { bg: '/universe/chess.webp',         blur: '/universe/chess-blur.webp',         prop: '/universe/chess-prop.png',         symbol: '/universe/chess-symbol.png' },
   streetfighter: { bg: '/universe/streetfighter.webp', blur: '/universe/streetfighter-blur.webp', prop: '/universe/streetfighter-prop.png', symbol: '/universe/streetfighter-symbol.png' },
   flechettes:    { bg: '/universe/flechettes.webp',    blur: '/universe/flechettes-blur.webp',    prop: '/universe/flechettes-prop.png',    symbol: '/universe/flechettes-symbol.png' },
+  coding:        { bg: '/universe/coding.webp',        blur: '/universe/coding-blur.webp',        prop: '/universe/coding-prop.png',        symbol: '/universe/coding-symbol.png' },
+  pokemon:       { bg: '/universe/pokemon.webp',       blur: '/universe/pokemon-blur.webp',       prop: '/universe/pokemon-prop.png',       symbol: '/universe/pokemon-symbol.png' },
 };
 
 // Paramètres visuels par phase de transition.

@@ -22,19 +22,23 @@ export type { GameId };
  * couche changera — les appelants (leaderboard, settle, tournois) restent stables.
  */
 interface RatingColumns {
-  elo: 'elo' | 'eloSmash' | 'eloChess' | 'eloSf' | 'eloFlechettes';
+  elo: 'elo' | 'eloSmash' | 'eloChess' | 'eloSf' | 'eloFlechettes' | 'eloCoding' | 'eloPokemon';
   matchesPlayed:
     | 'matchesPlayed'
     | 'matchesPlayedSmash'
     | 'matchesPlayedChess'
     | 'matchesPlayedSf'
-    | 'matchesPlayedFlechettes';
+    | 'matchesPlayedFlechettes'
+    | 'matchesPlayedCoding'
+    | 'matchesPlayedPokemon';
   tournamentsWon:
     | 'tournamentsWon'
     | 'tournamentsWonSmash'
     | 'tournamentsWonChess'
     | 'tournamentsWonSf'
-    | 'tournamentsWonFlechettes';
+    | 'tournamentsWonFlechettes'
+    | 'tournamentsWonCoding'
+    | 'tournamentsWonPokemon';
 }
 
 const COLUMNS: Record<GameId, RatingColumns> = {
@@ -58,6 +62,16 @@ const COLUMNS: Record<GameId, RatingColumns> = {
     elo: 'eloFlechettes',
     matchesPlayed: 'matchesPlayedFlechettes',
     tournamentsWon: 'tournamentsWonFlechettes',
+  },
+  coding: {
+    elo: 'eloCoding',
+    matchesPlayed: 'matchesPlayedCoding',
+    tournamentsWon: 'tournamentsWonCoding',
+  },
+  pokemon: {
+    elo: 'eloPokemon',
+    matchesPlayed: 'matchesPlayedPokemon',
+    tournamentsWon: 'tournamentsWonPokemon',
   },
 };
 
@@ -126,5 +140,5 @@ export function eloDelta(game: GameId, delta: number): Prisma.UserUpdateInput {
  * babyfoot), si bien que le joueur a un grade — donc un anneau de pp — partout.
  */
 export function eloAllGames(elo: number): Record<RatingColumns['elo'], number> {
-  return { elo, eloSmash: elo, eloChess: elo, eloSf: elo, eloFlechettes: elo };
+  return { elo, eloSmash: elo, eloChess: elo, eloSf: elo, eloFlechettes: elo, eloCoding: elo, eloPokemon: elo };
 }

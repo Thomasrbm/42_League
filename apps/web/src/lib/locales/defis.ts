@@ -218,6 +218,8 @@ export const dict: Record<Lang, Dict> = {
     // Chess
     'defis.checkmated': 'a maté',
     'defis.chessOnlyResult': 'Aux échecs, seul le résultat compte.',
+    'defis.binaryBeat': 'a battu',
+    'defis.binaryOnlyResult': 'Seul le résultat compte : victoire ou défaite (pas de nul).',
     'defis.iDrew': 'Match nul',
     'defis.chessDraw': 'Partie nulle contre',
     'defis.draw': 'Nulle',
@@ -301,6 +303,11 @@ export const dict: Record<Lang, Dict> = {
     'defis.game.smash': 'Smash',
     'defis.game.streetfighter': 'Street Fighter',
     'defis.game.chess': 'Échecs',
+    'defis.game.coding': 'Coding',
+    'defis.game.pokemon': 'Pokémon',
+    'defis.inviteUrl.label': 'Lien d\'invitation (optionnel)',
+    'defis.inviteUrl.placeholder': 'https://… (room de code)',
+    'defis.inviteUrl.open': 'Ouvrir la room de code',
 
     // Divers UI
     'defis.close': 'Fermer',
@@ -523,6 +530,8 @@ export const dict: Record<Lang, Dict> = {
 
     'defis.checkmated': 'checkmated',
     'defis.chessOnlyResult': 'In chess, only the result matters.',
+    'defis.binaryBeat': 'beat',
+    'defis.binaryOnlyResult': 'Only the result matters: win or loss (no draw).',
     'defis.iDrew': 'Draw',
     'defis.chessDraw': 'Draw against',
     'defis.draw': 'Draw',
@@ -601,6 +610,11 @@ export const dict: Record<Lang, Dict> = {
     'defis.game.smash': 'Smash',
     'defis.game.streetfighter': 'Street Fighter',
     'defis.game.chess': 'Chess',
+    'defis.game.coding': 'Coding',
+    'defis.game.pokemon': 'Pokémon',
+    'defis.inviteUrl.label': 'Invite link (optional)',
+    'defis.inviteUrl.placeholder': 'https://… (code room)',
+    'defis.inviteUrl.open': 'Open code room',
 
     'defis.close': 'Close',
     'defis.scoreSentPrefix': 'Score sent —',
@@ -822,6 +836,8 @@ export const dict: Record<Lang, Dict> = {
 
     'defis.checkmated': 'dio jaque mate a',
     'defis.chessOnlyResult': 'En ajedrez, solo cuenta el resultado.',
+    'defis.binaryBeat': 'venció a',
+    'defis.binaryOnlyResult': 'Solo cuenta el resultado: victoria o derrota (sin empate).',
     'defis.iDrew': 'Tablas',
     'defis.chessDraw': 'Tablas contra',
     'defis.draw': 'Tablas',
@@ -900,6 +916,11 @@ export const dict: Record<Lang, Dict> = {
     'defis.game.smash': 'Smash',
     'defis.game.streetfighter': 'Street Fighter',
     'defis.game.chess': 'Ajedrez',
+    'defis.game.coding': 'Coding',
+    'defis.game.pokemon': 'Pokémon',
+    'defis.inviteUrl.label': 'Enlace de invitación (opcional)',
+    'defis.inviteUrl.placeholder': 'https://… (sala de código)',
+    'defis.inviteUrl.open': 'Abrir sala de código',
 
     'defis.close': 'Cerrar',
     'defis.scoreSentPrefix': 'Marcador enviado —',

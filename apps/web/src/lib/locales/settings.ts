@@ -14,6 +14,8 @@ export const dict: Record<Lang, Dict> = {
     'game.chess': 'Échecs',
     'game.streetfighter': 'Street Fighter',
     'game.flechettes': 'Fléchettes',
+    'game.coding': 'Coding',
+    'game.pokemon': 'Pokémon',
 
     // Réglages — modes de jeu
     'settings.gameModes.title': 'Modes de jeu',
@@ -71,6 +73,8 @@ export const dict: Record<Lang, Dict> = {
     'game.chess': 'Chess',
     'game.streetfighter': 'Street Fighter',
     'game.flechettes': 'Darts',
+    'game.coding': 'Coding',
+    'game.pokemon': 'Pokémon',
 
     'settings.gameModes.title': 'Game modes',
     'settings.gameModes.hint': 'You appear in the leaderboards and stats of the modes you enable.',
@@ -121,6 +125,8 @@ export const dict: Record<Lang, Dict> = {
     'game.chess': 'Ajedrez',
     'game.streetfighter': 'Street Fighter',
     'game.flechettes': 'Dardos',
+    'game.coding': 'Coding',
+    'game.pokemon': 'Pokémon',
 
     'settings.gameModes.title': 'Modos de juego',
     'settings.gameModes.hint': 'Apareces en las clasificaciones y estadísticas de los modos activados.',

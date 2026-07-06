@@ -7,6 +7,7 @@ import { useLeagueData } from '../hooks/useLeagueData';
 import { useT } from '../lib/i18n';
 import { GAME_META, type GameMeta } from '../lib/gameMeta';
 import { api, type TauntData } from '../lib/api';
+import { tauntPhrase } from '../lib/tauntEmotes';
 import { haptic } from '../mobile/feedback/useHaptic';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,6 +96,25 @@ export function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => 
     return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius, s: 5 + (i % 3) * 3 };
   });
 
+  // Pluie d'émojis de victoire (fond) — beaucoup d'exemplaires de l'émote qui
+  // tombent en boucle. Positions/tailles/délais DÉTERMINISTES (pas de Math.random →
+  // stable au re-render et au skip). 22 gouttes réparties sur la largeur.
+  const rain = Array.from({ length: 22 }, (_, i) => {
+    const r1 = ((i * 9301 + 49297) % 233280) / 233280;
+    const r2 = ((i * 4021 + 12345) % 100) / 100;
+    return {
+      left: (i / 22) * 100 + (r1 * 7 - 3.5),
+      size: 22 + Math.round(r2 * 32),
+      delay: r1 * 1.1,
+      dur: 2.6 + r2 * 1.8,
+      drift: (r1 - 0.5) * 70,
+      rot: (r2 - 0.5) * 160,
+    };
+  });
+
+  // Réplique de narguage, figée pour ce narguage (seed = son id).
+  const phrase = tauntPhrase(taunt.emote, winnerName, taunt.id);
+
   return createPortal(
     <motion.div
       className="fixed inset-0 z-[130] flex items-center justify-center cursor-pointer select-none overflow-hidden"
@@ -178,6 +198,22 @@ export function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => 
           )}
         </div>
       ) : (
+        <>
+        {/* Pluie d'émojis de victoire — nappe de fond, plein d'exemplaires. */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          {rain.map((r, i) => (
+            <motion.span
+              key={i}
+              className="absolute top-0 will-change-transform leading-none"
+              style={{ left: `${r.left}%`, fontSize: r.size, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))' }}
+              initial={{ y: '-14vh', opacity: 0, rotate: 0 }}
+              animate={{ y: '114vh', x: r.drift, rotate: r.rot, opacity: [0, 0.9, 0.9, 0] }}
+              transition={{ duration: r.dur, delay: r.delay, ease: 'easeIn', repeat: Infinity }}
+            >
+              {taunt.emote}
+            </motion.span>
+          ))}
+        </div>
         <div className="relative flex flex-col items-center gap-6 px-6">
           {/* Halo derrière l'émote */}
           <span
@@ -234,10 +270,22 @@ export function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => 
             }
           `}</style>
 
+          {/* Réplique de narguage — punchline sous l'émote. */}
+          <motion.div
+            className="max-w-[min(90vw,440px)] text-center font-gaming font-black italic uppercase text-xl sm:text-2xl leading-tight"
+            style={{ color: '#fff', transform: 'skewX(-5deg)', textShadow: `0 2px 16px ${gm?.glowColor ?? GOLD}99` }}
+            initial={{ y: 20, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            transition={{ delay: 0.45, type: 'spring', stiffness: 240, damping: 15 }}
+          >
+            {phrase}
+          </motion.div>
+
           <div className="text-[10px] uppercase tracking-[0.18em] text-white/35 font-bold">
             {t('battlepass.tapToSkip')}
           </div>
         </div>
+        </>
       )}
     </motion.div>,
     document.body,

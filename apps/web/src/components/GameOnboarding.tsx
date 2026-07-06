@@ -19,6 +19,8 @@ const GAMES: { id: Game; name: string; taglineKey: string }[] = [
   { id: 'chess', name: 'Échecs', taglineKey: 'onboarding.tagline.chess' },
   { id: 'streetfighter', name: 'Street Fighter', taglineKey: 'onboarding.tagline.streetfighter' },
   { id: 'flechettes', name: 'Fléchettes', taglineKey: 'onboarding.tagline.flechettes' },
+  { id: 'coding', name: 'Coding', taglineKey: 'onboarding.tagline.coding' },
+  { id: 'pokemon', name: 'Pokémon', taglineKey: 'onboarding.tagline.pokemon' },
 ];
 
 function GameTrophy({ game, accent, className }: { game: Game; accent: string; className?: string }) {
@@ -27,7 +29,7 @@ function GameTrophy({ game, accent, className }: { game: Game; accent: string; c
   return <TournamentCup accent={accent} className={className} />;
 }
 
-const ACCENT: Record<Game, string> = { babyfoot: '#ffc94a', smash: '#ff4d5c', chess: '#56c46e', streetfighter: '#ff7a18', flechettes: '#14b8a6' };
+const ACCENT: Record<Game, string> = { babyfoot: '#ffc94a', smash: '#ff4d5c', chess: '#56c46e', streetfighter: '#ff7a18', flechettes: '#14b8a6', coding: '#58a6ff', pokemon: '#ff4d4d' };
 
 /** Grosse croix rouge en haut à droite de la modale : skip pour qui s'en fiche. */
 function CloseX({
@@ -99,7 +101,7 @@ export function GameOnboarding() {
     try {
       await api.setGames(games);
       // Bascule sur le 1er mode choisi (ordre babyfoot → smash → échecs).
-      const order: Game[] = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes'];
+      const order: Game[] = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes', 'coding', 'pokemon'];
       const first = order.find((g) => sel.has(g));
       if (first) setActiveGame(first);
       await refresh();
@@ -118,7 +120,7 @@ export function GameOnboarding() {
     try {
       const games: Game[] = sel.size > 0 ? [...sel] : ['babyfoot'];
       await api.setGames(games);
-      const order: Game[] = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes'];
+      const order: Game[] = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes', 'coding', 'pokemon'];
       const first = order.find((g) => games.includes(g)) ?? 'babyfoot';
       setActiveGame(first);
       await refresh();

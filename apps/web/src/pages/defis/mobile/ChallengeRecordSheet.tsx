@@ -58,6 +58,8 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
   const isSetGame = isSmash || isSf;
   const myFavorites = (isSf ? me?.user?.favSf : me?.user?.favSmash) ?? [];
   const isChess = game === 'chess';
+  // Disciplines à résultat BINAIRE (gagné/perdu, pas de score) : échecs, coding, pokémon.
+  const isBinary = isChess || game === 'coding' || game === 'pokemon';
   const opponent = challenge.challengerLogin === myLogin ? challenge.opponentLogin : challenge.challengerLogin;
 
   const [iWon, setIWon] = useState<boolean | null>(null);
@@ -80,8 +82,8 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
           charSelf: setValue.charSelf,
           charOpponent: setValue.charOpponent,
         });
-      } else if (isChess) {
-        await api.recordChallengeResult(challenge.id, { scoreSelf: iWon ? 1 : 0, scoreOpponent: iWon ? 0 : 1, game: 'chess' });
+      } else if (isBinary) {
+        await api.recordChallengeResult(challenge.id, { scoreSelf: iWon ? 1 : 0, scoreOpponent: iWon ? 0 : 1, game });
       } else {
         await api.recordChallengeResult(challenge.id, {
           scoreSelf: iWon ? WINNING_SCORE : loserScore,
@@ -97,7 +99,7 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
       flash.show(err instanceof Error ? err.message : String(err), 'error');
       haptic('error');
     } finally { setBusy(false); setSending(false); }
-  }, [iWon, isSetGame, isSf, isChess, setValue, loserScore, challenge.id, opponent, flash, refresh, onDone, onClose, t]);
+  }, [iWon, isSetGame, isSf, isBinary, game, setValue, loserScore, challenge.id, opponent, flash, refresh, onDone, onClose, t]);
 
   const triggerSend = () => { setSending(true); haptic('medium'); window.setTimeout(handleSubmit, 140); };
 
@@ -126,7 +128,7 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
           {t('defis.matchAgainst')} <span className="font-extrabold text-text-strong">{opponent}</span>
           {game !== 'babyfoot' && (
             <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-bg-2 border border-border">
-              {game === 'smash' ? t('game.smash') : game === 'streetfighter' ? t('game.streetfighter') : t('game.chess')}
+              {t(`game.${game}`)}
             </span>
           )}
         </div>
@@ -150,7 +152,7 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
         )}
 
         {/* Babyfoot */}
-        {iWon !== null && !isSetGame && !isChess && (
+        {iWon !== null && !isSetGame && !isBinary && (
           <div className="space-y-4">
             <label className="block text-[10px] uppercase tracking-wider text-muted font-bold text-center">
               {t('defis.scoreOf')} {iWon ? opponent : (myLogin ?? t('defis.me'))}
@@ -184,12 +186,12 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
           </div>
         )}
 
-        {/* Échecs */}
-        {iWon !== null && isChess && (
+        {/* Binaire (échecs / coding / pokémon) */}
+        {iWon !== null && isBinary && (
           <div className="space-y-4">
             <div className="px-4 py-3 rounded-xl bg-bg-1/80 border border-border text-center text-sm text-muted-2 shadow-inner">
               <span className={`font-extrabold ${iWon ? 'text-teal' : 'text-text-strong'}`}>{winnerLogin}</span>
-              {' '}{t('defis.checkmated')}{' '}
+              {' '}{isChess ? t('defis.checkmated') : t('defis.binaryBeat')}{' '}
               <span className={`font-extrabold ${iWon ? 'text-text-strong' : 'text-teal'}`}>{loserLogin}</span>
             </div>
             <Button size="md" loading={busy} onClick={triggerSend} className="w-full py-3.5 text-sm font-bold shadow-lg">{t('defis.sendScore')}</Button>

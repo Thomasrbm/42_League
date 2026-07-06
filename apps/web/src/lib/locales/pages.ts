@@ -503,6 +503,8 @@ export const dict: Record<Lang, Dict> = {
     'onboarding.tagline.chess': '1 contre 1 · victoire / défaite',
     'onboarding.tagline.streetfighter': '1 contre 1 · Bo3/Bo5 · persos',
     'onboarding.tagline.flechettes': '2 à 8 joueurs · 301/501 · points',
+    'onboarding.tagline.coding': 'Tout jeu de code accepté (CodinGame, Clash of Code, LeetCode duels…).',
+    'onboarding.tagline.pokemon': 'Tout duel Pokémon accepté (ex. Pokémon Showdown, cartouches, cartes…).',
     'onboarding.favs.title': 'Tes persos favoris',
     'onboarding.favs.desc':
       "Choisis tes mains pour chaque jeu. Elles s'affichent sur ton profil et remontent en haut du sélecteur lors d'une déclaration (modifiable plus tard depuis ton profil).",
@@ -984,6 +986,8 @@ export const dict: Record<Lang, Dict> = {
     'onboarding.tagline.chess': '1v1 · win / loss',
     'onboarding.tagline.streetfighter': '1v1 · Bo3/Bo5 · characters',
     'onboarding.tagline.flechettes': '2 to 8 players · 301/501 · points',
+    'onboarding.tagline.coding': 'Any coding game accepted (CodinGame, Clash of Code, LeetCode duels…).',
+    'onboarding.tagline.pokemon': 'Any Pokémon duel accepted (e.g. Pokémon Showdown, cartridges, cards…).',
     'onboarding.favs.title': 'Your favorite characters',
     'onboarding.favs.desc':
       'Pick your mains for each game. They show on your profile and move to the top of the selector when reporting a match (editable later from your profile).',
@@ -1465,6 +1469,8 @@ export const dict: Record<Lang, Dict> = {
     'onboarding.tagline.chess': '1 contra 1 · victoria / derrota',
     'onboarding.tagline.streetfighter': '1 contra 1 · Bo3/Bo5 · personajes',
     'onboarding.tagline.flechettes': '2 a 8 jugadores · 301/501 · puntos',
+    'onboarding.tagline.coding': 'Cualquier juego de código válido (CodinGame, Clash of Code, duelos LeetCode…).',
+    'onboarding.tagline.pokemon': 'Cualquier duelo Pokémon válido (p. ej. Pokémon Showdown, cartuchos, cartas…).',
     'onboarding.favs.title': 'Tus personajes favoritos',
     'onboarding.favs.desc':
       'Elige tus mains para cada juego. Aparecen en tu perfil y suben a lo alto del selector al registrar una partida (modificable más tarde desde tu perfil).',

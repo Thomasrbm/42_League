@@ -3,6 +3,7 @@ import { UploadCloud, Gem, Crop, X } from 'lucide-react';
 import { type ShopCategory, type ShopItemData, type ShopItemInput, type ShopRarity } from '../../lib/api';
 import { BADGE_ICON_NAMES, badgeIcon } from '../../lib/badgeIcons';
 import { RARITY, RARITY_ORDER, rarityOf } from '../../lib/rarity';
+import { Avatar } from '../Avatar';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CosmeticForm — formulaire de création/édition de cosmétique, EXTRAIT de
@@ -18,12 +19,13 @@ export const BANNER_H = 512;
 // Cap d'octets côté client (le serveur revérifie) — évite les data-URL énormes.
 export const BANNER_MAX_BYTES = 700_000;
 
-export const CATEGORIES: ShopCategory[] = ['title', 'banner', 'badge'];
+export const CATEGORIES: ShopCategory[] = ['title', 'banner', 'badge', 'avatar_frame'];
 
 export const CATEGORY_LABEL: Record<ShopCategory, string> = {
   title: 'TITRE',
   badge: 'BADGE',
   banner: 'BANNIÈRE',
+  avatar_frame: 'ORNEMENT',
   mystery_box: 'BOÎTE MYSTÈRE',
   consumable: 'CONSOMMABLE',
 };
@@ -87,6 +89,8 @@ export interface FormState {
   badgeIconName: string; // catégorie badge (nom lucide)
   bannerImage: string; // catégorie banner (data-URL)
   bannerAllowUpload: boolean; // bannière personnalisable par le joueur
+  frameImage: string; // catégorie avatar_frame — ornement statique (data-URL PNG carré)
+  frameAnimated: string; // catégorie avatar_frame — variante animée optionnelle (data-URL)
   consumableKind: string; // catégorie consumable ('anti_ops' | 'elo_mult')
 }
 
@@ -106,6 +110,8 @@ export function emptyForm(): FormState {
     badgeIconName: 'Crown',
     bannerImage: '',
     bannerAllowUpload: false,
+    frameImage: '',
+    frameAnimated: '',
     consumableKind: '',
   };
 }
@@ -131,6 +137,8 @@ export function formFromItem(it: ShopItemData): FormState {
     badgeIconName: typeof p.icon === 'string' ? p.icon : 'Crown',
     bannerImage: typeof p.image === 'string' ? p.image : '',
     bannerAllowUpload: p.allowUpload === true,
+    frameImage: typeof p.image === 'string' ? p.image : '',
+    frameAnimated: typeof p.animated === 'string' ? p.animated : '',
     consumableKind: typeof p.kind === 'string' ? p.kind : '',
   };
 }
@@ -170,6 +178,11 @@ export function buildInput(f: FormState): ShopItemInput {
         if (!f.bannerImage) throw new Error('Dépose une image de bannière à la bonne taille.');
         payload = { image: f.bannerImage };
       }
+      break;
+    }
+    case 'avatar_frame': {
+      if (!f.frameImage) throw new Error("Dépose un PNG transparent carré pour l'ornement.");
+      payload = { image: f.frameImage, ...(f.frameAnimated ? { animated: f.frameAnimated } : {}) };
       break;
     }
     case 'consumable': {
@@ -487,6 +500,103 @@ export function BannerDropzone({ value, onChange }: { value: string; onChange: (
   );
 }
 
+// ── Dropzone ornement (PNG transparent carré, PAS de recadrage) ──────────────
+// Réutilise la logique fichier→dataURL de la BannerDropzone mais SANS cropper :
+// l'ornement est accepté tel quel (valide le type image + cap d'octets). Sert au
+// PNG statique comme à la variante animée (webp/gif).
+
+function AvatarFrameDropzone({
+  value,
+  onChange,
+  label,
+  hint,
+  accept = 'image/*',
+}: {
+  value: string;
+  onChange: (dataUrl: string) => void;
+  label: string;
+  hint: string;
+  accept?: string;
+}) {
+  const [error, setError] = useState('');
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback(
+    (file: File) => {
+      setError('');
+      if (!file.type.startsWith('image/')) {
+        setError('Fichier non-image refusé.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+        if (dataUrl.length > BANNER_MAX_BYTES) {
+          setError('Image trop lourde (max ~700 Ko) — réduis sa résolution.');
+          return;
+        }
+        onChange(dataUrl);
+      };
+      reader.onerror = () => setError('Lecture du fichier impossible.');
+      reader.readAsDataURL(file);
+    },
+    [onChange],
+  );
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleFile(file);
+        }}
+        onClick={() => inputRef.current?.click()}
+        className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-5 cursor-pointer transition-colors ${
+          dragging ? 'border-violet-400 bg-violet-400/10' : 'border-zinc-700 hover:border-zinc-500 bg-zinc-800/40'
+        }`}
+      >
+        {value ? (
+          <img src={value} alt="" className="w-16 h-16 object-contain" />
+        ) : (
+          <UploadCloud className="w-6 h-6 text-zinc-400" />
+        )}
+        <span className="text-xs text-zinc-400 font-mono text-center">{label}</span>
+        <span className="text-[10px] text-zinc-600 font-mono text-center">{hint}</span>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          className="self-start inline-flex items-center gap-1 text-[10px] font-mono text-zinc-400 hover:text-zinc-200"
+        >
+          <X className="w-3 h-3" />
+          Retirer
+        </button>
+      )}
+      {error && <div className="text-xs text-red-400 font-mono">{error}</div>}
+    </div>
+  );
+}
+
 // ── Aperçu live de l'objet en cours d'édition ────────────────────────────────
 
 export function ItemPreview({ form }: { form: FormState }) {
@@ -516,6 +626,24 @@ export function ItemPreview({ form }: { form: FormState }) {
           <Icon className="w-3.5 h-3.5" strokeWidth={2.5} />
           {form.badgeLabel || 'Badge…'}
         </span>
+      )}
+      {form.category === 'avatar_frame' && (
+        <div className="flex flex-col items-center gap-1.5 py-2">
+          {form.frameImage ? (
+            <Avatar
+              login="aperçu"
+              imageUrl={null}
+              size="xl"
+              noRing
+              fx={false}
+              frame={form.frameImage}
+              frameAnimated={form.frameAnimated || null}
+            />
+          ) : (
+            <span className="text-xs text-zinc-600 font-mono">Dépose un PNG pour l'aperçu.</span>
+          )}
+          <span className="text-[10px] text-zinc-600 font-mono">Survole l'aperçu pour l'animation.</span>
+        </div>
       )}
       {form.category === 'banner' &&
         (form.bannerImage ? (
@@ -621,6 +749,30 @@ export function ItemFormFields({ form, set }: { form: FormState; set: <K extends
             ) : (
               <BannerDropzone value={form.bannerImage} onChange={(v) => set('bannerImage', v)} />
             )}
+          </div>
+        )}
+        {form.category === 'avatar_frame' && (
+          <div className="flex flex-col gap-3 sm:col-span-2">
+            <label className="flex flex-col gap-2">
+              <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Ornement statique *</span>
+              <AvatarFrameDropzone
+                value={form.frameImage}
+                onChange={(v) => set('frameImage', v)}
+                label="Dépose un PNG transparent carré (1:1) ou clique"
+                hint="Superposé autour de la photo de profil. Max ~700 Ko."
+                accept="image/png,image/webp"
+              />
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Ornement animé (optionnel — joué au survol)</span>
+              <AvatarFrameDropzone
+                value={form.frameAnimated}
+                onChange={(v) => set('frameAnimated', v)}
+                label="Dépose un WEBP/GIF animé carré ou clique"
+                hint="À défaut, un léger effet CSS anime le statique au survol. Max ~700 Ko."
+                accept="image/webp,image/gif"
+              />
+            </label>
           </div>
         )}
 

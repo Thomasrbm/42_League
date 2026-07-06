@@ -5,7 +5,7 @@
  */
 import type { Game } from './gameMode';
 
-export const GAMES: Game[] = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes'];
+export const GAMES: Game[] = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes', 'coding', 'pokemon'];
 
 export interface GameMeta {
   label: string;
@@ -84,6 +84,31 @@ export const GAME_META: Record<Game, GameMeta> = {
     button: { from: '#66f2e0', via: '#00d8c2', to: '#00857a', text: '#04241f', border: 'rgba(90,235,215,0.7)', glow: 'rgba(0,216,194,0.55)' },
     icon: (sel, size = 20) => (
       <img src={sel ? '/flechette.webp' : '/gray-flechette.webp'} alt="" width={size} height={size} loading="eager" decoding="async" className="object-contain" aria-hidden />
+    ),
+  },
+  coding: {
+    label: 'Coding',
+    shortLabel: 'Code',
+    color: '#58a6ff',
+    borderColor: 'rgba(88,166,255,0.65)',
+    bgColor: 'rgba(88,166,255,0.13)',
+    glowColor: 'rgba(88,166,255,0.55)',
+    button: { from: '#a9cfff', via: '#58a6ff', to: '#1f6fd6', text: '#04101f', border: 'rgba(130,185,255,0.7)', glow: 'rgba(88,166,255,0.55)' },
+    // Pas de fichier image : emoji stylé à la taille demandée (grisé si non sélectionné).
+    icon: (sel, size = 20) => (
+      <span aria-hidden style={{ fontSize: size, lineHeight: 1, filter: sel ? 'none' : 'grayscale(1)', opacity: sel ? 1 : 0.7 }} className="inline-grid place-items-center leading-none">💻</span>
+    ),
+  },
+  pokemon: {
+    label: 'Pokémon',
+    shortLabel: 'Pkmn',
+    color: '#ff4d4d',
+    borderColor: 'rgba(255,77,77,0.65)',
+    bgColor: 'rgba(255,77,77,0.13)',
+    glowColor: 'rgba(255,77,77,0.55)',
+    button: { from: '#ff9a9a', via: '#ff4d4d', to: '#c21f1f', text: '#1f0404', border: 'rgba(255,130,130,0.7)', glow: 'rgba(255,77,77,0.55)' },
+    icon: (sel, size = 20) => (
+      <span aria-hidden style={{ fontSize: size, lineHeight: 1, filter: sel ? 'none' : 'grayscale(1)', opacity: sel ? 1 : 0.7 }} className="inline-grid place-items-center leading-none">🔴</span>
     ),
   },
 };
