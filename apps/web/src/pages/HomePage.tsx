@@ -46,6 +46,13 @@ const UPSET_DELTA = 20;
 // main quand une nouveauté sort. App interne francophone → FR en dur assumé.
 const WHATS_NEW: { to: string; Icon: LucideIcon; color: string; title: string; desc: string }[] = [
   {
+    to: '/shop/propose',
+    Icon: Sparkles,
+    color: '#ff5d73',
+    title: 'Crée tes cosmétiques',
+    desc: 'Propose une bannière ou un titre et gagne coins, XP ou ton nom dessus s’il est retenu.',
+  },
+  {
     to: '/grades',
     Icon: Medal,
     color: '#ffc94a',

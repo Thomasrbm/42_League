@@ -1168,13 +1168,15 @@ interface EquippedCosmetics {
   // statique + variante animée optionnelle (jouée au survol côté front).
   equippedAvatarFrame: string | null;
   equippedAvatarFrameAnimated: string | null;
+  // Autocollant collé dans un coin vide de la carte profil (image transparente).
+  equippedSticker: string | null;
 }
 async function equippedCosmetics(login: string): Promise<EquippedCosmetics> {
   const rows = await prisma.shopInventory.findMany({
-    where: { userLogin: login, equipped: true, item: { category: { in: ['title', 'badge', 'banner', 'avatar_frame'] } } },
+    where: { userLogin: login, equipped: true, item: { category: { in: ['title', 'badge', 'banner', 'avatar_frame', 'sticker'] } } },
     include: { item: true },
   });
-  const out: EquippedCosmetics = { titleColor: null, equippedBadge: null, equippedBanner: null, equippedAvatarFrame: null, equippedAvatarFrameAnimated: null };
+  const out: EquippedCosmetics = { titleColor: null, equippedBadge: null, equippedBanner: null, equippedAvatarFrame: null, equippedAvatarFrameAnimated: null, equippedSticker: null };
   for (const r of rows) {
     const it = r.item;
     const payload =
@@ -1182,7 +1184,13 @@ async function equippedCosmetics(login: string): Promise<EquippedCosmetics> {
         ? (it.payload as Record<string, unknown>)
         : {};
     if (it.category === 'title') {
-      out.titleColor = it.color ?? null;
+      // Titre personnalisable (« Choisissez… ») : couleur choisie par le joueur
+      // (userPayload) prioritaire sur la couleur du catalogue.
+      const up = r.userPayload && typeof r.userPayload === 'object' && !Array.isArray(r.userPayload)
+        ? (r.userPayload as Record<string, unknown>)
+        : null;
+      const userColor = up && typeof up.color === 'string' ? up.color : null;
+      out.titleColor = userColor ?? it.color ?? null;
     } else if (it.category === 'badge') {
       out.equippedBadge = {
         code: typeof payload.code === 'string' ? payload.code : it.id,
@@ -1206,6 +1214,9 @@ async function equippedCosmetics(login: string): Promise<EquippedCosmetics> {
       const userImg = up && typeof up.image === 'string' ? up.image : null;
       out.equippedAvatarFrame = userImg ?? (typeof payload.image === 'string' ? payload.image : null);
       out.equippedAvatarFrameAnimated = typeof payload.animated === 'string' ? payload.animated : null;
+    } else if (it.category === 'sticker') {
+      // Autocollant profil : image du catalogue (pas de perso joueur, pas d'animée).
+      out.equippedSticker = typeof payload.image === 'string' ? payload.image : null;
     }
   }
   return out;
@@ -1251,6 +1262,7 @@ app.get('/me', async (c) => {
     equippedBanner: cosmetics.equippedBanner,
     equippedAvatarFrame: cosmetics.equippedAvatarFrame,
     equippedAvatarFrameAnimated: cosmetics.equippedAvatarFrameAnimated,
+    equippedSticker: cosmetics.equippedSticker,
     // Solde « League Coin » du joueur (porte-monnaie boutique).
     coins: user?.leagueCoins ?? 0,
     // XP & passe de combat : total à vie + niveau/progression dérivés (autorité serveur).
@@ -1724,6 +1736,7 @@ app.get('/users/:login', async (c) => {
     equippedBanner: cosmetics.equippedBanner,
     equippedAvatarFrame: cosmetics.equippedAvatarFrame,
     equippedAvatarFrameAnimated: cosmetics.equippedAvatarFrameAnimated,
+    equippedSticker: cosmetics.equippedSticker,
     followingList: followingRows,
     followersList: followersRows,
     following: !!follow,
@@ -9456,6 +9469,7 @@ function serializeShopItem(item: {
   payload: Prisma.JsonValue | null;
   active: boolean;
   sortOrder: number;
+  creatorLogin?: string | null;
 }) {
   return {
     id: item.id,
@@ -9468,6 +9482,8 @@ function serializeShopItem(item: {
     payload: item.payload ?? null,
     active: item.active,
     sortOrder: item.sortOrder,
+    // Auteur crédité (proposition de joueur acceptée avec attribution).
+    creatorLogin: item.creatorLogin ?? null,
   };
 }
 
@@ -9748,8 +9764,13 @@ app.get('/me/inventory', async (c) => {
   );
 });
 
-// POST /me/inventory/:id/banner-image — upload une image personnalisée pour une bannière
-// dont le payload contient `allowUpload: true`. Stockée dans ShopInventory.userPayload.
+// ═══ Cosmétiques personnalisés (items « Choisissez… ») ═══════════════════════
+//
+// Un objet bannière/titre avec `payload.allowUpload: true` laisse l'ACHETEUR
+// fournir sa propre création. Anti-abus : la création n'est PAS appliquée
+// directement — elle crée une CosmeticRequest relue par un admin. À l'acceptation
+// seulement, l'image/le titre est écrit dans ShopInventory.userPayload et devient
+// visible. Un item peut opter pour l'auto-validation via `payload.autoApprove: true`.
 const CustomBannerImageSchema = z.object({
   image: z
     .string()
@@ -9757,6 +9778,60 @@ const CustomBannerImageSchema = z.object({
     .refine((s) => s.startsWith('data:image/'), 'Image invalide (data-URL requise)')
     .refine((s) => s.length <= MAX_BANNER_DATAURL_LEN, 'Image trop lourde (max ~700 Ko)'),
 });
+const CustomTitleChoiceSchema = z.object({
+  title: z.string().trim().min(1).max(40),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
+    .nullish(),
+});
+
+/**
+ * Applique ou met en attente une création d'acheteur pour un item personnalisable.
+ * Retourne `{ pending: true }` si une validation admin est requise (cas par défaut),
+ * `{ ok: true }` si l'item est auto-validé (payload.autoApprove).
+ */
+async function submitCosmeticCustomization(
+  login: string,
+  itemId: string,
+  category: 'banner' | 'title',
+  payload: Record<string, unknown>,
+) {
+  const entry = await prisma.shopInventory.findUnique({
+    where: { userLogin_itemId: { userLogin: login, itemId } },
+    include: { item: true },
+  });
+  if (!entry) throw new HTTPException(404, { message: 'Item non trouvé dans ton inventaire' });
+  if (entry.item.category !== category)
+    throw new HTTPException(400, { message: `Cet item n'est pas ${category === 'banner' ? 'une bannière' : 'un titre'}` });
+  const itemPayload =
+    entry.item.payload && typeof entry.item.payload === 'object' && !Array.isArray(entry.item.payload)
+      ? (entry.item.payload as Record<string, unknown>)
+      : {};
+  if (!itemPayload.allowUpload)
+    throw new HTTPException(400, { message: "Cet objet ne supporte pas la personnalisation" });
+
+  // Auto-validation optionnelle : on écrit directement (rétrocompat).
+  if (itemPayload.autoApprove === true) {
+    await prisma.shopInventory.update({
+      where: { userLogin_itemId: { userLogin: login, itemId } },
+      data: { userPayload: payload as Prisma.InputJsonValue },
+    });
+    return { ok: true as const };
+  }
+
+  // Sinon : file de validation. Une seule requête en attente par (joueur, objet).
+  await prisma.$transaction(async (tx) => {
+    await tx.cosmeticRequest.deleteMany({ where: { userLogin: login, itemId, status: 'pending' } });
+    await tx.cosmeticRequest.create({
+      data: { userLogin: login, itemId, category, payload: payload as Prisma.InputJsonValue, status: 'pending' },
+    });
+  });
+  broadcast({ type: 'cosmetic:request', payload: {} });
+  return { pending: true as const };
+}
+
+// POST /me/inventory/:id/banner-image — soumet une image de bannière personnalisée.
 app.post('/me/inventory/:id/banner-image', async (c) => {
   const login = await getCurrentLogin(c);
   await getOrCreateUser(login);
@@ -9764,25 +9839,125 @@ app.post('/me/inventory/:id/banner-image', async (c) => {
   const body = await c.req.json().catch(() => null);
   const parsed = CustomBannerImageSchema.safeParse(body);
   if (!parsed.success) throw new HTTPException(400, { message: parsed.error.issues[0]?.message ?? 'Image invalide' });
+  return c.json(await submitCosmeticCustomization(login, itemId, 'banner', { image: parsed.data.image }));
+});
 
-  const entry = await prisma.shopInventory.findUnique({
-    where: { userLogin_itemId: { userLogin: login, itemId } },
-    include: { item: true },
-  });
-  if (!entry) throw new HTTPException(404, { message: 'Item non trouvé dans ton inventaire' });
-  if (entry.item.category !== 'banner')
-    throw new HTTPException(400, { message: "Cet item n'est pas une bannière" });
-  const itemPayload =
-    entry.item.payload && typeof entry.item.payload === 'object' && !Array.isArray(entry.item.payload)
-      ? (entry.item.payload as Record<string, unknown>)
-      : {};
-  if (!itemPayload.allowUpload)
-    throw new HTTPException(400, { message: "Cette bannière ne supporte pas l'upload personnalisé" });
+// POST /me/inventory/:id/title-choice — soumet un texte + couleur de titre personnalisé.
+app.post('/me/inventory/:id/title-choice', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const itemId = c.req.param('id');
+  const body = await c.req.json().catch(() => null);
+  const parsed = CustomTitleChoiceSchema.safeParse(body);
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.issues[0]?.message ?? 'Titre invalide' });
+  return c.json(
+    await submitCosmeticCustomization(login, itemId, 'title', {
+      title: parsed.data.title,
+      color: parsed.data.color ?? null,
+    }),
+  );
+});
 
-  await prisma.shopInventory.update({
-    where: { userLogin_itemId: { userLogin: login, itemId } },
-    data: { userPayload: { image: parsed.data.image } },
+// GET /me/cosmetic-requests — requêtes de personnalisation en attente du joueur
+// courant (pour afficher « en attente de validation » sur ses items).
+app.get('/me/cosmetic-requests', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const rows = await prisma.cosmeticRequest.findMany({
+    where: { userLogin: login, status: 'pending' },
+    select: { itemId: true },
   });
+  return c.json({ pendingItemIds: rows.map((r) => r.itemId) });
+});
+
+// ── File de validation admin des cosmétiques personnalisés ────────────────────
+function serializeCosmeticRequest(r: {
+  id: string;
+  userLogin: string;
+  itemId: string;
+  category: string;
+  payload: Prisma.JsonValue;
+  createdAt: Date;
+  item?: { name: string } | null;
+}) {
+  return {
+    id: r.id,
+    userLogin: r.userLogin,
+    itemId: r.itemId,
+    itemName: r.item?.name ?? null,
+    category: r.category,
+    payload: r.payload ?? null,
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+
+// GET /admin/cosmetic-requests — file des créations d'acheteurs à valider.
+app.get('/admin/cosmetic-requests', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const rows = await prisma.cosmeticRequest.findMany({
+    where: { status: 'pending' },
+    orderBy: { createdAt: 'desc' },
+  });
+  // CosmeticRequest n'a pas de relation Prisma vers ShopItem : on résout les noms
+  // en une requête groupée.
+  const itemIds = [...new Set(rows.map((r) => r.itemId))];
+  const items = itemIds.length
+    ? await prisma.shopItem.findMany({ where: { id: { in: itemIds } }, select: { id: true, name: true } })
+    : [];
+  const nameById = new Map(items.map((it) => [it.id, it.name]));
+  return c.json(rows.map((r) => serializeCosmeticRequest({ ...r, item: { name: nameById.get(r.itemId) ?? '' } })));
+});
+
+// POST /admin/cosmetic-requests/:id/accept — applique la création à l'inventaire.
+app.post('/admin/cosmetic-requests/:id/accept', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const id = c.req.param('id');
+  const req = await prisma.cosmeticRequest.findUnique({ where: { id } });
+  if (!req) throw new HTTPException(404, { message: 'requête introuvable' });
+  if (req.status !== 'pending') throw new HTTPException(409, { message: 'requête déjà traitée' });
+
+  const payload = (req.payload ?? {}) as Record<string, unknown>;
+  await prisma.$transaction(async (tx) => {
+    const inv = await tx.shopInventory.findUnique({
+      where: { userLogin_itemId: { userLogin: req.userLogin, itemId: req.itemId } },
+    });
+    // L'acheteur possède encore l'objet : on écrit sa création (visible dès lors).
+    if (inv) {
+      await tx.shopInventory.update({
+        where: { userLogin_itemId: { userLogin: req.userLogin, itemId: req.itemId } },
+        data: { userPayload: payload as Prisma.InputJsonValue },
+      });
+      // Titre équipé : refléter immédiatement le nouveau texte sur user.title.
+      if (req.category === 'title' && inv.equipped && typeof payload.title === 'string') {
+        await tx.user.update({ where: { login: req.userLogin }, data: { title: payload.title } });
+      }
+    }
+    await tx.cosmeticRequest.update({
+      where: { id },
+      data: { status: 'accepted', reviewedBy: me, reviewedAt: new Date() },
+    });
+  });
+  emit([req.userLogin], { type: 'panel:update', payload: {} });
+  broadcast({ type: 'cosmetic:request', payload: {} });
+  return c.json({ ok: true });
+});
+
+// POST /admin/cosmetic-requests/:id/reject — refuse sans rien appliquer.
+app.post('/admin/cosmetic-requests/:id/reject', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const id = c.req.param('id');
+  const req = await prisma.cosmeticRequest.findUnique({ where: { id } });
+  if (!req) throw new HTTPException(404, { message: 'requête introuvable' });
+  if (req.status !== 'pending') throw new HTTPException(409, { message: 'requête déjà traitée' });
+  await prisma.cosmeticRequest.update({
+    where: { id },
+    data: { status: 'rejected', reviewedBy: me, reviewedAt: new Date() },
+  });
+  emit([req.userLogin], { type: 'panel:update', payload: {} });
+  broadcast({ type: 'cosmetic:request', payload: {} });
   return c.json({ ok: true });
 });
 
@@ -9833,7 +10008,16 @@ app.post('/me/inventory/:id/equip', async (c) => {
   }
 
   const category = row.item.category;
-  // Le payload titre porte la chaîne à appliquer sur user.title.
+  // Le payload titre porte la chaîne à appliquer sur user.title. Pour un titre
+  // PERSONNALISÉ (« Choisissez… », validé par un admin), c'est le texte du joueur
+  // stocké dans userPayload qui prime sur celui du catalogue.
+  const userTitle =
+    category === 'title' &&
+    row.userPayload &&
+    typeof row.userPayload === 'object' &&
+    !Array.isArray(row.userPayload)
+      ? (row.userPayload as Record<string, unknown>).title
+      : undefined;
   const titlePayload =
     category === 'title' &&
     row.item.payload &&
@@ -9841,7 +10025,12 @@ app.post('/me/inventory/:id/equip', async (c) => {
     !Array.isArray(row.item.payload)
       ? (row.item.payload as Record<string, unknown>).title
       : undefined;
-  const titleStr = typeof titlePayload === 'string' ? titlePayload : null;
+  const titleStr =
+    typeof userTitle === 'string' && userTitle.trim()
+      ? userTitle
+      : typeof titlePayload === 'string'
+        ? titlePayload
+        : null;
 
   const nowEquipTx = new Date();
   await prisma.$transaction(async (tx) => {
@@ -10360,7 +10549,7 @@ const ShopItemUpdateSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
     description: z.string().nullish(),
-    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame']).optional(),
+    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame', 'sticker']).optional(),
     color: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
@@ -10407,6 +10596,14 @@ const ShopItemUpdateSchema = z
       const anim = typeof d.payload.animated === 'string' ? d.payload.animated : '';
       if (anim && anim.length > MAX_BANNER_DATAURL_LEN) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ornement animé trop lourd (max ~700 Ko)' });
+      }
+    }
+    if (d.category === 'sticker') {
+      const img = typeof d.payload.image === 'string' ? d.payload.image : '';
+      if (!img.startsWith('data:image/')) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'sticker : image (data-URL) requise' });
+      } else if (img.length > MAX_BANNER_DATAURL_LEN) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'sticker trop lourd (max ~700 Ko)' });
       }
     }
   });
@@ -10541,6 +10738,10 @@ const ShopProposalCreateSchema = z
       .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
       .nullish(),
     payload: z.record(z.any()),
+    // Récompense souhaitée par le proposeur si son cosmétique est retenu.
+    // L'admin reste libre de l'ajuster/refuser à l'acceptation.
+    rewardKind: z.enum(['credit', 'coins', 'xp', 'none']).nullish(),
+    rewardAmount: z.number().int().min(0).max(100000).nullish(),
   })
   .superRefine((d, ctx) => {
     if (d.category === 'banner') {
@@ -10566,6 +10767,8 @@ function serializeShopProposal(p: {
   name: string;
   color: string | null;
   payload: Prisma.JsonValue | null;
+  rewardKind: string | null;
+  rewardAmount: number | null;
   createdAt: Date;
 }) {
   return {
@@ -10575,6 +10778,8 @@ function serializeShopProposal(p: {
     name: p.name,
     color: p.color ?? null,
     payload: p.payload ?? null,
+    rewardKind: p.rewardKind ?? 'credit',
+    rewardAmount: p.rewardAmount ?? null,
     createdAt: p.createdAt.toISOString(),
   };
 }
@@ -10596,6 +10801,8 @@ app.post('/shop/proposals', async (c) => {
       name: d.name,
       color: d.color ?? null,
       payload: d.payload as Prisma.InputJsonValue,
+      rewardKind: d.rewardKind ?? 'credit',
+      rewardAmount: d.rewardAmount ?? null,
       status: 'pending',
     },
   });
@@ -10617,33 +10824,76 @@ app.get('/admin/shop/proposals', async (c) => {
   return c.json(items.map(serializeShopProposal));
 });
 
-// POST /admin/shop/proposals/:id/accept — crée le vrai ShopItem et clôt la propo.
+// POST /admin/shop/proposals/:id/accept — crée le vrai ShopItem, récompense le
+// créateur selon la demande (ajustable par l'admin) et clôt la propo.
+//   body (optionnel) : { rewardKind?: 'credit'|'coins'|'xp'|'none', rewardAmount?, price? }
+//   Par défaut on reprend la récompense DEMANDÉE par le proposeur.
+const AcceptProposalSchema = z.object({
+  rewardKind: z.enum(['credit', 'coins', 'xp', 'none']).nullish(),
+  rewardAmount: z.number().int().min(0).max(100000).nullish(),
+  price: z.number().int().min(0).max(100000).nullish(),
+});
 app.post('/admin/shop/proposals/:id/accept', async (c) => {
   const me = await getCurrentLogin(c);
   await requireAdmin(me);
   const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = AcceptProposalSchema.safeParse(body ?? {});
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.issues[0]?.message ?? 'requête invalide' });
+  const override = parsed.data;
+
   const proposal = await prisma.shopProposal.findUnique({ where: { id } });
   if (!proposal) throw new HTTPException(404, { message: 'proposition introuvable' });
   if (proposal.status !== 'pending') {
     throw new HTTPException(409, { message: 'proposition déjà traitée' });
   }
-  const item = await prisma.shopItem.create({
-    data: {
-      name: proposal.name,
-      description: null,
-      category: proposal.category,
-      color: proposal.color ?? null,
-      rarity: 'common',
-      price: 0,
-      payload: (proposal.payload ?? PrismaRuntime.DbNull) as Prisma.InputJsonValue | typeof PrismaRuntime.DbNull,
-      active: true,
-      sortOrder: 0,
-    },
+
+  // Récompense effective : ce que l'admin décide, à défaut ce que le joueur a demandé.
+  const rewardKind = override.rewardKind ?? proposal.rewardKind ?? 'credit';
+  const rewardAmount = override.rewardAmount ?? proposal.rewardAmount ?? 0;
+  const price = override.price ?? 0;
+
+  const item = await prisma.$transaction(async (tx) => {
+    const created = await tx.shopItem.create({
+      data: {
+        name: proposal.name,
+        description: null,
+        category: proposal.category,
+        color: proposal.color ?? null,
+        rarity: 'common',
+        price,
+        payload: (proposal.payload ?? PrismaRuntime.DbNull) as Prisma.InputJsonValue | typeof PrismaRuntime.DbNull,
+        active: true,
+        sortOrder: 0,
+        // Attribution : on crédite l'auteur si la récompense est 'credit'.
+        creatorLogin: rewardKind === 'credit' ? proposal.proposerLogin : null,
+      },
+    });
+    if (rewardKind === 'coins' && rewardAmount > 0) {
+      await grantCoinsTx(tx, proposal.proposerLogin, rewardAmount, {
+        type: 'admin_grant',
+        refId: created.id,
+        meta: { by: me, reason: 'proposition boutique acceptée', item: proposal.name },
+      });
+    } else if (rewardKind === 'xp' && rewardAmount > 0) {
+      await grantXpTx(tx, proposal.proposerLogin, rewardAmount, {
+        type: 'admin_grant',
+        meta: { by: me, reason: 'proposition boutique acceptée', item: proposal.name },
+      });
+    }
+    await tx.shopProposal.update({
+      where: { id },
+      data: {
+        status: 'accepted',
+        reviewedBy: me,
+        reviewedAt: new Date(),
+        rewardKind,
+        rewardAmount: rewardKind === 'coins' || rewardKind === 'xp' ? rewardAmount : null,
+      },
+    });
+    return created;
   });
-  await prisma.shopProposal.update({
-    where: { id },
-    data: { status: 'accepted', reviewedBy: me, reviewedAt: new Date() },
-  });
+
   broadcast({ type: 'shop:proposal', payload: {} });
   return c.json(serializeShopItem(item));
 });

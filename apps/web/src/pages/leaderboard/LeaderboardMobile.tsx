@@ -13,12 +13,13 @@ import { GoatView } from '../GoatPage';
 import { LeaderboardBanner } from '../../components/LeaderboardBanner';
 import { TeamLeaderboard } from './TeamLeaderboard';
 import { XpLeaderboard } from './XpLeaderboard';
+import { DirectoryLeaderboard } from './DirectoryLeaderboard';
 import { api, type Season, type SeasonStanding, type LeaderboardEntry } from '../../lib/api';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
 import { useT } from '../../lib/i18n';
 
-type LeaderboardTab = 'personal' | 'teams' | 'xp';
+type LeaderboardTab = 'personal' | 'teams' | 'xp' | 'directory';
 
 export function LeaderboardMobile() {
   const t = useT();
@@ -55,6 +56,7 @@ export function LeaderboardMobile() {
     { value: 'personal' as LeaderboardTab, label: t('lb.tab.solo') },
     ...(showTeamsTab ? [{ value: 'teams' as LeaderboardTab, label: t('lb.tab.teams') }] : []),
     { value: 'xp' as LeaderboardTab, label: 'XP' },
+    { value: 'directory' as LeaderboardTab, label: 'Tous' },
   ];
 
   // Saison affichée : '' = en cours (live), sinon snapshot d'une saison passée.
@@ -223,7 +225,17 @@ export function LeaderboardMobile() {
 
         {/* ── Transition entre onglets ────────────────────────────────────── */}
         <AnimatePresence mode="wait" initial={false}>
-          {activeTab === 'xp' ? (
+          {activeTab === 'directory' ? (
+            <motion.div
+              key="directory"
+              initial={{ opacity: 0, x: 18 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -18 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <DirectoryLeaderboard myLogin={myLogin} />
+            </motion.div>
+          ) : activeTab === 'xp' ? (
             <motion.div
               key="xp"
               initial={{ opacity: 0, x: 18 }}

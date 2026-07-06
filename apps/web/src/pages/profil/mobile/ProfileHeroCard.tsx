@@ -46,6 +46,8 @@ interface ProfileHeroCardProps {
   equippedAvatarFrame?: string | null;
   /** Variante animée de l'ornement (jouée au survol de l'avatar). */
   equippedAvatarFrameAnimated?: string | null;
+  /** Autocollant équipé — collé dans un coin vide de la carte. */
+  equippedSticker?: string | null;
   /** Solde de League Coins (pour les fiches d'autres joueurs ; `me.coins` est utilisé quand isMe). */
   coins?: number;
 }
@@ -66,6 +68,7 @@ export function ProfileHeroCard({
   equippedBanner: equippedBannerProp,
   equippedAvatarFrame: equippedAvatarFrameProp,
   equippedAvatarFrameAnimated: equippedAvatarFrameAnimatedProp,
+  equippedSticker: equippedStickerProp,
   coins: coinsProp,
 }: ProfileHeroCardProps) {
   const { me, leaderboard, refresh } = useLeagueData();
@@ -82,6 +85,7 @@ export function ProfileHeroCard({
   const equippedBanner = equippedBannerProp ?? (isMe ? me?.equippedBanner : null) ?? null;
   const equippedAvatarFrame = equippedAvatarFrameProp ?? (isMe ? me?.equippedAvatarFrame : null) ?? null;
   const equippedAvatarFrameAnimated = equippedAvatarFrameAnimatedProp ?? (isMe ? me?.equippedAvatarFrameAnimated : null) ?? null;
+  const equippedSticker = equippedStickerProp ?? (isMe ? me?.equippedSticker : null) ?? null;
   const user = userProp ?? me?.user;
   const badges = badgesProp ?? me?.badges;
   if (!user) return null;
@@ -457,6 +461,20 @@ export function ProfileHeroCard({
           );
         })()}
       </div>
+
+      {/* Autocollant équipé — « collé » dans le coin haut-droit de la carte (zone
+          vide à droite du titre ; le pied de carte, lui, est occupé par les stats).
+          Léger basculement + ombre pour l'effet sticker. Décoratif :
+          pointer-events-none pour ne jamais bloquer les taps du contenu. */}
+      {equippedSticker && (
+        <img
+          src={equippedSticker}
+          alt=""
+          aria-hidden
+          className="absolute top-2 right-2 z-20 w-[clamp(52px,15vw,72px)] h-[clamp(52px,15vw,72px)] object-contain pointer-events-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)]"
+          style={{ transform: 'rotate(-8deg)' }}
+        />
+      )}
     </HeroCardFrame>
     {isMe && editGame && (
       <FavoriteCharsEditor

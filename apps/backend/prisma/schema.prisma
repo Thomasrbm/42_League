@@ -257,12 +257,40 @@ model ShopProposal {
   color         String?
   payload       Json? // title: { title }, banner: { image } (data-URL)
   status        String    @default("pending") // 'pending' | 'accepted' | 'rejected'
+  // Récompense DEMANDÉE par le proposeur si son cosmétique est retenu :
+  //   'credit' = attribution (son nom sur l'objet) | 'coins' | 'xp' | 'none'.
+  // L'admin peut l'ajuster au moment d'accepter. `rewardAmount` = coins/xp voulus.
+  rewardKind    String?   @map("reward_kind")
+  rewardAmount  Int?      @map("reward_amount")
   reviewedBy    String?   @map("reviewed_by")
   reviewedAt    DateTime? @map("reviewed_at")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   @@index([status])
   @@map("shop_proposals")
+}
+
+// ─── Cosmétiques « à personnaliser » (items « Choisissez… ») ──────────────────
+//
+// Certains objets boutique (bannière/titre avec payload.allowUpload) laissent
+// l'ACHETEUR fournir sa propre création. Pour éviter les abus, la création n'est
+// PAS appliquée directement : elle crée une CosmeticRequest relue par un admin.
+// À l'acceptation seulement, l'image/le titre est écrit dans ShopInventory.userPayload
+// (donc affiché). Une seule requête en attente par (joueur, objet).
+model CosmeticRequest {
+  id         String    @id @default(uuid())
+  userLogin  String    @map("user_login")
+  itemId     String    @map("item_id")
+  category   String // 'banner' | 'title'
+  payload    Json // banner: { image } ; title: { title, color }
+  status     String    @default("pending") // 'pending' | 'accepted' | 'rejected'
+  reviewedBy String?   @map("reviewed_by")
+  reviewedAt DateTime? @map("reviewed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([userLogin, itemId])
+  @@map("cosmetic_requests")
 }
 
 model Follow {
@@ -917,6 +945,9 @@ model ShopItem {
   payload     Json?
   active      Boolean         @default(true)
   sortOrder   Int             @default(0) @map("sort_order")
+  // Auteur crédité de l'objet (proposition de joueur acceptée avec attribution).
+  // Affiché « créé par @login » en boutique. Null pour les objets officiels.
+  creatorLogin String?        @map("creator_login")
   createdAt   DateTime        @default(now()) @map("created_at")
   inventory   ShopInventory[]
   prizeFor    Tournament[]    @relation("tournamentPrize")

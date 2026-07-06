@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { Type, Image as ImageIcon } from 'lucide-react';
+import { Type, Image as ImageIcon, BadgeCheck, Coins, Zap, Gift } from 'lucide-react';
 import { Panel } from '../components/Panel';
 import { useFlash } from '../hooks/useFlash';
-import { api } from '../lib/api';
+import { api, type ProposalRewardKind } from '../lib/api';
 import {
   emptyForm,
   Input,
@@ -21,16 +21,28 @@ import {
 
 type ProposeCategory = 'title' | 'banner';
 
+// Récompenses proposables par le créateur si son cosmétique est retenu.
+const REWARD_OPTIONS: { v: ProposalRewardKind; label: string; Icon: typeof Gift; hasAmount: boolean }[] = [
+  { v: 'credit', label: 'Mon nom dessus', Icon: BadgeCheck, hasAmount: false },
+  { v: 'coins', label: 'Des coins', Icon: Coins, hasAmount: true },
+  { v: 'xp', label: 'De l’XP', Icon: Zap, hasAmount: true },
+  { v: 'none', label: 'Rien', Icon: Gift, hasAmount: false },
+];
+
 export function ProposeItemPage() {
   const { show } = useFlash();
   const [form, setForm] = useState<FormState>(() => ({ ...emptyForm(), category: 'banner' }));
   const [submitting, setSubmitting] = useState(false);
+  // Récompense souhaitée par le créateur (l'admin reste libre de l'ajuster).
+  const [rewardKind, setRewardKind] = useState<ProposalRewardKind>('credit');
+  const [rewardAmount, setRewardAmount] = useState('');
 
   const set = useCallback(<K extends keyof FormState>(k: K, v: FormState[K]) => {
     setForm((prev) => ({ ...prev, [k]: v }));
   }, []);
 
   const category = form.category as ProposeCategory;
+  const rewardHasAmount = REWARD_OPTIONS.find((r) => r.v === rewardKind)?.hasAmount ?? false;
 
   async function handleSubmit() {
     const name = form.name.trim();
@@ -56,11 +68,19 @@ export function ProposeItemPage() {
       payload = { image: form.bannerImage };
     }
 
+    const amount = rewardHasAmount ? Math.max(0, Math.round(Number(rewardAmount) || 0)) : null;
+    if (rewardHasAmount && (!amount || amount <= 0)) {
+      show('Indique le montant que tu souhaites.', 'error');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await api.submitShopProposal({ category, name, color, payload });
+      await api.submitShopProposal({ category, name, color, payload, rewardKind, rewardAmount: amount });
       show('Proposition envoyée ! Un admin va la relire.');
       setForm({ ...emptyForm(), category });
+      setRewardKind('credit');
+      setRewardAmount('');
     } catch (e) {
       show(e instanceof Error ? e.message : 'Erreur lors de l’envoi.', 'error');
     } finally {
@@ -137,6 +157,45 @@ export function ProposeItemPage() {
           <div className="lg:col-span-1">
             <ItemPreview form={form} />
           </div>
+        </div>
+
+        {/* Récompense souhaitée par le créateur (choix multiple + montant). */}
+        <div className="mt-6 pt-5 border-t border-border/40">
+          <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
+            Ce que je veux si c’est validé
+          </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+            {REWARD_OPTIONS.map(({ v, label, Icon }) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setRewardKind(v)}
+                className={`inline-flex flex-col items-center justify-center gap-1 px-2 py-2.5 rounded-lg text-[11px] font-extrabold uppercase tracking-[0.06em] transition-all border ${
+                  rewardKind === v
+                    ? 'bg-gold/10 border-gold/30 text-gold'
+                    : 'border-border/40 text-muted-2 hover:text-text'
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" strokeWidth={2.5} />
+                <span className="text-center leading-tight">{label}</span>
+              </button>
+            ))}
+          </div>
+          {rewardHasAmount && (
+            <label className="flex flex-col gap-1 mt-3 max-w-[200px]">
+              <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
+                Montant en {rewardKind === 'coins' ? 'coins' : 'XP'}
+              </span>
+              <Input
+                value={rewardAmount}
+                onChange={(v) => setRewardAmount(v.replace(/[^0-9]/g, ''))}
+                placeholder="ex. 500"
+              />
+            </label>
+          )}
+          <p className="text-[11px] text-muted-2 mt-2 leading-relaxed">
+            L’admin reste libre d’ajuster ou de refuser cette récompense au moment de valider.
+          </p>
         </div>
 
         <div className="mt-5 flex justify-end">

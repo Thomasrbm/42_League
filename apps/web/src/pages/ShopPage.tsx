@@ -18,6 +18,10 @@ import {
   Crown,
   Lightbulb,
   ChevronRight,
+  Sticker as StickerIcon,
+  Type,
+  Clock,
+  BadgeCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { TiltCard } from '../components/TiltCard';
@@ -42,15 +46,15 @@ import {
   type ShopCategory,
   type ShopItemData,
 } from '../lib/api';
-import { CustomBannerUploaderModal } from '../components/shop/CustomBannerUploader';
+import { CustomBannerUploaderModal, CustomTitleChooserModal } from '../components/shop/CustomBannerUploader';
 import { trackEvent } from '../lib/analytics';
 import { RARITY, RARITY_ORDER, resolveRarity, type Rarity } from '../lib/rarity';
 
 /** Catégories pour lesquelles « équiper » a du sens (titre / bannière actifs). */
-const EQUIPPABLE: ShopCategory[] = ['title', 'banner', 'avatar_frame'];
+const EQUIPPABLE: ShopCategory[] = ['title', 'banner', 'avatar_frame', 'sticker'];
 
 /** Ordre d'affichage stable des catégories dans la barre de filtres. */
-const CATEGORY_ORDER: ShopCategory[] = ['title', 'banner', 'avatar_frame', 'consumable', 'mystery_box'];
+const CATEGORY_ORDER: ShopCategory[] = ['title', 'banner', 'avatar_frame', 'sticker', 'consumable', 'mystery_box'];
 
 /** Catégories masquées de la boutique (achat impossible). */
 const HIDDEN_CATS: ShopCategory[] = ['badge'];
@@ -62,6 +66,7 @@ const CAT_META: Record<ShopCategory, { Icon: LucideIcon; label: string }> = {
   title:        { Icon: Crown,       label: 'Titres' },
   banner:       { Icon: ImageIcon,   label: 'Bannières' },
   avatar_frame: { Icon: Sparkles,    label: 'Ornements' },
+  sticker:      { Icon: StickerIcon, label: 'Stickers' },
   consumable:   { Icon: Zap,         label: 'Consommables' },
   mystery_box:  { Icon: PackageOpen, label: 'Boîtes Mystère' },
   badge:        { Icon: Gem,         label: 'Badges' },
@@ -279,6 +284,18 @@ function ShopItemVisual({ item, rarityHex }: { item: ShopItemData; rarityHex: st
         </div>
       )}
 
+      {item.category === 'sticker' &&
+        (image ? (
+          <img
+            src={image}
+            alt=""
+            className="relative w-16 h-16 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
+            style={{ transform: 'rotate(-8deg)' }}
+          />
+        ) : (
+          <StickerIcon className="relative w-7 h-7 text-muted-2" strokeWidth={1.8} />
+        ))}
+
       {item.category === 'title' && (
         <span className="relative inline-flex items-center gap-1.5 text-center text-[15px]">
           <span style={{ color }} className="opacity-70 leading-none">❝</span>
@@ -429,6 +446,10 @@ export function ShopPage() {
   const [preview, setPreview] = useState<ShopItemData | null>(null);
   // Bannière custom en cours d'upload (itemId → ouvre le modal d'upload).
   const [uploadingBannerId, setUploadingBannerId] = useState<string | null>(null);
+  // Titre custom en cours de choix (itemId → ouvre le modal de titre).
+  const [choosingTitleId, setChoosingTitleId] = useState<string | null>(null);
+  // Items « Choisissez… » dont MA création est en attente de validation admin.
+  const [pendingCustom, setPendingCustom] = useState<Set<string>>(new Set());
   // Révélation de Boîte Mystère : { reward } pendant l'animation, null = fermé.
   const [reveal, setReveal] = useState<{ reward: MysteryReward | null } | null>(null);
   // État mensuel des consommables (kind → achats restants ce mois). Décrémente à
@@ -439,11 +460,13 @@ export function ShopPage() {
 
   const load = useCallback(async () => {
     try {
-      const [shop, inventory, consumables] = await Promise.all([
+      const [shop, inventory, consumables, pending] = await Promise.all([
         api.shop(),
         api.inventory().catch(() => [] as InventoryEntry[]),
         api.consumables().catch(() => null),
+        api.myPendingCosmetics().catch(() => ({ pendingItemIds: [] as string[] })),
       ]);
+      setPendingCustom(new Set(pending.pendingItemIds));
       const snap: ShopSnapshot = {
         coins: shop.coins ?? 0,
         items: shop.items ?? [],
@@ -672,8 +695,12 @@ export function ShopPage() {
                     const isEquipped = equipped.has(item.id);
                     const showEquip = isOwned && EQUIPPABLE.includes(item.category);
                     const isCustomBanner = isOwned && item.category === 'banner' && payloadOf(item).allowUpload === true;
-                    const invEntry = isCustomBanner ? inventoryEntries.find((e) => e.itemId === item.id) : undefined;
+                    const isCustomTitle = isOwned && item.category === 'title' && payloadOf(item).allowUpload === true;
+                    const invEntry = (isCustomBanner || isCustomTitle) ? inventoryEntries.find((e) => e.itemId === item.id) : undefined;
                     const userBannerImg = typeof invEntry?.userPayload?.image === 'string' ? invEntry.userPayload.image : null;
+                    const userTitleText = typeof invEntry?.userPayload?.title === 'string' ? invEntry.userPayload.title : null;
+                    // Création envoyée en validation admin (encore en attente).
+                    const isPendingCustom = pendingCustom.has(item.id);
                     const itemBusy = busy === item.id;
                     const consKind =
                       item.category === 'consumable' && typeof payloadOf(item).kind === 'string'
@@ -741,6 +768,22 @@ export function ShopPage() {
                               </p>
                             )}
 
+                            {/* Attribution : cosmétique proposé par un joueur. */}
+                            {item.creatorLogin && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-gold/80">
+                                <BadgeCheck className="w-3 h-3" strokeWidth={2.5} />
+                                Créé par {item.creatorLogin}
+                              </span>
+                            )}
+
+                            {/* Modèle d'obtention « Choisissez… » — annoncé AVANT achat (anti-abus). */}
+                            {!isOwned && payloadOf(item).allowUpload === true && (
+                              <span className="inline-flex items-start gap-1 text-[10px] text-sky-300/80 leading-snug">
+                                <ShieldBan className="w-3 h-3 mt-0.5 shrink-0" strokeWidth={2.5} />
+                                Après achat : tu crées {item.category === 'title' ? 'ton titre' : 'ta bannière'}, validé(e) par un admin.
+                              </span>
+                            )}
+
                             {/* Cap mensuel consommables */}
                             {consRemaining !== null && (
                               <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide tabular-nums">
@@ -751,15 +794,35 @@ export function ShopPage() {
                               </div>
                             )}
 
-                            {/* Bannière custom : upload */}
-                            {isCustomBanner && (
+                            {/* En attente de validation admin (bannière ou titre perso). */}
+                            {(isCustomBanner || isCustomTitle) && isPendingCustom && (
+                              <div className="w-full rounded-lg border border-sky-400/30 bg-sky-400/5 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-300 flex items-center justify-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                En attente de validation
+                              </div>
+                            )}
+
+                            {/* Bannière custom : upload (validation admin) */}
+                            {isCustomBanner && !isPendingCustom && (
                               <button
                                 type="button"
                                 onClick={() => setUploadingBannerId(item.id)}
                                 className="w-full rounded-lg border border-dashed border-gold/30 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-gold/70 hover:border-gold/60 hover:text-gold transition-colors flex items-center justify-center gap-1.5"
                               >
                                 <Upload className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                {userBannerImg ? 'Changer mon image' : 'Uploader mon image'}
+                                {userBannerImg ? 'Changer ma bannière' : 'Choisir ma bannière'}
+                              </button>
+                            )}
+
+                            {/* Titre custom : choix texte + couleur (validation admin) */}
+                            {isCustomTitle && !isPendingCustom && (
+                              <button
+                                type="button"
+                                onClick={() => setChoosingTitleId(item.id)}
+                                className="w-full rounded-lg border border-dashed border-gold/30 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-gold/70 hover:border-gold/60 hover:text-gold transition-colors flex items-center justify-center gap-1.5"
+                              >
+                                <Type className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                {userTitleText ? 'Changer mon titre' : 'Choisir mon titre'}
                               </button>
                             )}
 
@@ -972,11 +1035,36 @@ export function ShopPage() {
             itemName={item.name}
             currentImage={typeof entry.userPayload?.image === 'string' ? entry.userPayload.image : null}
             onClose={() => setUploadingBannerId(null)}
-            onSaved={(dataUrl) => {
-              setInventoryEntries((prev) =>
-                prev.map((e) => e.itemId === uploadingBannerId ? { ...e, userPayload: { image: dataUrl } } : e),
-              );
+            onSaved={(dataUrl, pending) => {
+              if (pending) {
+                // En attente de validation : on n'applique rien, on marque « en attente ».
+                setPendingCustom((prev) => new Set(prev).add(uploadingBannerId));
+              } else {
+                setInventoryEntries((prev) =>
+                  prev.map((e) => e.itemId === uploadingBannerId ? { ...e, userPayload: { image: dataUrl } } : e),
+                );
+              }
               setUploadingBannerId(null);
+              void refresh();
+            }}
+          />
+        ) : null;
+      })()}
+
+      {/* Choix d'un titre personnalisé (item « Choisis ton titre ») */}
+      {choosingTitleId && (() => {
+        const entry = inventoryEntries.find((e) => e.itemId === choosingTitleId);
+        const item = items.find((it) => it.id === choosingTitleId);
+        return item ? (
+          <CustomTitleChooserModal
+            itemId={choosingTitleId}
+            itemName={item.name}
+            currentTitle={typeof entry?.userPayload?.title === 'string' ? entry.userPayload.title : null}
+            currentColor={typeof entry?.userPayload?.color === 'string' ? entry.userPayload.color : item.color}
+            onClose={() => setChoosingTitleId(null)}
+            onSaved={(pending) => {
+              if (pending) setPendingCustom((prev) => new Set(prev).add(choosingTitleId));
+              setChoosingTitleId(null);
               void refresh();
             }}
           />

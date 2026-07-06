@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Store, Coins, Plus, Pencil, Trash2, Save, X, Gift, Gem, Search, ChevronRight } from 'lucide-react';
+import { ChevronLeft, Store, Coins, Plus, Pencil, Trash2, Save, X, Gift, Gem, Search, ChevronRight, BadgeCheck, Zap, Palette } from 'lucide-react';
 import {
   api,
+  type BattlePassTierAdmin,
   type ShopCategory,
   type ShopItemData,
   type ShopItemInput,
@@ -28,7 +29,7 @@ import {
 } from '../components/shop/CosmeticForm';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useServerEvents } from '../hooks/useServerEvents';
-import type { ShopProposal } from '../lib/api';
+import type { ShopProposal, ProposalRewardKind, CosmeticRequest } from '../lib/api';
 
 type Role = 'ADMIN' | 'SUPERADMIN';
 
@@ -78,6 +79,7 @@ const CATEGORY_BADGE: Record<ShopCategory, string> = {
   badge: 'bg-fuchsia-400/15 text-fuchsia-400',
   banner: 'bg-violet-400/15 text-violet-400',
   avatar_frame: 'bg-sky-400/15 text-sky-400',
+  sticker: 'bg-pink-400/15 text-pink-400',
   mystery_box: 'bg-purple-400/15 text-purple-400',
   consumable: 'bg-teal-400/15 text-teal-400',
 };
@@ -497,6 +499,214 @@ function GrantItemSection({ items }: { items: ShopItemData[] }) {
   );
 }
 
+// ── Section : ÉDITEUR DE PASSE DE COMBAT ────────────────────────────────────
+// Pour CHAQUE palier (niveau) 1..100, l'admin choisit librement la récompense :
+// aucune / coins / consommable (4 types) / cosmétique (n'importe quel item de la
+// boutique). S'appuie sur l'API admin déjà en place (GET/PUT/DELETE
+// /admin/battlepass/tiers). Sauvegarde palier par palier (bouton actif seulement
+// si la ligne a changé). « Aucune » supprime la config du palier (piste factice).
+
+const BP_MAX_TIERS = 100;
+
+const BP_CONSUMABLES: Array<[string, string]> = [
+  ['anti_ops', 'Anti-OPS'],
+  ['elo_mult', 'ELO ×2 (En feu)'],
+  ['force_duel', 'Main du Destin'],
+  ['mini_ops', 'Mini-OPS'],
+];
+
+type BpKind = 'none' | 'coins' | 'consumable' | 'item';
+interface BpDraft {
+  rewardKind: BpKind;
+  itemId: string;
+  coins: string;
+  consumableKind: string;
+}
+
+function bpEmptyDraft(): BpDraft {
+  return { rewardKind: 'none', itemId: '', coins: '150', consumableKind: 'anti_ops' };
+}
+function bpDraftFrom(a: BattlePassTierAdmin): BpDraft {
+  return {
+    rewardKind: a.rewardKind,
+    itemId: a.itemId ?? '',
+    coins: a.coins != null ? String(a.coins) : '150',
+    consumableKind: a.consumableKind ?? 'anti_ops',
+  };
+}
+function bpSameDraft(a: BpDraft, b: BpDraft): boolean {
+  if (a.rewardKind !== b.rewardKind) return false;
+  if (a.rewardKind === 'item') return a.itemId === b.itemId;
+  if (a.rewardKind === 'coins') return a.coins === b.coins;
+  if (a.rewardKind === 'consumable') return a.consumableKind === b.consumableKind;
+  return true;
+}
+function bpCloneMap(m: Record<number, BpDraft>): Record<number, BpDraft> {
+  const out: Record<number, BpDraft> = {};
+  for (const [k, v] of Object.entries(m)) out[Number(k)] = { ...v };
+  return out;
+}
+
+function BattlePassSection({ items }: { items: ShopItemData[] }) {
+  const [drafts, setDrafts] = useState<Record<number, BpDraft>>({});
+  const [saved, setSaved] = useState<Record<number, BpDraft>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<number | null>(null);
+  const [flash, setFlash] = useState<{ tier: number; msg: string; ok: boolean } | null>(null);
+  const [onlyConfigured, setOnlyConfigured] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await api.adminBattlePassTiers();
+      const base: Record<number, BpDraft> = {};
+      for (let tier = 1; tier <= BP_MAX_TIERS; tier++) base[tier] = bpEmptyDraft();
+      for (const r of rows) if (r.tier >= 1 && r.tier <= BP_MAX_TIERS) base[r.tier] = bpDraftFrom(r);
+      setDrafts(base);
+      setSaved(bpCloneMap(base));
+    } catch {
+      /* silencieux : l'éditeur n'est pas critique */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function patch(tier: number, p: Partial<BpDraft>) {
+    setDrafts((prev) => ({ ...prev, [tier]: { ...prev[tier]!, ...p } }));
+  }
+
+  async function save(tier: number) {
+    const d = drafts[tier]!;
+    if (d.rewardKind === 'item' && !d.itemId) {
+      setFlash({ tier, msg: 'Choisis un cosmétique.', ok: false });
+      return;
+    }
+    if (d.rewardKind === 'coins' && (d.coins === '' || Number(d.coins) < 0 || !Number.isFinite(Number(d.coins)))) {
+      setFlash({ tier, msg: 'Montant de coins invalide.', ok: false });
+      return;
+    }
+    setSaving(tier);
+    setFlash(null);
+    try {
+      if (d.rewardKind === 'none') {
+        await api.adminDeleteBattlePassTier(tier);
+      } else {
+        await api.adminSetBattlePassTier(tier, {
+          rewardKind: d.rewardKind,
+          itemId: d.rewardKind === 'item' ? d.itemId : null,
+          coins: d.rewardKind === 'coins' ? Math.floor(Number(d.coins)) : null,
+          consumableKind: d.rewardKind === 'consumable' ? d.consumableKind : null,
+        });
+      }
+      setSaved((prev) => ({ ...prev, [tier]: { ...d } }));
+      setFlash({ tier, msg: 'Enregistré ✓', ok: true });
+    } catch (e) {
+      setFlash({ tier, msg: e instanceof Error ? e.message : 'Erreur', ok: false });
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  const configuredCount = Object.values(drafts).filter((d) => d.rewardKind !== 'none').length;
+  const rows = [];
+  for (let tier = 1; tier <= BP_MAX_TIERS; tier++) {
+    if (onlyConfigured && drafts[tier]?.rewardKind === 'none') continue;
+    rows.push(tier);
+  }
+
+  return (
+    <div className="p-4">
+      <Section title="Passe de combat — récompense par palier">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-zinc-400">
+              <span className="text-amber-400 font-bold">{configuredCount}</span> / {BP_MAX_TIERS} paliers configurés
+            </span>
+            <span className="text-[10px] text-zinc-600 font-mono">
+              « Aucune » = palier laissé à la piste factice (auto-générée).
+            </span>
+            <div className="ml-auto flex items-center gap-3">
+              <Toggle on={onlyConfigured} onToggle={() => setOnlyConfigured(!onlyConfigured)} label="Configurés seulement" />
+              <Btn onClick={() => void load()} variant="ghost">
+                Recharger
+              </Btn>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="text-xs text-zinc-500 font-mono py-6 text-center">Chargement…</div>
+          ) : (
+            <div className="max-h-[560px] overflow-y-auto pr-1 divide-y divide-zinc-800/60">
+              {rows.map((tier) => {
+                const d = drafts[tier]!;
+                const dirty = !bpSameDraft(d, saved[tier] ?? bpEmptyDraft());
+                return (
+                  <div key={tier} className="flex flex-wrap items-center gap-2 py-2">
+                    <span className="w-14 shrink-0 text-xs font-mono font-bold text-zinc-300">Niv {tier}</span>
+                    <select
+                      value={d.rewardKind}
+                      onChange={(e) => patch(tier, { rewardKind: e.target.value as BpKind })}
+                      className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-500"
+                    >
+                      <option value="none">Aucune</option>
+                      <option value="coins">Coins</option>
+                      <option value="consumable">Consommable</option>
+                      <option value="item">Cosmétique</option>
+                    </select>
+
+                    {d.rewardKind === 'coins' && (
+                      <div className="flex items-center gap-1">
+                        <Input type="number" value={d.coins} onChange={(v) => patch(tier, { coins: v })} className="w-24" />
+                        <span className="text-[10px] text-zinc-500 font-mono">coins</span>
+                      </div>
+                    )}
+                    {d.rewardKind === 'consumable' && (
+                      <select
+                        value={d.consumableKind}
+                        onChange={(e) => patch(tier, { consumableKind: e.target.value })}
+                        className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-500"
+                      >
+                        {BP_CONSUMABLES.map(([k, label]) => (
+                          <option key={k} value={k}>{label}</option>
+                        ))}
+                      </select>
+                    )}
+                    {d.rewardKind === 'item' && (
+                      <select
+                        value={d.itemId}
+                        onChange={(e) => patch(tier, { itemId: e.target.value })}
+                        className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs font-mono text-zinc-100 focus:outline-none focus:border-zinc-500 max-w-[16rem]"
+                      >
+                        <option value="">— choisir un cosmétique —</option>
+                        {items.map((it) => (
+                          <option key={it.id} value={it.id}>
+                            [{CATEGORY_LABEL[it.category]}] {it.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    <Btn onClick={() => void save(tier)} disabled={!dirty || saving === tier} variant="success" className="px-2 py-1">
+                      <Save className="w-3 h-3" />
+                      {saving === tier ? '…' : 'Enregistrer'}
+                    </Btn>
+                    {flash?.tier === tier && (
+                      <span className={`text-[10px] font-mono ${flash.ok ? 'text-emerald-400' : 'text-red-400'}`}>{flash.msg}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
 // ── Section 0 : suivi des joueurs (liste cliquable → fiche détaillée) ────────
 
 function Avatar({ url, name }: { url: string | null; name: string }) {
@@ -672,16 +882,49 @@ function formFromProposal(p: ShopProposal): FormState {
   };
 }
 
+// Récompense éditable par l'admin pour une proposition (init = demande du joueur).
+type RewardDraft = { kind: ProposalRewardKind; amount: string; price: string };
+const REWARD_KINDS: { v: ProposalRewardKind; label: string; Icon: typeof Gift }[] = [
+  { v: 'credit', label: 'Attribution', Icon: BadgeCheck },
+  { v: 'coins', label: 'Coins', Icon: Coins },
+  { v: 'xp', label: 'XP', Icon: Zap },
+  { v: 'none', label: 'Rien', Icon: Gift },
+];
+const REWARD_LABEL: Record<ProposalRewardKind, string> = {
+  credit: 'son nom sur l’objet',
+  coins: 'des coins',
+  xp: 'de l’XP',
+  none: 'rien',
+};
+
 function ProposalsSection() {
   const [proposals, setProposals] = useState<ShopProposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pendingId, setPendingId] = useState<string | null>(null);
+  // Brouillon de récompense par proposition (édité par l'admin avant validation).
+  const [drafts, setDrafts] = useState<Record<string, RewardDraft>>({});
 
   const load = useCallback((silent = false) => {
     if (!silent) setLoading(true);
     api.adminShopProposals()
-      .then(setProposals)
+      .then((list) => {
+        setProposals(list);
+        // Initialise chaque brouillon avec la demande du joueur.
+        setDrafts((prev) => {
+          const next = { ...prev };
+          for (const p of list) {
+            if (!next[p.id]) {
+              next[p.id] = {
+                kind: p.rewardKind ?? 'credit',
+                amount: p.rewardAmount != null ? String(p.rewardAmount) : '',
+                price: '',
+              };
+            }
+          }
+          return next;
+        });
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Erreur'))
       .finally(() => setLoading(false));
   }, []);
@@ -691,12 +934,28 @@ function ProposalsSection() {
   // Rafraîchit en temps réel quand un joueur soumet une proposition.
   useServerEvents(() => load(true), ['shop:proposal']);
 
+  function patchDraft(id: string, patch: Partial<RewardDraft>) {
+    setDrafts((prev) => {
+      const base: RewardDraft = prev[id] ?? { kind: 'credit', amount: '', price: '' };
+      return { ...prev, [id]: { ...base, ...patch } };
+    });
+  }
+
   async function decide(p: ShopProposal, action: 'accept' | 'reject') {
     setPendingId(p.id);
     setError('');
     try {
-      if (action === 'accept') await api.acceptShopProposal(p.id);
-      else await api.rejectShopProposal(p.id);
+      if (action === 'accept') {
+        const d = drafts[p.id] ?? { kind: 'credit', amount: '', price: '' };
+        const needsAmount = d.kind === 'coins' || d.kind === 'xp';
+        await api.acceptShopProposal(p.id, {
+          rewardKind: d.kind,
+          rewardAmount: needsAmount ? Math.max(0, Math.round(Number(d.amount) || 0)) : null,
+          price: Math.max(0, Math.round(Number(d.price) || 0)),
+        });
+      } else {
+        await api.rejectShopProposal(p.id);
+      }
       setProposals((prev) => prev.filter((x) => x.id !== p.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur');
@@ -719,7 +978,10 @@ function ProposalsSection() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {proposals.map((p) => (
+            {proposals.map((p) => {
+              const d = drafts[p.id] ?? { kind: 'credit', amount: '', price: '' };
+              const needsAmount = d.kind === 'coins' || d.kind === 'xp';
+              return (
               <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -731,11 +993,146 @@ function ProposalsSection() {
                   <span className="text-[10px] text-zinc-500 font-mono shrink-0">par {p.proposerLogin}</span>
                 </div>
                 <ItemPreview form={formFromProposal(p)} />
+
+                {/* Récompense DEMANDÉE par le joueur (rappel). */}
+                <div className="text-[11px] text-zinc-400 font-mono">
+                  Demande : <span className="text-zinc-200">{REWARD_LABEL[p.rewardKind ?? 'credit']}</span>
+                  {(p.rewardKind === 'coins' || p.rewardKind === 'xp') && p.rewardAmount != null && (
+                    <span className="text-zinc-200"> ({p.rewardAmount})</span>
+                  )}
+                </div>
+
+                {/* Récompense EFFECTIVE (ajustable). */}
+                <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 p-2">
+                  <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Récompenser le créateur</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {REWARD_KINDS.map(({ v, label, Icon }) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => patchDraft(p.id, { kind: v })}
+                        className={`inline-flex flex-col items-center gap-1 px-1 py-1.5 rounded text-[10px] font-mono border transition-colors ${
+                          d.kind === v
+                            ? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
+                            : 'border-zinc-800 text-zinc-500 hover:text-zinc-200'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    {needsAmount && (
+                      <label className="flex-1 flex flex-col gap-0.5">
+                        <span className="text-[9px] text-zinc-600 font-mono uppercase">Montant {d.kind}</span>
+                        <Input value={d.amount} onChange={(v) => patchDraft(p.id, { amount: v.replace(/[^0-9]/g, '') })} placeholder="0" />
+                      </label>
+                    )}
+                    <label className="flex-1 flex flex-col gap-0.5">
+                      <span className="text-[9px] text-zinc-600 font-mono uppercase">Prix boutique</span>
+                      <Input value={d.price} onChange={(v) => patchDraft(p.id, { price: v.replace(/[^0-9]/g, '') })} placeholder="0 (gratuit)" />
+                    </label>
+                  </div>
+                </div>
+
                 <div className="flex justify-end gap-2">
                   <Btn variant="success" disabled={pendingId === p.id} onClick={() => decide(p, 'accept')}>
                     Accepter
                   </Btn>
                   <Btn variant="danger" disabled={pendingId === p.id} onClick={() => decide(p, 'reject')}>
+                    Refuser
+                  </Btn>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        )}
+        {error && <div className="mt-3 text-xs text-red-400 font-mono px-1">{error}</div>}
+      </Section>
+    </div>
+  );
+}
+
+// ── Validation des cosmétiques personnalisés (items « Choisissez… ») ──────────
+function CosmeticRequestsSection() {
+  const [requests, setRequests] = useState<CosmeticRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const load = useCallback((silent = false) => {
+    if (!silent) setLoading(true);
+    api.adminCosmeticRequests()
+      .then(setRequests)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Erreur'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+  useServerEvents(() => load(true), ['cosmetic:request']);
+
+  async function decide(r: CosmeticRequest, action: 'accept' | 'reject') {
+    setPendingId(r.id);
+    setError('');
+    try {
+      if (action === 'accept') await api.acceptCosmeticRequest(r.id);
+      else await api.rejectCosmeticRequest(r.id);
+      setRequests((prev) => prev.filter((x) => x.id !== r.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur');
+      load(true);
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  function previewForm(r: CosmeticRequest): FormState {
+    const payload = (r.payload ?? {}) as Record<string, unknown>;
+    return {
+      ...emptyForm(),
+      name: r.itemName ?? '',
+      category: r.category,
+      color: typeof payload.color === 'string' ? payload.color : '#ffc94a',
+      titleText: typeof payload.title === 'string' ? payload.title : '',
+      bannerImage: typeof payload.image === 'string' ? payload.image : '',
+    };
+  }
+
+  return (
+    <div className="p-4">
+      <Section
+        title={`Cosmétiques personnalisés à valider${requests.length ? ` — ${requests.length} en attente` : ''}`}
+      >
+        {loading ? (
+          <div className="text-xs text-zinc-500 font-mono px-1">Chargement…</div>
+        ) : requests.length === 0 ? (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-xs text-zinc-500 font-mono">
+            Aucune création d’acheteur en attente.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {requests.map((r) => (
+              <div key={r.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${CATEGORY_BADGE[r.category]}`}>
+                      {CATEGORY_LABEL[r.category]}
+                    </span>
+                    <span className="text-sm text-zinc-100 font-bold truncate">
+                      <Palette className="w-3.5 h-3.5 inline -mt-0.5 mr-1 text-pink-400" />
+                      {r.itemName ?? 'Cosmétique'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-mono shrink-0">par {r.userLogin}</span>
+                </div>
+                <ItemPreview form={previewForm(r)} />
+                <div className="flex justify-end gap-2">
+                  <Btn variant="success" disabled={pendingId === r.id} onClick={() => decide(r, 'accept')}>
+                    Valider
+                  </Btn>
+                  <Btn variant="danger" disabled={pendingId === r.id} onClick={() => decide(r, 'reject')}>
                     Refuser
                   </Btn>
                 </div>
@@ -851,8 +1248,10 @@ export function ShopGODPage() {
         </button>
       </div>
       <ProposalsSection />
+      <CosmeticRequestsSection />
       <GrantCoinsSection />
       <GrantItemSection items={items} />
+      <BattlePassSection items={items} />
       <ItemsSection onItemsChanged={setItems} />
     </GodChrome>
   );

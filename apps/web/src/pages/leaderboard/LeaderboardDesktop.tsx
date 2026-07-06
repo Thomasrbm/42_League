@@ -16,13 +16,14 @@ import { LeaderboardScatter, RankingViewToggle, GradesNavButton, type RankingVie
 import { GoatView } from '../GoatPage';
 import { TeamLeaderboard } from './TeamLeaderboard';
 import { XpLeaderboard } from './XpLeaderboard';
+import { DirectoryLeaderboard } from './DirectoryLeaderboard';
 import { RankingScopeToggle } from './RankingScopeToggle';
 import { CampusScopeToggle, useCampusScope, filterByCampus, hasCampusInfo } from './campusScope';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useGameMode } from '../../hooks/useGameMode';
 import { useT } from '../../lib/i18n';
 
-type LeaderboardTab = 'personal' | 'teams' | 'xp';
+type LeaderboardTab = 'personal' | 'teams' | 'xp' | 'directory';
 
 // ─── Stats dérivées par joueur ───────────────────────────────────────────────
 /** Adversaire ayant mis fin à une plus longue série (photo Intra pour le tooltip). */
@@ -492,12 +493,23 @@ export function LeaderboardDesktop() {
               { value: 'personal' as LeaderboardTab, label: t('lb.tab.solo') },
               ...(showTeamsTab ? [{ value: 'teams' as LeaderboardTab, label: t('lb.tab.teams') }] : []),
               { value: 'xp' as LeaderboardTab, label: 'XP' },
+              { value: 'directory' as LeaderboardTab, label: 'Tous' },
             ]}
           />
         </div>
 
         <AnimatePresence mode="wait" initial={false}>
-          {activeTab === 'xp' ? (
+          {activeTab === 'directory' ? (
+            <motion.div
+              key="directory"
+              initial={{ opacity: 0, x: 14 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -14 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <DirectoryLeaderboard myLogin={myLogin} />
+            </motion.div>
+          ) : activeTab === 'xp' ? (
             <motion.div
               key="xp"
               initial={{ opacity: 0, x: 14 }}

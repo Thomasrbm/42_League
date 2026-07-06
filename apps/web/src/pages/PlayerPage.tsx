@@ -131,7 +131,7 @@ export function PlayerPage() {
   return (
     <div className="space-y-5">
       {/* Carte héro — même design que le profil perso (sans le sélecteur de titre) */}
-      <ProfileHeroCard stats={stats} user={p.user} badges={p.badges} customBadges={p.customBadges} titleColor={p.titleColor} equippedBadge={p.equippedBadge} equippedBanner={p.equippedBanner} equippedAvatarFrame={p.equippedAvatarFrame} equippedAvatarFrameAnimated={p.equippedAvatarFrameAnimated} isMe={isMe} coins={p.coins} />
+      <ProfileHeroCard stats={stats} user={p.user} badges={p.badges} customBadges={p.customBadges} titleColor={p.titleColor} equippedBadge={p.equippedBadge} equippedBanner={p.equippedBanner} equippedAvatarFrame={p.equippedAvatarFrame} equippedAvatarFrameAnimated={p.equippedAvatarFrameAnimated} equippedSticker={p.equippedSticker} isMe={isMe} coins={p.coins} />
 
       {/* Courbe d'évolution ELO — 2e section, juste après la carte principale */}
       {recentMatches.length >= 2 && (
