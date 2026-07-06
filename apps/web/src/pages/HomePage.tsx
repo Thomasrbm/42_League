@@ -309,6 +309,33 @@ export function HomePage() {
         <p className="text-sm text-muted-2 mt-0.5">{t('home.sub')}</p>
       </div>
 
+      {/* Bannière saisonnière « Piscine 2026 » */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+        className="relative rounded-2xl overflow-hidden border border-[#2cc3ff]/40 shadow-[0_0_30px_rgba(44,195,255,0.18)]"
+      >
+        <img
+          src="/season/piscine.webp"
+          alt="Saison Piscine 2026"
+          draggable={false}
+          className="block w-full h-32 sm:h-44 object-cover select-none"
+        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(90deg, rgba(6,8,12,0.82) 0%, rgba(6,8,12,0.35) 45%, transparent 78%)' }}
+        />
+        <div className="absolute inset-y-0 left-0 flex flex-col justify-center px-5 sm:px-7">
+          <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.24em] text-[#7fe0ff]">
+            🏊 Saison en cours
+          </span>
+          <span className="font-gaming text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
+            Piscine 2026
+          </span>
+        </div>
+      </motion.div>
+
       {/* À faire */}
       {todo.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
