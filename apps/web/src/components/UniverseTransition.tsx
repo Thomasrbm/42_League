@@ -39,7 +39,7 @@ const ENTER_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'; // décélère, settle premi
 const LOGO_OVERLAP = 150; // le logo entre pendant que les dernières tuiles se posent
 const LOGO_HOLD = 820; // durée d'affichage avant le fade out (~700-900 ms visé)
 const LOGO_HOLD_REDUCED = 550; // reduced motion : apparition simple, plus courte
-const LOGO_SIZE = 112; // px
+const LOGO_SIZE = 180; // px — logo agrandi pendant la cinématique de switch
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
@@ -276,22 +276,22 @@ export function UniverseTransition({ children }: UniverseTransitionProps) {
             }
             aria-hidden
           >
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                {/* Halo de la couleur de l'univers, derrière le logo */}
-                <div
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-                  style={{
-                    width: LOGO_SIZE * 3,
-                    height: LOGO_SIZE * 3,
-                    background: `radial-gradient(circle, ${logoMeta.glowColor} 0%, transparent 70%)`,
-                    filter: 'blur(18px)',
-                  }}
-                />
-                <div className="relative drop-shadow-lg">{logoMeta.icon(true, LOGO_SIZE)}</div>
-              </div>
+            {/* Le LOGO est l'élément centré (le libellé flotte en absolu dessous
+                pour ne pas décaler le logo hors du centre exact du viewport). */}
+            <div className="relative flex items-center justify-center">
+              {/* Halo de la couleur de l'univers, derrière le logo */}
               <div
-                className="relative mt-4 text-2xl font-bold tracking-wide"
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{
+                  width: LOGO_SIZE * 3,
+                  height: LOGO_SIZE * 3,
+                  background: `radial-gradient(circle, ${logoMeta.glowColor} 0%, transparent 70%)`,
+                  filter: 'blur(18px)',
+                }}
+              />
+              <div className="relative drop-shadow-lg">{logoMeta.icon(true, LOGO_SIZE)}</div>
+              <div
+                className="absolute left-1/2 top-full -translate-x-1/2 mt-5 whitespace-nowrap text-2xl font-bold tracking-wide"
                 style={{ color: logoMeta.color, textShadow: `0 0 22px ${logoMeta.glowColor}` }}
               >
                 {logoMeta.label}

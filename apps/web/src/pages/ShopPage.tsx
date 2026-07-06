@@ -16,6 +16,8 @@ import {
   Zap,
   Upload,
   Crown,
+  Lightbulb,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { TiltCard } from '../components/TiltCard';
@@ -611,6 +613,22 @@ export function ShopPage() {
 
       {tab === 'shop' && (
         <>
+      {/* ── Proposer un item : petite carte en évidence → éditeur de proposition ── */}
+      <button
+        type="button"
+        onClick={() => navigate('/shop/propose')}
+        className="w-full flex items-center gap-3 rounded-xl border border-violet-400/40 bg-gradient-to-r from-violet-500/15 to-transparent px-4 py-3 text-left hover:from-violet-500/25 transition-all"
+      >
+        <span className="shrink-0 w-9 h-9 rounded-lg bg-violet-500/20 border border-violet-400/40 flex items-center justify-center">
+          <Lightbulb className="w-5 h-5 text-violet-200" strokeWidth={2.2} />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-extrabold text-text-strong">{t('shop.propose.cta')}</span>
+          <span className="block text-[11px] text-muted-2 leading-snug">{t('shop.propose.hint')}</span>
+        </span>
+        <ChevronRight className="w-5 h-5 text-violet-300 shrink-0" strokeWidth={2.5} />
+      </button>
+
       {/* ── Guide « comment gagner des coins » ─────────────────────────── */}
       <EarnGuide onPick={pickEarn} />
 
