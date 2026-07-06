@@ -107,7 +107,14 @@ const EMPTY_FILTERS: Filters = {
  * et un regroupement par section empilées verticalement (campus, grade, activité,
  * trophées, initiale). Partagé par les vues desktop et mobile.
  */
-export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
+export function DirectoryLeaderboard({
+  myLogin,
+  initialCampus,
+}: {
+  myLogin?: string | null;
+  /** Campus présélectionné (deep-link depuis la recherche globale) → filtre + regroupement campus. */
+  initialCampus?: string;
+}) {
   const { leaderboard: rankedBoard, matches: allMatches, activeSeasonId } = useLeagueData();
   const { game } = useGameMode();
 
@@ -220,8 +227,18 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
     return [...s].sort((a, b) => a.localeCompare(b));
   }, [leaderboard]);
 
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [groupBy, setGroupBy] = useState<GroupBy>('none');
+  const [filters, setFilters] = useState<Filters>(
+    initialCampus ? { ...EMPTY_FILTERS, campus: initialCampus } : EMPTY_FILTERS,
+  );
+  const [groupBy, setGroupBy] = useState<GroupBy>(initialCampus ? 'campus' : 'none');
+
+  // Deep-link campus : si le param change (nav depuis la recherche globale alors
+  // que l'annuaire est déjà monté), on ré-applique le filtre + regroupement campus.
+  useEffect(() => {
+    if (!initialCampus) return;
+    setFilters((f) => ({ ...f, campus: initialCampus }));
+    setGroupBy('campus');
+  }, [initialCampus]);
   const [sortKey, setSortKey] = useState<SortKey>('elo');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showFilters, setShowFilters] = useState(false);

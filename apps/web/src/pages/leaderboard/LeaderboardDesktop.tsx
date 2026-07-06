@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronUp, ChevronDown, Flame, Snowflake, Skull, LocateFixed } from 'lucide-react';
 import { api, type Season, type SeasonStanding, type LeaderboardEntry, type PlayedMatch } from '../../lib/api';
@@ -228,7 +229,16 @@ export function LeaderboardDesktop() {
   const { scope: campusScope, setScope: setCampusScope, myCampus } = useCampusScope();
 
   const showTeamsTab = game === 'babyfoot';
-  const [activeTab, setActiveTab] = useState<LeaderboardTab>('personal');
+
+  // Deep-link depuis la recherche globale : ?campus=<x> ou ?tab=directory ouvre
+  // directement l'onglet « Tous » (et présélectionne le campus le cas échéant).
+  const [searchParams] = useSearchParams();
+  const campusParam = searchParams.get('campus') ?? undefined;
+  const wantDirectory = searchParams.get('tab') === 'directory' || !!campusParam;
+  const [activeTab, setActiveTab] = useState<LeaderboardTab>(wantDirectory ? 'directory' : 'personal');
+  useEffect(() => {
+    if (wantDirectory) setActiveTab('directory');
+  }, [wantDirectory, campusParam]);
   useEffect(() => {
     // L'onglet Équipes n'existe qu'en babyfoot ; le ladder XP est cross-jeux
     // et survit donc au changement d'univers.
@@ -507,7 +517,7 @@ export function LeaderboardDesktop() {
               exit={{ opacity: 0, x: -14 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             >
-              <DirectoryLeaderboard myLogin={myLogin} />
+              <DirectoryLeaderboard myLogin={myLogin} initialCampus={campusParam} />
             </motion.div>
           ) : activeTab === 'xp' ? (
             <motion.div

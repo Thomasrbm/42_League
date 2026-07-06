@@ -16,11 +16,13 @@ import {
   Info,
   ShoppingBag,
   Zap,
+  MapPin,
   CornerDownLeft,
   type LucideIcon,
 } from 'lucide-react';
 import { Avatar } from './Avatar';
 import { useLeagueData } from '../hooks/useLeagueData';
+import { api, type LeaderboardEntry } from '../lib/api';
 import { useT } from '../lib/i18n';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,7 +57,7 @@ interface ResultRow {
   to: string;
   label: string;
   sub?: string;
-  kind: 'page' | 'player' | 'tournament';
+  kind: 'page' | 'player' | 'tournament' | 'campus';
   Icon?: LucideIcon;
   imageUrl?: string | null;
   login?: string;
@@ -76,6 +78,25 @@ export function CommandPalette() {
   const [query, setQuery] = useState('');
   const [idx, setIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Annuaire COMPLET (tous les inscrits, tous modes confondus) — chargé à la
+  // première ouverture. Le `leaderboard` de useLeagueData est cloisonné au mode
+  // courant + parties jouées, donc il masquerait la majorité des joueurs ; ici
+  // on veut pouvoir trouver N'IMPORTE QUEL inscrit. Repli sur `leaderboard`
+  // tant que l'annuaire n'est pas revenu.
+  const [directory, setDirectory] = useState<LeaderboardEntry[] | null>(null);
+  useEffect(() => {
+    if (!open || directory !== null) return;
+    api.directory().then(setDirectory).catch(() => {});
+  }, [open, directory]);
+  const players = directory ?? leaderboard;
+
+  // Campus distincts présents dans l'annuaire (pour la recherche de campus).
+  const campuses = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of players) if (p.campus) set.add(p.campus);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [players]);
 
   // Raccourci global Cmd/Ctrl+K (toggle) — Échap géré par l'input.
   // Aussi ouvrable au clic depuis le bouton de recherche visible de la sidebar
@@ -114,16 +135,33 @@ export function CommandPalette() {
     }
 
     if (q) {
-      const players = leaderboard.filter((u) => {
+      // Campus correspondants → lien vers l'annuaire « Tous » filtré/groupé par campus.
+      const matchedCampuses = campuses.filter((c) => norm(c).includes(q));
+      for (const c of matchedCampuses.slice(0, 4)) {
+        out.push({
+          key: `campus:${c}`,
+          to: `/leaderboard?campus=${encodeURIComponent(c)}`,
+          label: c,
+          sub: t('palette.campusSub'),
+          kind: 'campus',
+          Icon: MapPin,
+        });
+      }
+
+      // Joueurs — sur l'annuaire COMPLET (tous les inscrits), pas le mode courant.
+      const matchedPlayers = players.filter((u) => {
         const name = norm(`${u.login} ${u.firstName ?? ''} ${u.lastName ?? ''}`);
         return name.includes(q);
       });
-      for (const u of players.slice(0, 6)) {
+      for (const u of matchedPlayers.slice(0, 6)) {
         out.push({
           key: `player:${u.login}`,
           to: `/player/${encodeURIComponent(u.login)}`,
           label: u.login,
-          sub: [u.firstName, u.lastName].filter(Boolean).join(' ') || undefined,
+          sub:
+            [u.firstName, u.lastName].filter(Boolean).join(' ') ||
+            u.campus ||
+            undefined,
           kind: 'player',
           imageUrl: u.imageUrl,
           login: u.login,
@@ -142,7 +180,7 @@ export function CommandPalette() {
       }
     }
     return out;
-  }, [query, leaderboard, tournaments, t]);
+  }, [query, players, campuses, tournaments, t]);
 
   // Index sélectionné toujours dans les bornes.
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, LocateFixed } from 'lucide-react';
 import { PullToRefresh } from '../../mobile/primitives/PullToRefresh';
@@ -46,7 +47,15 @@ export function LeaderboardMobile() {
   // Onglets — le classement Équipes n'est disponible qu'en Babyfoot ; le
   // ladder XP est cross-jeux et survit au changement d'univers.
   const showTeamsTab = game === 'babyfoot';
-  const [activeTab, setActiveTab] = useState<LeaderboardTab>('personal');
+
+  // Deep-link recherche globale : ?campus=<x> / ?tab=directory ouvre « Tous ».
+  const [searchParams] = useSearchParams();
+  const campusParam = searchParams.get('campus') ?? undefined;
+  const wantDirectory = searchParams.get('tab') === 'directory' || !!campusParam;
+  const [activeTab, setActiveTab] = useState<LeaderboardTab>(wantDirectory ? 'directory' : 'personal');
+  useEffect(() => {
+    if (wantDirectory) setActiveTab('directory');
+  }, [wantDirectory, campusParam]);
   useEffect(() => {
     if (game !== 'babyfoot' && activeTab === 'teams') setActiveTab('personal');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -233,7 +242,7 @@ export function LeaderboardMobile() {
               exit={{ opacity: 0, x: -18 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             >
-              <DirectoryLeaderboard myLogin={myLogin} />
+              <DirectoryLeaderboard myLogin={myLogin} initialCampus={campusParam} />
             </motion.div>
           ) : activeTab === 'xp' ? (
             <motion.div
