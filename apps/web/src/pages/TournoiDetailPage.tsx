@@ -2262,6 +2262,33 @@ function PoolCard({
 }) {
   const t = useT();
   const poolName = String.fromCharCode(65 + pool.index); // A, B, C…
+
+  // ── Auto-organisation : prochain match de la poule par « qui n'a pas joué depuis
+  // le plus longtemps » (miroir de la phase de ligue) ────────────────────────────
+  const playablePool = pool.matches.filter((m) => m.playerALogin && m.playerBLogin);
+  const playedPool = playablePool.filter((m) => m.confirmedAt);
+  const pendingPool = playablePool.filter((m) => !m.confirmedAt);
+  // Dernière activité par joueur (ms du dernier match de poule confirmé) — jamais
+  // joué → 0, donc prioritaire.
+  const poolLastActivity: Record<string, number> = {};
+  for (const m of playedPool) {
+    const ts = m.confirmedAt ? new Date(m.confirmedAt).getTime() : 0;
+    for (const p of [m.playerALogin, m.playerBLogin]) {
+      if (p) poolLastActivity[p] = Math.max(poolLastActivity[p] ?? 0, ts);
+    }
+  }
+  // Attente d'une affiche = ancienneté du joueur qui a le plus attendu (min des deux).
+  const poolPairWait = (m: TournamentMatch) =>
+    Math.min(poolLastActivity[m.playerALogin ?? ''] ?? 0, poolLastActivity[m.playerBLogin ?? ''] ?? 0);
+  const pendingByWait = [...pendingPool].sort((a, b) => poolPairWait(a) - poolPairWait(b) || a.slot - b.slot);
+  // Prochain match : affiche non jouée dont l'attente est la plus longue.
+  const nextPoolMatch = tournament.status === 'in_progress' ? (pendingByWait[0] ?? null) : null;
+  // Ordre d'affichage : à jouer (attente décroissante) puis déjà jouées (ordre de jeu).
+  const orderedPoolMatches = [
+    ...pendingByWait,
+    ...playedPool.slice().sort((a, b) => a.slot - b.slot),
+  ];
+
   return (
     <div className="rounded-xl border border-border bg-bg-2/30 overflow-hidden">
       <div className="px-3 py-2 bg-bg-2/60 border-b border-border/50 text-[11px] font-extrabold uppercase tracking-wider text-text-strong">
@@ -2316,18 +2343,32 @@ function PoolCard({
           })}
         </tbody>
       </table>
-      {/* Matchs de la poule */}
+      {/* Matchs de la poule — non joués d'abord (attente la plus longue), le
+          prochain match auto-proposé est mis en avant. */}
       <div className="p-2.5 space-y-2 border-t border-border/40">
-        {pool.matches.map((m) => (
-          <BracketMatch
-            key={m.id}
-            tournament={tournament}
-            match={m}
-            myLogin={myLogin}
-            canOfficiate={canOfficiate}
-            onChange={onChange}
-          />
-        ))}
+        {orderedPoolMatches.map((m) => {
+          const isNext = nextPoolMatch?.id === m.id;
+          return (
+            <div
+              key={m.id}
+              className={isNext ? 'rounded-lg ring-1 ring-gold/40 bg-gold/[0.05] p-2' : undefined}
+            >
+              {isNext && (
+                <div className="mb-1 flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-gold">
+                  <span aria-hidden>⏱</span>
+                  {t('tournois.bracket.upNext')}
+                </div>
+              )}
+              <BracketMatch
+                tournament={tournament}
+                match={m}
+                myLogin={myLogin}
+                canOfficiate={canOfficiate}
+                onChange={onChange}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

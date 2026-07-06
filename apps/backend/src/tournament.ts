@@ -142,9 +142,42 @@ export async function generateBracket(
 const POOL_SIZE = 4;
 
 /**
+ * Paires round-robin d'une poule, RANGÉES PAR JOURNÉE (« méthode du cercle ») : à
+ * chaque journée, chacun joue au plus une fois (un joueur se repose si l'effectif
+ * est impair). Les affiches sont donc ENTRELACÉES — on ne voit plus les matchs d'un
+ * même joueur à la suite, et le « prochain match » tombe naturellement sur ceux qui
+ * n'ont pas joué depuis le plus longtemps. Miroir de `leagueRoundRobinPairs`
+ * (index.ts) à l'échelle d'une poule. Renvoie les paires dans l'ordre de jeu.
+ */
+export function poolRoundRobinPairs(logins: string[]): Array<[string, string]> {
+  if (logins.length < 2) return [];
+  const arr = [...logins];
+  if (arr.length % 2 === 1) arr.push('__BYE__');
+  const n = arr.length;
+  const half = n / 2;
+  const out: Array<[string, string]> = [];
+  for (let r = 0; r < n - 1; r++) {
+    for (let i = 0; i < half; i++) {
+      const a = arr[i]!;
+      const b = arr[n - 1 - i]!;
+      if (a === '__BYE__' || b === '__BYE__') continue;
+      out.push([a, b]);
+    }
+    // Rotation : arr[0] figé, le reste tourne d'un cran (dernier → 2e position).
+    const fixed = arr[0]!;
+    const rest = arr.slice(1);
+    rest.unshift(rest.pop()!);
+    arr.splice(0, arr.length, fixed, ...rest);
+  }
+  return out;
+}
+
+/**
  * Construit la phase de poules : poules de 4 (la dernière peut être plus petite),
  * round-robin complet dans chaque poule. Les joueurs sont répartis en serpent pour
- * équilibrer les tailles.
+ * équilibrer les tailles. Au sein d'une poule, les affiches sont ordonnées PAR
+ * JOURNÉE (cf. `poolRoundRobinPairs`) : l'ordre des `slot` donne l'ordre de jeu, si
+ * bien que le « prochain match » de poule tombe sur l'équipe la plus inactive.
  */
 export async function generatePools(
   tournamentId: string,
@@ -169,19 +202,19 @@ export async function generatePools(
   }> = [];
   let slot = 0;
   pools.forEach((pool, poolIndex) => {
-    for (let i = 0; i < pool.length; i++) {
-      for (let j = i + 1; j < pool.length; j++) {
-        data.push({
-          id: randomUUID(),
-          tournamentId,
-          stage: 'pool',
-          poolIndex,
-          round: 0,
-          slot: slot++,
-          playerALogin: pool[i]!,
-          playerBLogin: pool[j]!,
-        });
-      }
+    // Affiches entrelacées par journée plutôt que joueur par joueur : l'ordre des
+    // `slot` reflète ainsi l'ordre de jeu conseillé.
+    for (const [a, b] of poolRoundRobinPairs(pool)) {
+      data.push({
+        id: randomUUID(),
+        tournamentId,
+        stage: 'pool',
+        poolIndex,
+        round: 0,
+        slot: slot++,
+        playerALogin: a,
+        playerBLogin: b,
+      });
     }
   });
   await prisma.tournamentMatch.createMany({ data });

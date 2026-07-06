@@ -8,6 +8,7 @@ import {
   nextPow2,
   totalRounds,
   poolStandings,
+  poolRoundRobinPairs,
   qualifiersFromPools,
   type PoolMatchLite,
 } from './tournament.js';
@@ -27,6 +28,39 @@ describe('totalRounds', () => {
     expect(totalRounds(8)).toBe(3);
     expect(totalRounds(16)).toBe(4);
     expect(totalRounds(2)).toBe(1);
+  });
+});
+
+describe('poolRoundRobinPairs', () => {
+  const key = (a: string, b: string) => [a, b].sort().join('-');
+
+  it('génère toutes les paires du round-robin, une seule fois', () => {
+    const pairs = poolRoundRobinPairs(['a', 'b', 'c', 'd']);
+    expect(pairs).toHaveLength(6); // C(4,2)
+    expect(new Set(pairs.map(([a, b]) => key(a, b))).size).toBe(6);
+  });
+
+  it('entrelace par journée : personne ne joue deux fois de suite (effectif pair)', () => {
+    const players = ['a', 'b', 'c', 'd'];
+    const pairs = poolRoundRobinPairs(players);
+    // 4 joueurs → journées de 2 affiches. Dans chaque journée, les 4 joueurs
+    // apparaissent une fois (tout le monde joue).
+    for (let d = 0; d < pairs.length; d += 2) {
+      const day = [pairs[d]!, pairs[d + 1]!].flat();
+      expect(new Set(day)).toEqual(new Set(players));
+    }
+  });
+
+  it('gère un effectif impair (un joueur se repose par journée, aucun bye émis)', () => {
+    const pairs = poolRoundRobinPairs(['a', 'b', 'c']);
+    expect(pairs).toHaveLength(3); // C(3,2)
+    expect(pairs.flat()).not.toContain('__BYE__');
+    expect(new Set(pairs.map(([a, b]) => key(a, b))).size).toBe(3);
+  });
+
+  it('renvoie [] en dessous de 2 joueurs', () => {
+    expect(poolRoundRobinPairs([])).toEqual([]);
+    expect(poolRoundRobinPairs(['a'])).toEqual([]);
   });
 });
 
