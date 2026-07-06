@@ -224,8 +224,13 @@ describe('matches — annulation par le déclarant', () => {
 describe('matches — anti-farming (max 2 comptés / paire / fenêtre)', () => {
   beforeEach(async () => {
     await resetDb();
-    await seedUser('alice');
-    await seedUser('bob');
+    // ELO de départ élevé (bien au-dessus de ELO_HARD_FLOOR=975) : ce test
+    // vérifie la suppression du plafond par paire, PAS le plancher. À 1000,
+    // bob touche le plancher dès le 2e KO (10-3) et son delta est écrêté à 0
+    // par l'anti-farming de plancher (elo.ts) — ce qui n'a rien à voir avec ce
+    // qu'on teste ici. On part donc haut pour garder des deltas symétriques.
+    await seedUser('alice', { elo: 1300 });
+    await seedUser('bob', { elo: 1300 });
   });
 
   async function declareAndConfirm() {
