@@ -6,6 +6,7 @@ import { GameModeSwitch } from '../components/GameModeSwitch';
 import { GameBackdrop } from '../components/GameBackdrop';
 import { TesterSwitch } from '../components/TesterSwitch';
 import { GameOnboarding } from '../components/GameOnboarding';
+import { SeasonPalms } from '../components/SeasonPalms';
 
 const NotifBanner        = lazy(() => import('../components/NotifBanner').then(m => ({ default: m.NotifBanner })));
 const OpsRevealOverlay   = lazy(() => import('../components/OpsRevealOverlay').then(m => ({ default: m.OpsRevealOverlay })));
@@ -19,6 +20,7 @@ const RewardUnlockOverlay = lazy(() => import('../components/RewardUnlockOverlay
 const TauntOverlay       = lazy(() => import('../components/TauntOverlay').then(m => ({ default: m.TauntOverlay })));
 const XpGainToast        = lazy(() => import('../components/XpGainToast').then(m => ({ default: m.XpGainToast })));
 const AppBadge           = lazy(() => import('../components/AppBadge').then(m => ({ default: m.AppBadge })));
+const SeasonWelcome      = lazy(() => import('../components/SeasonWelcome').then(m => ({ default: m.SeasonWelcome })));
 
 interface AppShellProps {
   children: ReactNode;
@@ -43,6 +45,8 @@ export function AppShell({ children }: AppShellProps) {
         mobile={<MobileShell>{children}</MobileShell>}
         desktop={<DesktopShell>{children}</DesktopShell>}
       />
+      {/* Palmiers saisonniers en accents de coin — pointer-events-none, ne bloquent rien */}
+      <SeasonPalms />
       <Suspense>
         <NotifBanner />
         <OpsRevealOverlay />
@@ -75,6 +79,8 @@ export function AppShell({ children }: AppShellProps) {
         <XpGainToast />
         {/* Compteur sur l'icône de la PWA installée (App Badging API) */}
         <AppBadge />
+        {/* Splash de bienvenue « Saison Piscine 2026 » — une fois par navigateur */}
+        <SeasonWelcome />
       </Suspense>
     </>
   );
