@@ -1128,6 +1128,46 @@ export function PassePage() {
         </div>
       </div>
 
+      {/* ── Comment gagner de l'XP ─────────────────────────────────────────── */}
+      <div
+        className="relative overflow-hidden rounded-2xl p-4 sm:p-5"
+        style={{ background: '#0c1731', border: '1px solid #27407c' }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="w-4 h-4 text-[#2cc3ff]" strokeWidth={2.6} fill="currentColor" />
+          <h2 className="font-gaming font-black italic uppercase text-sm sm:text-base tracking-[0.12em] text-white">
+            Comment gagner de l'XP
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <XpSource
+            icon={Swords}
+            color="#2cc3ff"
+            title="Jouer un match"
+            desc="Victoire +100 · défaite +70 · nulle +85 XP. Bonus d'écart en 1v1 (jusqu'à +50 pour un large gagnant, +25 pour une défaite serrée). On gagne TOUJOURS de l'XP, même en perdant."
+          />
+          <XpSource
+            icon={Star}
+            color="#ffc94a"
+            title="Quêtes"
+            desc="Objectifs (jouer 5 matchs, gagner 3 fois, toucher à plusieurs modes…) : +300 à +500 XP chacune."
+          />
+          <XpSource
+            icon={Medal}
+            color="#ff4d6d"
+            title="Gagner un tournoi officiel"
+            desc="ÉNORME buff : 🥇 +6 niveaux d'un coup · 🥈 +4,5 · 🥉 +3 · 4e +1,5. Rien au-delà du top 4."
+            highlight
+          />
+          <XpSource
+            icon={Crown}
+            color="#7fa4ff"
+            title="Gagner un tournoi amical"
+            desc="Gros buff aussi : 🥇 +2 niveaux · 🥈 +1,5 · 🥉 +1 · 4e +0,5. Rien au-delà du top 4."
+          />
+        </div>
+      </div>
+
       {/* ── Piste des récompenses : UNE ligne, scroll horizontal ───────────── */}
       {loading ? (
         <div className="grid grid-rows-2 grid-flow-col gap-3 overflow-hidden">
@@ -1230,6 +1270,44 @@ export function PassePage() {
           />
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Carte « source d'XP » (encart pédagogique sous la barre de progression) ──
+function XpSource({
+  icon: Icon,
+  color,
+  title,
+  desc,
+  highlight = false,
+}: {
+  icon: LucideIcon;
+  color: string;
+  title: string;
+  desc: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className="flex items-start gap-3 rounded-xl p-3"
+      style={{
+        background: highlight ? `${color}14` : '#0a1430',
+        border: `1px solid ${highlight ? `${color}66` : '#20315c'}`,
+      }}
+    >
+      <span
+        className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+        style={{ background: `${color}1f`, border: `1px solid ${color}55`, color }}
+      >
+        <Icon className="w-4 h-4" strokeWidth={2.4} />
+      </span>
+      <div className="min-w-0">
+        <div className="font-gaming font-bold uppercase tracking-wide text-[12px]" style={{ color }}>
+          {title}
+        </div>
+        <p className="mt-0.5 text-[11px] leading-snug text-[#9db8f5]">{desc}</p>
+      </div>
     </div>
   );
 }

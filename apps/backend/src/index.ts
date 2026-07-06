@@ -20,6 +20,7 @@ import {
   cashPrizeForRounds,
   tournamentPlacements,
   tournamentEloForPlacement,
+  tournamentXpLevelsForPlacement,
   DEFAULT_BET_FINAL_MULT,
   BET_FINAL_MULT_MIN,
   BET_FINAL_MULT_MAX,
@@ -5473,6 +5474,52 @@ async function awardTournamentElo(
   }
 }
 
+/**
+ * Gros buff d'XP de passe de combat par PLACEMENT final (mirroir de
+ * awardTournamentElo). Officiel → 1er +6 niveaux (dégressif jusqu'au 4e) ; amical
+ * → 1er +2 niveaux. L'XP réelle est calculée depuis le niveau COURANT de chaque
+ * joueur pour garantir le nombre de niveaux promis (cf. xpToAdvanceLevels), et les
+ * paliers franchis sont signalés (le joueur les réclamera lui-même).
+ */
+async function awardTournamentXp(
+  tx: Prisma.TransactionClient,
+  id: string,
+  official: boolean,
+): Promise<void> {
+  const bracket = await tx.tournamentMatch.findMany({
+    where: { tournamentId: id, stage: 'bracket' },
+    select: { round: true, playerALogin: true, playerBLogin: true, winnerLogin: true },
+  });
+  const placements = tournamentPlacements(bracket);
+  for (let i = 0; i < placements.length; i++) {
+    const captain = placements[i];
+    if (!captain) continue;
+    const levels = tournamentXpLevelsForPlacement(i + 1, official);
+    if (levels <= 0) continue;
+    const entry = await tx.tournamentEntry.findUnique({
+      where: { tournamentId_login: { tournamentId: id, login: captain } },
+      select: { partnerLogin: true },
+    });
+    const members = entry?.partnerLogin ? [captain, entry.partnerLogin] : [captain];
+    for (const login of members) {
+      const u = await tx.user.findUnique({ where: { login }, select: { xp: true } });
+      if (!u) continue;
+      const amount = xpToAdvanceLevels(levelFromXp(u.xp).level, levels);
+      if (amount <= 0) continue;
+      const next = await grantXpTx(tx, login, amount, {
+        type: 'tournament',
+        refId: id,
+        meta: { placement: i + 1, official, levels },
+      });
+      if (next != null) {
+        const prevLevel = levelFromXp(next - amount).level;
+        const newLevel = levelFromXp(next).level;
+        await notifyBattlePassTiersTx(tx, login, prevLevel, newLevel);
+      }
+    }
+  }
+}
+
 async function settleConfirmedTournamentMatch(
   tx: Prisma.TransactionClient,
   id: string,
@@ -5609,6 +5656,9 @@ async function settleConfirmedTournamentMatch(
     // Bonus d'Elo de fin de tournoi PAR PLACEMENT (1er +100, 2e +75, 3e +50,
     // 4e +25 — chaque membre en 2v2). Indépendant des coins/cosmétiques.
     await awardTournamentElo(tx, id, parseGameId(tour.game));
+    // Gros buff d'XP de passe par placement — beaucoup plus généreux en officiel
+    // (1er +6 niveaux) qu'en amical (1er +2 niveaux), dégressif jusqu'au 4e.
+    await awardTournamentXp(tx, id, tour.kind === 'official');
     // Membres de l'équipe gagnante : capitaine seul (1v1) ou + coéquipier (2v2).
     const winEntry = await tx.tournamentEntry.findUnique({
       where: { tournamentId_login: { tournamentId: id, login: winnerLogin } },
@@ -11740,7 +11790,27 @@ function cumulativeXpForTier(T: number): number {
   return sum;
 }
 
-type XpTxType = 'match' | 'admin_grant' | 'tier_bonus' | 'quest';
+/**
+ * XP nécessaire pour faire progresser un joueur de `levels` niveaux À PARTIR de
+ * son niveau courant (le coût d'un niveau croît, donc « 6 niveaux » ne vaut pas
+ * la même XP pour tout le monde). Supporte un nombre fractionnaire de niveaux :
+ * la partie entière additionne le coût de chaque niveau franchi, la fraction
+ * restante paie ce prorata du niveau suivant. Sert au buff XP de fin de tournoi.
+ */
+function xpToAdvanceLevels(currentLevel: number, levels: number): number {
+  let xp = 0;
+  let L = currentLevel;
+  let remaining = levels;
+  while (remaining >= 1) {
+    xp += xpForLevel(L);
+    L++;
+    remaining -= 1;
+  }
+  if (remaining > 0) xp += Math.round(xpForLevel(L) * remaining);
+  return xp;
+}
+
+type XpTxType = 'match' | 'admin_grant' | 'tier_bonus' | 'quest' | 'tournament';
 
 interface XpTxEntry {
   type: XpTxType;
