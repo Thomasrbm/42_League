@@ -17,6 +17,7 @@ import { ContestableMatchCard } from './mobile/ContestableMatchCard';
 import { ChallengeMobileCard } from './mobile/ChallengeMobileCard';
 import { MatchmakingButton } from '../../components/MatchmakingButton';
 import { useDefisLogic } from './shared/useDefisLogic';
+import { StakeMatchDefisSection } from '../enjeu';
 import { useLeagueData } from '../../hooks/useLeagueData';
 import { useOpsStatus } from '../../hooks/useOpsStatus';
 import { useGameMode } from '../../hooks/useGameMode';
@@ -136,6 +137,11 @@ export function DefisMobile() {
             onClick={() => setChallengeOpen(true)}
           />
         </div>
+
+        {/* Matchs à enjeu (défis à parier) */}
+        <section>
+          <StakeMatchDefisSection />
+        </section>
 
         {/* Pending — à confirmer (CTA urgent) */}
         {pendingToConfirm.length > 0 && (
