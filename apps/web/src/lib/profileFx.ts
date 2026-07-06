@@ -98,14 +98,15 @@ export const NO_FX: ProfileFxState = {
   frame: null,
 };
 
-/** Le titre d'un joueur signale-t-il l'allégeance à Sheldon ? */
-export function isSheldonTitle(title: string | null | undefined): boolean {
-  if (!title) return false;
-  return title
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .includes('sheldon');
+/**
+ * Halo vert « Apôtre de Sheldon » DÉSACTIVÉ (juillet 2026) : on ne veut plus
+ * aucun effet visuel vert associé au titre. Le titre lui-même reste affiché,
+ * mais plus d'anneau/cadre/aura verte. Retourne toujours false pour couper d'un
+ * coup l'anneau d'avatar, le cadre de carte et l'aura partout où cette fonction
+ * (et sa copie dans SheldonApostle.tsx) pilote l'effet.
+ */
+export function isSheldonTitle(_title: string | null | undefined): boolean {
+  return false;
 }
 
 /**

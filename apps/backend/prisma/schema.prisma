@@ -237,6 +237,25 @@ model AnnouncementSeen {
   @@map("announcement_seen")
 }
 
+// Proposition de cosmétique soumise par un joueur (BANNIÈRE ou TITRE uniquement).
+// N'est PAS un vrai ShopItem : les admins la relisent dans /GOD et l'acceptent
+// (→ création du ShopItem) ou la refusent. Additif — aucune table existante touchée.
+model ShopProposal {
+  id            String    @id @default(uuid())
+  proposerLogin String    @map("proposer_login")
+  category      String // 'title' | 'banner'
+  name          String
+  color         String?
+  payload       Json? // title: { title }, banner: { image } (data-URL)
+  status        String    @default("pending") // 'pending' | 'accepted' | 'rejected'
+  reviewedBy    String?   @map("reviewed_by")
+  reviewedAt    DateTime? @map("reviewed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([status])
+  @@map("shop_proposals")
+}
+
 model Follow {
   id               String   @id @default(uuid())
   followerLogin    String   @map("follower_login")

@@ -26,7 +26,7 @@ function SeasonPalmsImpl() {
         draggable={false}
         decoding="async"
         loading="eager"
-        className="pointer-events-none absolute top-0 left-0 h-auto w-[clamp(84px,11vw,168px)] -translate-x-[32%] -translate-y-[42%] opacity-[0.64] drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)]"
+        className="pointer-events-none absolute top-0 left-0 h-auto w-[clamp(104px,14vw,208px)] -translate-x-[16%] -translate-y-[26%] opacity-[0.6] drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)]"
       />
       {/* Canopée haut-droite : symétrique. */}
       <img
@@ -35,7 +35,7 @@ function SeasonPalmsImpl() {
         draggable={false}
         decoding="async"
         loading="eager"
-        className="pointer-events-none absolute top-0 right-0 h-auto w-[clamp(84px,11vw,168px)] translate-x-[32%] -translate-y-[42%] opacity-[0.64] drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)]"
+        className="pointer-events-none absolute top-0 right-0 h-auto w-[clamp(104px,14vw,208px)] translate-x-[16%] -translate-y-[26%] opacity-[0.6] drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)]"
       />
     </div>
   );

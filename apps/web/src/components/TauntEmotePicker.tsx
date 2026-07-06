@@ -6,6 +6,7 @@ import { useLeagueData } from '../hooks/useLeagueData';
 import { useFlash } from '../hooks/useFlash';
 import { useT } from '../lib/i18n';
 import { TAUNT_EMOTES, tauntEmoteUnlockLevel } from '../lib/tauntEmotes';
+import { TauntEmotePreview } from './TauntEmotePreview';
 
 /**
  * Sélecteur d'émote de victoire (narguage post-1v1), avec l'économie du passe :
@@ -20,10 +21,15 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
 
   const level = me?.level ?? 1;
   const [localEmote, setLocalEmote] = useState<string | null>(null);
+  // Émote dont on joue l'aperçu animé (déclenché à la sélection).
+  const [preview, setPreview] = useState<string | null>(null);
   const current = localEmote ?? me?.user?.tauntEmote ?? TAUNT_EMOTES[0];
 
   async function save(emote: string) {
     setLocalEmote(emote);
+    // Rejoue l'aperçu même si on re-sélectionne la même émote.
+    setPreview(null);
+    requestAnimationFrame(() => setPreview(emote));
     try {
       await api.setTauntEmote(emote);
       flash.show(t('settings.tauntEmote.saved'));
@@ -36,6 +42,7 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
 
   return (
     <div>
+      <TauntEmotePreview emote={preview} onDone={() => setPreview(null)} />
       <div className={`grid ${compact ? 'grid-cols-5' : 'grid-cols-5 sm:grid-cols-10'} gap-2`}>
         {TAUNT_EMOTES.map((e) => {
           const required = tauntEmoteUnlockLevel(e);

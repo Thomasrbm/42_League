@@ -2,7 +2,6 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Flame, Snowflake } from 'lucide-react';
 import { Avatar } from './Avatar';
-import { OnlineBadge } from './OnlineBadge';
 import { RankedBadge } from './RankedBadge';
 import { BadgeChip } from './Badges';
 import { useLeagueData } from '../hooks/useLeagueData';
@@ -20,13 +19,12 @@ const GAP = 8;
  * requête réseau supplémentaire.
  */
 export function PlayerHoverCard({ login, anchorRect }: { login: string; anchorRect: DOMRect }) {
-  const { leaderboard, matches, locations } = useLeagueData();
+  const { leaderboard, matches } = useLeagueData();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   const entry = leaderboard.find((u) => u.login === login);
   const stats = useMemo(() => computePlayerStats(login, matches), [login, matches]);
-  const onlineHost = locations.get(login);
   const realName = entry?.firstName && entry?.lastName ? `${entry.firstName} ${entry.lastName}` : null;
 
   // Positionnement : sous l'ancre par défaut, au-dessus si pas de place ;
@@ -80,9 +78,6 @@ export function PlayerHoverCard({ login, anchorRect }: { login: string; anchorRe
       <div className="flex items-center gap-2.5">
         <div className="relative flex-shrink-0">
           <Avatar login={login} imageUrl={entry?.imageUrl ?? null} size="md" className="ring-1 ring-gold/30" />
-          {onlineHost && (
-            <OnlineBadge host={onlineHost} compact className="absolute bottom-0 right-0" />
-          )}
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -92,7 +87,6 @@ export function PlayerHoverCard({ login, anchorRect }: { login: string; anchorRe
             {entry?.badges?.includes('goat') && <BadgeChip code="goat" size="xs" iconOnly />}
           </div>
           {realName && <div className="text-[10px] text-muted-2 truncate">@{login}</div>}
-          {onlineHost && <OnlineBadge host={onlineHost} className="mt-0.5" />}
         </div>
       </div>
 

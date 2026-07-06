@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Skull, Swords, Trophy } from 'lucide-react';
 import { Avatar } from '../../../components/Avatar';
-import { OnlineBadge } from '../../../components/OnlineBadge';
 import { SwipeableCard } from '../../../mobile/primitives/SwipeableCard';
 import { RivetCorners } from '../../../mobile/primitives/RivetCorners';
 import type { LeaderboardEntry, Ops } from '../../../lib/api';
@@ -19,8 +18,6 @@ interface PlayerRankCardProps {
   losses: number;
   isMe: boolean;
   targetedBy?: Ops;
-  /** Hôte 42 si l'utilisateur est connecté à l'école (ex. "c1r7s8"). */
-  host?: string;
   /** Si fourni, le swipe gauche → droite déclenche cette action (défier). */
   onDefi?: (entry: LeaderboardEntry) => void;
   /** Saison passée : grise la photo (classement figé). */
@@ -39,7 +36,6 @@ export const PlayerRankCard = memo(function PlayerRankCard({
   losses,
   isMe,
   targetedBy,
-  host,
   onDefi,
   past = false,
 }: PlayerRankCardProps) {
@@ -115,9 +111,6 @@ export const PlayerRankCard = memo(function PlayerRankCard({
             <Skull className="w-3 h-3" strokeWidth={2.5} />
           </span>
         )}
-        {host && !targetedBy && (
-          <OnlineBadge host={host} compact className="absolute -bottom-0.5 -right-0.5" />
-        )}
       </div>
 
       {/* Login + title + tournois */}
@@ -132,7 +125,6 @@ export const PlayerRankCard = memo(function PlayerRankCard({
               {t('lb.me')}
             </span>
           )}
-          {host && <OnlineBadge host={host} />}
         </div>
         {entry.title && (
           <div

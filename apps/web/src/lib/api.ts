@@ -434,6 +434,18 @@ export interface ShopResponse {
   owned: string[];
 }
 
+/** Proposition de cosmétique soumise par un joueur (titre ou bannière), en attente
+ *  de relecture admin. Renvoyée par GET /admin/shop/proposals. */
+export interface ShopProposal {
+  id: string;
+  proposerLogin: string;
+  category: 'title' | 'banner';
+  name: string;
+  color: string | null;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 // ─── Passe de combat (XP) ──────────────────────────────────────────────────────
 
 /** Un palier du passe vu par le joueur (cf. GET /me/battlepass). */
@@ -599,16 +611,6 @@ export interface MeResponse {
     /** Émote de victoire (narguage) — null = défaut. */
     tauntEmote?: string | null;
   } | null;
-}
-
-/** Joueur « chaud » : dispo pour jouer pendant 30 min (cf. GET /hot). */
-export interface HotPlayer {
-  login: string;
-  game: Game;
-  until: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  imageUrl: string | null;
 }
 
 /** Narguage en attente : le vainqueur d'un 1v1 nargue le perdant à sa prochaine connexion. */
@@ -2181,6 +2183,26 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ login, amount }),
     }),
+  // ── Propositions de cosmétiques (joueur → relecture admin) ──────────────────
+  submitShopProposal: (input: {
+    category: 'title' | 'banner';
+    name: string;
+    color?: string | null;
+    payload: Record<string, unknown>;
+  }) =>
+    request<ShopProposal>('/shop/proposals', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  adminShopProposals: () => request<ShopProposal[]>('/admin/shop/proposals'),
+  acceptShopProposal: (id: string) =>
+    request<ShopItemData>(`/admin/shop/proposals/${encodeURIComponent(id)}/accept`, {
+      method: 'POST',
+    }),
+  rejectShopProposal: (id: string) =>
+    request<{ ok: true }>(`/admin/shop/proposals/${encodeURIComponent(id)}/reject`, {
+      method: 'POST',
+    }),
   // ── Passe de combat (XP) ────────────────────────────────────────────────────
   battlePass: () => request<BattlePassResponse>('/me/battlepass'),
   /** Réclame la récompense d'un palier atteint (403 non atteint, 409 déjà réclamé). */
@@ -2214,14 +2236,6 @@ export const api = {
   /** Désabonne cet appareil. */
   pushUnsubscribe: (endpoint: string) =>
     request<{ ok: true }>('/me/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
-  // ── « Je suis chaud » (dispo 30 min) ───────────────────────────────────────
-  /** Joueurs actuellement chauds pour jouer (non expirés). */
-  hotList: () => request<HotPlayer[]>('/hot'),
-  /** Se déclare chaud 30 min sur un jeu (ré-appel = prolonge). */
-  hotSet: (game: Game) =>
-    request<{ ok: true; until: string }>('/me/hot', { method: 'POST', body: JSON.stringify({ game }) }),
-  /** Se retire de la liste. */
-  hotClear: () => request<{ ok: true }>('/me/hot', { method: 'DELETE' }),
   /** Choisit son émote de victoire (montrée aux joueurs battus). */
   setTauntEmote: (emote: string) =>
     request<{ ok: true; emote: string }>('/me/taunt-emote', {
