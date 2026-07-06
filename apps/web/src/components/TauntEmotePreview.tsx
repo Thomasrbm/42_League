@@ -64,7 +64,7 @@ export function TauntEmotePreview({
       {emote && (
         <motion.div
           aria-hidden
-          className="pointer-events-none fixed inset-0 z-[125] flex flex-col items-center justify-center overflow-hidden"
+          className="pointer-events-none fixed inset-0 z-[125] flex items-center justify-center overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -142,16 +142,30 @@ export function TauntEmotePreview({
             </motion.div>
           </div>
 
-          {/* Punchline troll — ce que lira l'adversaire narguté */}
-          <motion.div
-            className="relative mt-6 max-w-[min(90vw,420px)] text-center font-gaming font-black italic uppercase text-lg sm:text-xl leading-tight"
-            style={{ color: '#fff', transform: 'skewX(-5deg)', textShadow: '0 2px 16px rgba(255,201,74,0.6)' }}
-            initial={{ y: 18, opacity: 0, scale: 0.9 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4, type: 'spring', stiffness: 240, damping: 15 }}
-          >
-            {phrase}
-          </motion.div>
+          {/* Punchline troll — ancrée en bas de l'écran, JAMAIS masquée par l'émote,
+              avec fond sombre pour rester lisible par-dessus la pluie. Chaque émote
+              a sa propre réplique (cf. tauntPhrase / TAUNT_PHRASES). */}
+          <div className="absolute left-0 right-0 bottom-[14%] flex justify-center px-6">
+            <motion.div
+              className="max-w-[min(92vw,460px)] text-center"
+              initial={{ y: 18, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.35, type: 'spring', stiffness: 240, damping: 16 }}
+            >
+              <span
+                className="inline-block font-gaming font-black italic uppercase text-xl sm:text-2xl leading-tight px-4 py-2 rounded-xl"
+                style={{
+                  color: '#fff',
+                  transform: 'skewX(-5deg)',
+                  textShadow: '0 2px 18px rgba(0,0,0,0.9)',
+                  background: 'rgba(6,8,12,0.58)',
+                  boxShadow: '0 8px 28px rgba(0,0,0,0.5)',
+                }}
+              >
+                {phrase}
+              </span>
+            </motion.div>
+          </div>
 
           <style>{`
             @keyframes tauntWiggle {
