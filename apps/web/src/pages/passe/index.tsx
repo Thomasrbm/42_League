@@ -8,16 +8,14 @@ import {
   Crown,
   Flame,
   Gem,
-  Ghost,
   Gift,
+  Image as ImageIcon,
   Lock,
   Medal,
   Music2,
   Palette,
   PartyPopper,
-  Rocket,
   ShieldBan,
-  Snowflake,
   Sparkles,
   Star,
   Swords,
@@ -170,36 +168,54 @@ interface FakeReward {
   consumableKind?: string;
   /** Émote de victoire (emoji) quand la récompense factice EST une émote. */
   emote?: string;
+  /** Palier « bannière » dédié : buildTiles y pose une VRAIE bannière boutique
+   *  (foot en premier), avec repli en consommable si le stock est épuisé. */
+  slot?: 'banner';
   Icon: LucideIcon;
 }
 
+// Les BANNIÈRES ne figurent plus dans ces pools factices : elles ont désormais
+// leurs propres paliers dédiés, répartis régulièrement sur toute la longueur du
+// passe et remplis par de VRAIES bannières boutique (cf. slot 'banner' +
+// buildTiles). Ces pools ne contiennent donc que des cosmétiques NON-bannière.
 const FAKE_LEGENDARY: Array<[string, LucideIcon]> = [
   ['Aura Solaire', Flame],
   ['Couronne du GOAT', Crown],
   ['Cadre Holographique', Star],
   ['Titre : Légende du Cluster', Medal],
-  ['Bannière Supernova', Rocket],
+  ['Aura Prismatique', Sparkles],
 ];
 const FAKE_EPIC: Array<[string, LucideIcon]> = [
   ['Traînée Néon', Wand2],
   ['Emote « GG EZ »', Music2],
-  ['Bannière Spectre', Ghost],
   ['Palette Synthwave', Palette],
   ['Épées Croisées', Swords],
+  ['Cadre Néon', Star],
 ];
 const FAKE_COMMON_RARE: Array<[string, LucideIcon]> = [
   ['Sticker 42', Star],
-  ['Bannière Givre', Snowflake],
   ['Titre : Padawan', Medal],
   ['Emote Pouce Levé', Music2],
-  ['Fond de Profil Circuit', Palette],
+  ['Sticker Néon', Sparkles],
   ['Sticker Flamme', Flame],
 ];
 
+/** Consommable factice déterministe (cycle des 4 types) pour un palier donné. */
+function fakeConsumable(tier: number, step: number): FakeReward {
+  const kinds = ['anti_ops', 'elo_mult', 'force_duel', 'mini_ops'] as const;
+  const consumableKind = kinds[Math.floor(tier / step) % kinds.length]!;
+  return { kind: 'consumable', name: consumableKind, rarity: 'atypique', consumableKind, Icon: CONSUMABLE_ICON[consumableKind] ?? Zap };
+}
+
 /**
  * Récompense factice, déterministe par numéro de palier (aucun aléatoire).
- * Balaye toute l'échelle de rareté : légendaire tous les 10 paliers, épique
- * tous les 5, bleu (coins) tous les 3, vert (conso/objet) sinon, gris au début.
+ * Cadence harmonisée, gagnable régulièrement sur TOUTE la longueur du passe :
+ *  - émote réelle tous les 7 paliers (économie backend) ;
+ *  - BANNIÈRE tous les 12 paliers dès le n°3 (foot en premier, vraie bannière
+ *    boutique posée par buildTiles) — répartie du début à la fin du passe ;
+ *  - légendaire tous les 10, épique tous les 5, coins tous les 3 ;
+ *  - consommable sur les paliers pairs restants (comblent les anciens slots de
+ *    fausses bannières « Givre ») ; petit cosmétique sur les impairs restants.
  */
 function fakeRewardFor(tier: number): FakeReward {
   // Émotes de victoire : déblocage RÉEL tous les 7 niveaux (économie partagée
@@ -207,6 +223,11 @@ function fakeRewardFor(tier: number): FakeReward {
   if (tier % TAUNT_EMOTE_LEVEL_STEP === 0) {
     const emote = TAUNT_EMOTES[FREE_TAUNT_EMOTES + tier / TAUNT_EMOTE_LEVEL_STEP - 1];
     if (emote) return { kind: 'item', name: `Émote ${emote}`, rarity: 'epique', emote, Icon: PartyPopper };
+  }
+  // Bannière — palier dédié régulier (1 tous les 12, dès le 3e). Rempli par une
+  // VRAIE bannière boutique dans buildTiles (foot en premier), repli consommable.
+  if (tier % 12 === 3) {
+    return { kind: 'item', slot: 'banner', name: 'Bannière', rarity: 'epique', Icon: ImageIcon };
   }
   if (tier % 10 === 0) {
     const [name, Icon] = FAKE_LEGENDARY[(tier / 10 - 1 + FAKE_LEGENDARY.length * 10) % FAKE_LEGENDARY.length]!;
@@ -219,13 +240,14 @@ function fakeRewardFor(tier: number): FakeReward {
   if (tier % 3 === 0) {
     return { kind: 'coins', name: `${100 + (tier % 4) * 50}`, rarity: 'rare', coins: 100 + (tier % 4) * 50, Icon: Gem };
   }
-  if (tier % 4 === 0) {
-    const kinds = ['anti_ops', 'elo_mult', 'force_duel', 'mini_ops'] as const;
-    const consumableKind = kinds[Math.floor(tier / 4) % kinds.length]!;
-    return { kind: 'consumable', name: consumableKind, rarity: 'atypique', consumableKind, Icon: CONSUMABLE_ICON[consumableKind] ?? Zap };
+  // Paliers pairs restants → consommables (bien plus fréquents qu'avant).
+  if (tier % 2 === 0) {
+    return fakeConsumable(tier, 2);
   }
+  // Paliers impairs restants → petit cosmétique (sticker / titre, substitué par
+  // un vrai item boutique si dispo).
   const [name, Icon] = FAKE_COMMON_RARE[tier % FAKE_COMMON_RARE.length]!;
-  return { kind: 'item', name, rarity: tier % 2 === 0 ? 'atypique' : 'commun', Icon };
+  return { kind: 'item', name, rarity: 'commun', Icon };
 }
 
 // ─── Modèle d'affichage d'une tuile ──────────────────────────────────────────
@@ -247,31 +269,59 @@ interface TileView {
   emote?: string;
 }
 
+// Ordre des bannières sur le passe : « foot en premier », puis les autres
+// disciplines, puis le reste. Basé sur des mots-clés du NOM de la bannière
+// (les bannières boutique sont nommées par thème). Rang bas = tôt sur le passe.
+const BANNER_GAME_KW: Array<[RegExp, number]> = [
+  [/baby|foot/i, 0],
+  [/smash/i, 1],
+  [/chess|[ée]chec/i, 2],
+  [/street|fighter|\bsf\b/i, 3],
+  [/fl[ée]ch|dart/i, 4],
+  [/coding|\bcode\b/i, 5],
+  [/pok[ée]mon/i, 6],
+];
+function bannerGameRank(name: string): number {
+  for (const [re, rank] of BANNER_GAME_KW) if (re.test(name)) return rank;
+  return 50;
+}
+
 function buildTiles(
   data: BattlePassResponse,
   t: (k: string) => string,
   realPool: ShopItemData[],
 ): TileView[] {
-  // Vrais cosmétiques de la boutique (≤ 2000 coins) rangés par rareté, pour
-  // remplacer les faux items (bannières/titres inventés) par des items qui
-  // existent réellement, en respectant la bande de rareté du palier.
+  // Les BANNIÈRES sont mises à part : elles alimentent les paliers « bannière »
+  // dédiés (répartis régulièrement), triées « foot en premier » puis par prix.
+  // Le reste (titres / badges) alimente les autres slots d'objet, rangé par
+  // rareté. Ainsi les bannières ne se retrouvent JAMAIS piochées au hasard sur un
+  // slot générique, et inversement.
+  const realBanners = realPool
+    .filter((it) => it.category === 'banner')
+    .sort((a, b) => bannerGameRank(a.name) - bannerGameRank(b.name) || a.price - b.price);
+  const realOther = realPool.filter((it) => it.category !== 'banner');
   const byRarity: Record<Rarity, ShopItemData[]> = { common: [], rare: [], epic: [], legendary: [] };
-  for (const it of realPool) byRarity[resolveRarity(it)].push(it);
-  // Dédup : chaque cosmétique réel (titre / BANNIÈRE / badge) n'apparaît qu'UNE
-  // fois sur toute la piste. On pré-marque les items déjà posés par les paliers
-  // configurés, puis realItemFor ne pioche que des items JAMAIS utilisés (bande de
-  // rareté d'abord, sinon pool global) ; épuisé → null (repli sur le visuel factice,
-  // pas de répétition). Sans ça, `bucket[tier % length]` répétait le même item.
+  for (const it of realOther) byRarity[resolveRarity(it)].push(it);
+  // Dédup : chaque cosmétique réel n'apparaît qu'UNE fois sur toute la piste. On
+  // pré-marque les items déjà posés par les paliers configurés, puis realItemFor
+  // (titres/badges) et realBannerNext (bannières) ne piochent que des items JAMAIS
+  // utilisés ; épuisé → null (repli sur le visuel factice / consommable).
   const usedItemIds = new Set<string>();
   for (const ti of data.tiers) if (ti.rewardKind === 'item' && ti.item) usedItemIds.add(ti.item.id);
   function realItemFor(_tier: number, fn: FnRarity): ShopItemData | null {
-    if (realPool.length === 0) return null;
+    if (realOther.length === 0) return null;
     const want = FN_TO_SHOP[fn];
-    const bucket = byRarity[want].length > 0 ? byRarity[want] : realPool;
+    const bucket = byRarity[want].length > 0 ? byRarity[want] : realOther;
     const pick =
       bucket.find((it) => !usedItemIds.has(it.id)) ??
-      realPool.find((it) => !usedItemIds.has(it.id)) ??
+      realOther.find((it) => !usedItemIds.has(it.id)) ??
       null;
+    if (pick) usedItemIds.add(pick.id);
+    return pick;
+  }
+  // Prochaine VRAIE bannière encore libre (ordre foot-first déjà appliqué).
+  function realBannerNext(): ShopItemData | null {
+    const pick = realBanners.find((it) => !usedItemIds.has(it.id)) ?? null;
     if (pick) usedItemIds.add(pick.id);
     return pick;
   }
@@ -342,9 +392,43 @@ function buildTiles(
     const isCoins = fk.kind === 'coins';
     const isConsumable = fk.kind === 'consumable';
 
-    // Remplace les faux cosmétiques (bannières/titres inventés) par de VRAIS
-    // items de la boutique qui existent (≤ 2000 coins). On ne touche PAS aux
-    // émotes (déblocage réel), ni aux coins/consommables.
+    // Palier BANNIÈRE dédié → vraie bannière boutique (foot en premier). Quand
+    // le stock de bannières réelles est épuisé, on retombe sur un CONSOMMABLE
+    // (jamais une fausse « Bannière Givre »).
+    if (fk.slot === 'banner') {
+      const real = realBannerNext();
+      if (real) {
+        const fn = FN[SHOP_TO_FN[resolveRarity(real)]];
+        return {
+          tier: tier.tier,
+          xpRequired: tier.xpRequired,
+          unlocked: tier.unlocked,
+          claimed,
+          claimable: tier.unlocked && !claimed,
+          name: real.name,
+          tag: fn.label,
+          hex: fn.hex,
+          Icon: Gem,
+          item: real,
+        };
+      }
+      const ck = (['anti_ops', 'elo_mult', 'force_duel', 'mini_ops'] as const)[tier.tier % 4]!;
+      return {
+        tier: tier.tier,
+        xpRequired: tier.xpRequired,
+        unlocked: tier.unlocked,
+        claimed,
+        claimable: tier.unlocked && !claimed,
+        name: t(`battlepass.consumable.${ck}`),
+        tag: t('battlepass.reward.consumable'),
+        hex: FN.atypique.hex,
+        Icon: CONSUMABLE_ICON[ck] ?? Zap,
+      };
+    }
+
+    // Remplace les faux cosmétiques (titres inventés) par de VRAIS items de la
+    // boutique qui existent (≤ 2000 coins). On ne touche PAS aux émotes
+    // (déblocage réel), ni aux coins/consommables, ni aux bannières (ci-dessus).
     if (fk.kind === 'item' && !fk.name.startsWith('Émote ')) {
       const real = realItemFor(tier.tier, fk.rarity);
       if (real) {

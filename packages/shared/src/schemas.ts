@@ -164,7 +164,7 @@ export const ShopItemCreateSchema = z
   .object({
     name: z.string().trim().min(1),
     description: z.string().nullish(),
-    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame']),
+    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame', 'sticker']),
     color: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
@@ -206,6 +206,16 @@ export const ShopItemCreateSchema = z
       const anim = d.payload && typeof d.payload.animated === 'string' ? d.payload.animated : '';
       if (anim && anim.length > MAX_BANNER_DATAURL_LEN) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ornement animé trop lourd (max ~700 Ko)' });
+      }
+    }
+    if (d.category === 'sticker') {
+      // Autocollant « collé » dans un coin vide de la carte profil : une seule
+      // image transparente (PNG/webp), pas de variante animée.
+      const img = d.payload && typeof d.payload.image === 'string' ? d.payload.image : '';
+      if (!img.startsWith('data:image/')) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'sticker : image (data-URL) requise' });
+      } else if (img.length > MAX_BANNER_DATAURL_LEN) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'sticker trop lourd (max ~700 Ko)' });
       }
     }
   });

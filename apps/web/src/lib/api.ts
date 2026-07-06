@@ -260,7 +260,7 @@ export interface TeamProfile extends BabyfootTeamEntry {
 
 // ─── League Coin · Boutique ───────────────────────────────────────────────────
 
-export type ShopCategory = 'title' | 'banner' | 'badge' | 'mystery_box' | 'consumable' | 'avatar_frame'; // 'badge' conservé pour rétrocompatibilité inventaire ; 'avatar_frame' = ornement de photo de profil
+export type ShopCategory = 'title' | 'banner' | 'badge' | 'mystery_box' | 'consumable' | 'avatar_frame' | 'sticker'; // 'badge' conservé pour rétrocompatibilité inventaire ; 'avatar_frame' = ornement de photo de profil ; 'sticker' = autocollant collé dans un coin de la carte profil
 
 /** Type de consommable (cf. ConsumableInventory backend). */
 export type ConsumableKind = 'anti_ops' | 'elo_mult' | 'force_duel' | 'mini_ops';
@@ -400,6 +400,8 @@ export interface ShopItemData {
   payload: Record<string, unknown> | null;
   active: boolean;
   sortOrder: number;
+  /** Auteur crédité (proposition de joueur acceptée avec attribution). */
+  creatorLogin?: string | null;
 }
 
 export interface ShopItemInput {
@@ -438,12 +440,30 @@ export interface ShopResponse {
 
 /** Proposition de cosmétique soumise par un joueur (titre ou bannière), en attente
  *  de relecture admin. Renvoyée par GET /admin/shop/proposals. */
+/** Récompense demandée par le proposeur (ajustable par l'admin à l'acceptation). */
+export type ProposalRewardKind = 'credit' | 'coins' | 'xp' | 'none';
+
 export interface ShopProposal {
   id: string;
   proposerLogin: string;
   category: 'title' | 'banner';
   name: string;
   color: string | null;
+  payload: Record<string, unknown> | null;
+  /** Récompense souhaitée par l'auteur : 'credit' (attribution) par défaut. */
+  rewardKind: ProposalRewardKind;
+  /** Montant de coins/xp voulu (si rewardKind coins|xp). */
+  rewardAmount: number | null;
+  createdAt: string;
+}
+
+/** Requête de personnalisation d'un item « Choisissez… » à valider par un admin. */
+export interface CosmeticRequest {
+  id: string;
+  userLogin: string;
+  itemId: string;
+  itemName: string | null;
+  category: 'title' | 'banner';
   payload: Record<string, unknown> | null;
   createdAt: string;
 }
@@ -576,6 +596,8 @@ export interface MeResponse {
   equippedAvatarFrame?: string | null;
   /** Variante animée de l'ornement (data-URL webp/gif) — jouée au survol. */
   equippedAvatarFrameAnimated?: string | null;
+  /** Autocollant équipé (data-URL) — collé dans un coin vide de la carte profil. */
+  equippedSticker?: string | null;
   /** Palmarès par saison. */
   palmares?: PalmaresEntry[];
   /** Annonces générales non encore vues — affichées en popup à la connexion. */
@@ -897,6 +919,8 @@ export interface UserProfile {
   equippedAvatarFrame?: string | null;
   /** Variante animée de l'ornement (data-URL webp/gif) — jouée au survol. */
   equippedAvatarFrameAnimated?: string | null;
+  /** Autocollant équipé (data-URL) — collé dans un coin vide de la carte profil. */
+  equippedSticker?: string | null;
 }
 
 export interface FollowPrefs {
@@ -2169,10 +2193,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ equipped }),
     }),
+  /** Soumet une image de bannière perso. Réponse `{ pending: true }` si validation admin requise. */
   uploadCustomBannerImage: (id: string, image: string) =>
-    request<{ ok: true }>(`/me/inventory/${encodeURIComponent(id)}/banner-image`, {
+    request<{ ok?: true; pending?: true }>(`/me/inventory/${encodeURIComponent(id)}/banner-image`, {
       method: 'POST',
       body: JSON.stringify({ image }),
+    }),
+  /** Soumet un titre perso (texte + couleur). Réponse `{ pending: true }` si validation admin requise. */
+  submitCustomTitle: (id: string, title: string, color?: string | null) =>
+    request<{ ok?: true; pending?: true }>(`/me/inventory/${encodeURIComponent(id)}/title-choice`, {
+      method: 'POST',
+      body: JSON.stringify({ title, color: color ?? null }),
     }),
   // ── Consommables ───────────────────────────────────────────────────────────
   consumables: () => request<ConsumablesResponse>('/me/consumables'),
@@ -2228,20 +2259,36 @@ export const api = {
     name: string;
     color?: string | null;
     payload: Record<string, unknown>;
+    rewardKind?: ProposalRewardKind;
+    rewardAmount?: number | null;
   }) =>
     request<ShopProposal>('/shop/proposals', {
       method: 'POST',
       body: JSON.stringify(input),
     }),
   adminShopProposals: () => request<ShopProposal[]>('/admin/shop/proposals'),
-  acceptShopProposal: (id: string) =>
+  /** Accepte une proposition. L'admin peut ajuster la récompense et le prix de l'objet créé. */
+  acceptShopProposal: (
+    id: string,
+    reward?: { rewardKind?: ProposalRewardKind; rewardAmount?: number | null; price?: number | null },
+  ) =>
     request<ShopItemData>(`/admin/shop/proposals/${encodeURIComponent(id)}/accept`, {
       method: 'POST',
+      body: JSON.stringify(reward ?? {}),
     }),
   rejectShopProposal: (id: string) =>
     request<{ ok: true }>(`/admin/shop/proposals/${encodeURIComponent(id)}/reject`, {
       method: 'POST',
     }),
+  // ── Cosmétiques personnalisés (items « Choisissez… ») ───────────────────────
+  /** Ids des items dont MA personnalisation est en attente de validation admin. */
+  myPendingCosmetics: () =>
+    request<{ pendingItemIds: string[] }>('/me/cosmetic-requests'),
+  adminCosmeticRequests: () => request<CosmeticRequest[]>('/admin/cosmetic-requests'),
+  acceptCosmeticRequest: (id: string) =>
+    request<{ ok: true }>(`/admin/cosmetic-requests/${encodeURIComponent(id)}/accept`, { method: 'POST' }),
+  rejectCosmeticRequest: (id: string) =>
+    request<{ ok: true }>(`/admin/cosmetic-requests/${encodeURIComponent(id)}/reject`, { method: 'POST' }),
   // ── Passe de combat (XP) ────────────────────────────────────────────────────
   battlePass: () => request<BattlePassResponse>('/me/battlepass'),
   /** Réclame la récompense d'un palier atteint (403 non atteint, 409 déjà réclamé). */

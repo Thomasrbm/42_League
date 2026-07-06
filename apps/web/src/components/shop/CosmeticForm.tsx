@@ -19,13 +19,14 @@ export const BANNER_H = 512;
 // Cap d'octets côté client (le serveur revérifie) — évite les data-URL énormes.
 export const BANNER_MAX_BYTES = 700_000;
 
-export const CATEGORIES: ShopCategory[] = ['title', 'banner', 'badge', 'avatar_frame'];
+export const CATEGORIES: ShopCategory[] = ['title', 'banner', 'badge', 'avatar_frame', 'sticker'];
 
 export const CATEGORY_LABEL: Record<ShopCategory, string> = {
   title: 'TITRE',
   badge: 'BADGE',
   banner: 'BANNIÈRE',
   avatar_frame: 'ORNEMENT',
+  sticker: 'STICKER',
   mystery_box: 'BOÎTE MYSTÈRE',
   consumable: 'CONSOMMABLE',
 };
@@ -91,6 +92,7 @@ export interface FormState {
   bannerAllowUpload: boolean; // bannière personnalisable par le joueur
   frameImage: string; // catégorie avatar_frame — ornement statique (data-URL PNG carré)
   frameAnimated: string; // catégorie avatar_frame — variante animée optionnelle (data-URL)
+  stickerImage: string; // catégorie sticker — autocollant (data-URL image transparente)
   consumableKind: string; // catégorie consumable ('anti_ops' | 'elo_mult')
 }
 
@@ -112,6 +114,7 @@ export function emptyForm(): FormState {
     bannerAllowUpload: false,
     frameImage: '',
     frameAnimated: '',
+    stickerImage: '',
     consumableKind: '',
   };
 }
@@ -139,6 +142,7 @@ export function formFromItem(it: ShopItemData): FormState {
     bannerAllowUpload: p.allowUpload === true,
     frameImage: typeof p.image === 'string' ? p.image : '',
     frameAnimated: typeof p.animated === 'string' ? p.animated : '',
+    stickerImage: typeof p.image === 'string' ? p.image : '',
     consumableKind: typeof p.kind === 'string' ? p.kind : '',
   };
 }
@@ -183,6 +187,11 @@ export function buildInput(f: FormState): ShopItemInput {
     case 'avatar_frame': {
       if (!f.frameImage) throw new Error("Dépose un PNG transparent carré pour l'ornement.");
       payload = { image: f.frameImage, ...(f.frameAnimated ? { animated: f.frameAnimated } : {}) };
+      break;
+    }
+    case 'sticker': {
+      if (!f.stickerImage) throw new Error('Dépose une image transparente pour le sticker.');
+      payload = { image: f.stickerImage };
       break;
     }
     case 'consumable': {
@@ -645,6 +654,21 @@ export function ItemPreview({ form }: { form: FormState }) {
           <span className="text-[10px] text-zinc-600 font-mono">Survole l'aperçu pour l'animation.</span>
         </div>
       )}
+      {form.category === 'sticker' && (
+        <div className="flex flex-col items-center gap-1.5 py-2">
+          {form.stickerImage ? (
+            <img
+              src={form.stickerImage}
+              alt=""
+              className="w-20 h-20 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
+              style={{ transform: 'rotate(-8deg)' }}
+            />
+          ) : (
+            <span className="text-xs text-zinc-600 font-mono">Dépose une image pour l'aperçu.</span>
+          )}
+          <span className="text-[10px] text-zinc-600 font-mono">Collé dans un coin de la carte profil.</span>
+        </div>
+      )}
       {form.category === 'banner' &&
         (form.bannerImage ? (
           <div
@@ -771,6 +795,20 @@ export function ItemFormFields({ form, set }: { form: FormState; set: <K extends
                 label="Dépose un WEBP/GIF animé carré ou clique"
                 hint="À défaut, un léger effet CSS anime le statique au survol. Max ~700 Ko."
                 accept="image/webp,image/gif"
+              />
+            </label>
+          </div>
+        )}
+        {form.category === 'sticker' && (
+          <div className="flex flex-col gap-3 sm:col-span-2">
+            <label className="flex flex-col gap-2">
+              <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Image du sticker *</span>
+              <AvatarFrameDropzone
+                value={form.stickerImage}
+                onChange={(v) => set('stickerImage', v)}
+                label="Dépose une image transparente (PNG/WEBP) ou clique"
+                hint="Collée dans un coin vide de la carte profil. Max ~700 Ko."
+                accept="image/png,image/webp"
               />
             </label>
           </div>

@@ -59,6 +59,13 @@ export function ProfilePreviewModal({
   const isBanner = item.category === 'banner';
   const isBadge = item.category === 'badge';
   const isAvatarFrame = item.category === 'avatar_frame';
+  const isSticker = item.category === 'sticker';
+
+  // Sticker prévisualisé : l'objet si on prévisualise un sticker, sinon celui
+  // déjà équipé par le joueur.
+  const sticker = isSticker
+    ? (typeof p.image === 'string' ? p.image : null)
+    : me.equippedSticker ?? null;
 
   // Ornement prévisualisé : l'objet si on prévisualise un ornement, sinon celui
   // déjà équipé par le joueur.
@@ -169,6 +176,17 @@ export function ProfilePreviewModal({
             {/* Zone bannière (ratio ~2:1) — réserve la hauteur pour montrer la bannière
                 quasi en entier ; le contenu s'y superpose. */}
             <div className="relative" style={{ aspectRatio: '1024 / 460' }}>
+              {/* Autocollant équipé / prévisualisé — collé en haut-droite (zone
+                  vide de l'aperçu, le bas étant occupé par l'avatar + l'ELO). */}
+              {sticker && (
+                <img
+                  src={sticker}
+                  alt=""
+                  aria-hidden
+                  className="absolute top-2 right-2 z-20 w-16 h-16 object-contain pointer-events-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)]"
+                  style={{ transform: 'rotate(-8deg)' }}
+                />
+              )}
               {/* Titre équipé (haut, centré) */}
               <div className="relative z-10 pt-5 pb-1 flex items-center justify-center px-6">
                 <span

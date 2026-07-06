@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
-import { ShieldBan, Swords, Flame, Loader2, Check, X, Crosshair, Upload, ImageIcon, ChevronDown, Package, Sparkles, type LucideIcon, type LucideProps } from 'lucide-react';
+import { ShieldBan, Swords, Flame, Loader2, Check, X, Crosshair, Upload, ImageIcon, ChevronDown, Package, Sparkles, Sticker as StickerIcon, type LucideIcon, type LucideProps } from 'lucide-react';
 import { api, type ConsumablesResponse, type ConsumableKind, type ConsumableState, type InventoryEntry } from '../../lib/api';
 import { Avatar } from '../../components/Avatar';
 import { useFlash } from '../../hooks/useFlash';
@@ -321,6 +321,91 @@ function AvatarFramesSection() {
   );
 }
 
+/**
+ * Stickers possédés (autocollants collés dans un coin de la carte profil).
+ * Calqué sur `AvatarFramesSection` : chaque vignette montre l'image ; un tap
+ * équipe / déséquipe (un seul sticker à la fois côté serveur).
+ */
+function StickersSection() {
+  const { show } = useFlash();
+  const { refresh } = useLeagueData();
+  const [stickers, setStickers] = useState<InventoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [equipping, setEquipping] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.inventory()
+      .then((rows) => setStickers(rows.filter((r) => r.item.category === 'sticker')))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (stickers.length === 0) return null;
+
+  async function toggleEquip(entry: InventoryEntry) {
+    setEquipping(entry.itemId);
+    try {
+      await api.equipItem(entry.itemId, !entry.equipped);
+      setStickers((prev) =>
+        prev.map((b) => ({
+          ...b,
+          equipped: b.item.category === 'sticker' ? b.itemId === entry.itemId && !entry.equipped : b.equipped,
+        })),
+      );
+      void refresh();
+    } catch (err) {
+      show(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally {
+      setEquipping(null);
+    }
+  }
+
+  return (
+    <Folder title="Stickers" count={stickers.length} Icon={StickerIcon} color="#f472b6">
+      <div className="grid grid-cols-3 gap-2">
+        {stickers.map((b) => {
+          const p = b.item.payload as Record<string, unknown> | null;
+          const img = typeof p?.image === 'string' ? p.image : null;
+          return (
+            <button
+              key={b.itemId}
+              type="button"
+              disabled={equipping === b.itemId}
+              onClick={() => void toggleEquip(b)}
+              title={b.equipped ? `${b.item.name} — équipé` : `Équiper ${b.item.name}`}
+              className="relative rounded-xl border transition-colors flex flex-col items-center gap-1.5 p-2 tap-transparent"
+              style={{
+                borderColor: b.equipped ? 'rgba(244,114,182,0.65)' : 'rgba(255,255,255,0.08)',
+                boxShadow: b.equipped ? '0 0 14px -4px rgba(244,114,182,0.5)' : undefined,
+              }}
+            >
+              {img ? (
+                <img src={img} alt="" className="w-14 h-14 object-contain drop-shadow" style={{ transform: 'rotate(-8deg)' }} />
+              ) : (
+                <StickerIcon className="w-10 h-10 text-white/40" strokeWidth={1.6} />
+              )}
+              <span className="font-gaming text-[10px] font-extrabold text-white/90 drop-shadow truncate max-w-full">
+                {b.item.name}
+              </span>
+              {b.equipped && (
+                <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-pink-400 flex items-center justify-center shadow">
+                  <Check className="w-3 h-3 text-[#1a0410]" strokeWidth={3.5} />
+                </span>
+              )}
+              {equipping === b.itemId && (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-xl">
+                  <Loader2 className="w-4 h-4 animate-spin text-white" strokeWidth={2.5} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </Folder>
+  );
+}
+
 export function InventoryPanel() {
   const { show } = useFlash();
   const { refresh, leaderboard, me } = useLeagueData();
@@ -419,6 +504,7 @@ export function InventoryPanel() {
     <div className="space-y-3">
     <BannersSection />
     <AvatarFramesSection />
+    <StickersSection />
     <Folder title="Consommables" count={totalConsumables} Icon={Package} color="#2dd4bf" defaultOpen>
       <div className="space-y-2.5">
         {data.items.map((c) => {
