@@ -293,6 +293,35 @@ async function requirePerm(login: string, perm: ModeratorPermission): Promise<vo
   throw new HTTPException(403, { message: 'insufficient permissions' });
 }
 
+// Rang hiérarchique des rôles — sert au garde-fou AUTHZ-1 (un acteur ne peut agir
+// que sur une cible STRICTEMENT en dessous de lui).
+const ROLE_RANK: Record<'USER' | 'MODERATOR' | 'ADMIN' | 'SUPERADMIN', number> = {
+  USER: 0,
+  MODERATOR: 1,
+  ADMIN: 2,
+  SUPERADMIN: 3,
+};
+
+/**
+ * Garde-fou hiérarchique (audit AUTHZ-1) : refuse une action de modération (ban,
+ * édition de stats…) sur une cible de rang de rôle SUPÉRIEUR OU ÉGAL à l'acteur.
+ * Empêche un MODERATOR de sanctionner un ADMIN, ou un ADMIN d'en sanctionner un
+ * autre — avant, seuls les SUPERADMIN étaient protégés, laissant un modérateur
+ * « griefer » verticalement un admin. Un SUPERADMIN (rang max) garde la main sur
+ * tout le monde sauf ses pairs.
+ */
+async function assertOutranksTarget(actor: string, targetLogin: string): Promise<void> {
+  const [actorRole, targetRole] = await Promise.all([
+    getUserRole(actor),
+    getUserRole(targetLogin),
+  ]);
+  if (ROLE_RANK[targetRole] >= ROLE_RANK[actorRole]) {
+    throw new HTTPException(403, {
+      message: `action interdite sur un compte de rôle ${targetRole} (rang ≥ au tien)`,
+    });
+  }
+}
+
 async function assertNotBanned(login: string): Promise<void> {
   const user = await prisma.user.findUnique({ where: { login }, select: { bannedAt: true } });
   if (user?.bannedAt) {
@@ -8106,6 +8135,9 @@ app.patch('/admin/users/:login/stats', async (c) => {
   if (SUPERADMINS.has(login.toLowerCase()) && !SUPERADMINS.has(me.toLowerCase())) {
     throw new HTTPException(403, { message: "cannot modify a superadmin's stats" });
   }
+  // AUTHZ-1 : interdit d'éditer les stats d'une cible de rang ≥ au sien
+  // (un modérateur ne peut pas trafiquer les stats d'un admin).
+  await assertOutranksTarget(me, login);
   const body = await c.req.json().catch(() => null);
   const schema = z.object({
     elo: z.number().int().min(0).optional(),
@@ -8183,6 +8215,8 @@ app.post('/admin/users/:login/ban', async (c) => {
   if (SUPERADMINS.has(login.toLowerCase())) {
     throw new HTTPException(400, { message: 'cannot ban a superadmin' });
   }
+  // AUTHZ-1 : interdit à un modérateur/admin de bannir une cible de rang ≥ au sien.
+  await assertOutranksTarget(me, login);
   const { user, tournamentsChanged } = await prisma.$transaction(async (tx) => {
     const u = await tx.user.update({ where: { login }, data: { bannedAt: new Date() } })
       .catch(() => { throw new HTTPException(404, { message: 'user not found' }); });

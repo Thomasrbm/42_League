@@ -30,7 +30,7 @@ export async function resetDb(): Promise<void> {
   );
 }
 
-export type RoleName = 'USER' | 'ADMIN' | 'SUPERADMIN';
+export type RoleName = 'USER' | 'MODERATOR' | 'ADMIN' | 'SUPERADMIN';
 
 // Génère un ftId déterministe et unique à partir du login pour simuler un vrai
 // utilisateur 42 (la route POST /matches exige opponent.ftId non nul).
