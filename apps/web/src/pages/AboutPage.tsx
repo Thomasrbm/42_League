@@ -130,6 +130,24 @@ interface Release {
 
 const CHANGELOG: Release[] = [
   {
+    version: 'V1.4',
+    date: '6 juillet 2026',
+    changes: [
+      {
+        kind: 'feature',
+        text: "Récolte quotidienne : passe chaque jour sur le site et réclame ta récompense (XP + coins) directement sur l'accueil. Le montant grimpe à chaque jour d'affilée — un seul jour d'absence est toléré avant remise à zéro.",
+      },
+      {
+        kind: 'feature',
+        text: "Ta série d'assiduité est désormais mise en avant sur l'accueil, juste sous la bannière de saison (elle vivait auparavant dans la boutique).",
+      },
+      {
+        kind: 'fix',
+        text: "Les notifications de paris (OPS) renvoient maintenant vers le bon onglet Paris de la boutique.",
+      },
+    ],
+  },
+  {
     version: 'V1.3',
     date: '6 juillet 2026',
     changes: [
