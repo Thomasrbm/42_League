@@ -139,12 +139,17 @@ function readFromFile(): Record<string, ContributorStat> | null {
 export async function getContributorStats(): Promise<Record<string, ContributorStat>> {
   const now = Date.now();
   if (cache && now - cache.at < CACHE_TTL_MS) return cache.data;
-  // Ordre : git (dev, vraiment à jour) → fichier commité → env injecté au build.
-  // Chaque source vide (toutes stats à 0) est ignorée au profit de la suivante.
+  // Ordre : git (dev, live) → env injecté FRAIS à chaque build (le CI recalcule
+  // sur l'historique complet, `fetch-depth: 0`, cf. deploy-*.yml) → fichier
+  // commité (filet de sécurité si l'env manque). Chaque source vide (toutes stats
+  // à 0) est ignorée au profit de la suivante.
+  // L'env passe AVANT le fichier pour que les stats se mettent à jour TOUTES
+  // SEULES à chaque déploiement — le JSON commité, lui, fige un instantané qui
+  // vieillit vite (ex. throbert bloqué à un ancien total).
   const data =
     nonZeroOrNull(await computeFromGit()) ??
-    nonZeroOrNull(readFromFile()) ??
     nonZeroOrNull(readFromEnv()) ??
+    nonZeroOrNull(readFromFile()) ??
     emptyStats();
   cache = { at: now, data };
   return data;
