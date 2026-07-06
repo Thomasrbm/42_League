@@ -35,13 +35,16 @@ export interface RankTier {
  */
 export const ELO_HARD_FLOOR = 975;
 
-const ETAIN: RankTier = { key: 'etain', label: 'Étain', min: 0, floor: ELO_HARD_FLOOR, color: '#787f87' };
+// Étain : le plus bas palier — gris ardoise sombre et terne (métal pauvre),
+// délibérément éloigné de l'Argent (#dfe4ea, clair et brillant) pour qu'on
+// distingue les deux bagues au premier coup d'œil.
+const ETAIN: RankTier = { key: 'etain', label: 'Étain', min: 0, floor: ELO_HARD_FLOOR, color: '#565b61' };
 
 /** Table des paliers, ordonnée par ELO croissant. */
 export const RANK_TIERS: readonly RankTier[] = [
   ETAIN,
   { key: 'bronze', label: 'Bronze', min: 1000, floor: 1000, color: '#cd7f32' },
-  { key: 'argent', label: 'Argent', min: 1050, floor: 1050, color: '#c0c0c0' },
+  { key: 'argent', label: 'Argent', min: 1050, floor: 1050, color: '#dfe4ea' },
   { key: 'or', label: 'Or', min: 1100, floor: 1100, color: '#ffc94a' },
   { key: 'diamant', label: 'Diamant', min: 1200, floor: 1200, color: '#5fd0e0' },
 ];

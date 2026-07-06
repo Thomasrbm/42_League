@@ -89,9 +89,9 @@ Le grade d'un joueur dérive de son ELO, par **discipline**. Barème croissant (
 
 | Grade | `min` ELO | `floor` (cible de reset) | Couleur |
 |---|---|---|---|
-| **Étain** | 0 | 900 | `#9aa4ad` |
+| **Étain** | 0 | 900 | `#565b61` |
 | **Bronze** | 1000 | 1000 | `#cd7f32` |
-| **Argent** | 1100 | 1100 | `#c0c0c0` |
+| **Argent** | 1100 | 1100 | `#dfe4ea` |
 | **Or** | 1200 | 1200 | `#ffc94a` |
 | **Diamant** | 1400 | 1400 | `#5fd0e0` |
 | **Grand Master** | *positionnel* | 1400 | `#c084fc` |
