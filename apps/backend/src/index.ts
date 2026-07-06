@@ -9691,6 +9691,9 @@ app.post('/shop/:id/buy', async (c) => {
   const isSheldon = isSheldonApostle(item);
   const consumableKind = consumableKindOf(item);
   const result = await prisma.$transaction(async (tx) => {
+    // ECO-1 : verrou de ligne AVANT le check de solde → deux achats concurrents
+    // du même joueur ne peuvent plus lire le même solde et débiter deux fois.
+    await lockUserRowTx(tx, login);
     const user = await tx.user.findUnique({ where: { login }, select: { leagueCoins: true } });
     if (!user) throw new HTTPException(404, { message: 'utilisateur introuvable' });
 
@@ -11652,9 +11655,30 @@ async function logCoinTx(
 }
 
 /**
+ * Verrou pessimiste sur la ligne d'un utilisateur pour toute la durée de la
+ * transaction courante (`SELECT … FOR UPDATE`). À appeler AVANT tout
+ * check-de-solde-puis-débit : sérialise les dépenses concurrentes du MÊME joueur
+ * (achats boutique, placements de paris), ce qui élimine la course TOCTOU/
+ * lost-update qui permettait d'acheter à découvert ou de conjurer des coins
+ * (audit ECO-1) ainsi que le double-pari concurrent sur une même cible (ECO-2 :
+ * le garde `findFirst`-puis-`create` devient sûr une fois la ligne verrouillée).
+ * Même idiome que les quêtes / FFA / fléchettes, qui verrouillent déjà.
+ *
+ * Pré-requis : la ligne doit exister (sinon le SELECT ne verrouille rien) — les
+ * appelants garantissent l'existence via `getCurrentLogin`/`getOrCreateUser`.
+ */
+async function lockUserRowTx(tx: Prisma.TransactionClient, login: string): Promise<void> {
+  await tx.$executeRaw`SELECT 1 FROM users WHERE login = ${login} FOR UPDATE`;
+}
+
+/**
  * Crédite/débite des League Coins. Retourne le nouveau solde, ou null si joueur
  * absent. Si `entry` est fourni, journalise le mouvement RÉEL (delta après bornage
  * à 0) dans CoinTransaction pour le suivi GOD.
+ *
+ * NB : cette fonction lit puis réécrit une valeur absolue (non atomique). Elle
+ * n'est sûre face aux dépenses concurrentes que si l'appelant a d'abord pris le
+ * verrou de ligne via `lockUserRowTx` (cf. audit ECO-1).
  */
 async function grantCoinsTx(
   tx: Prisma.TransactionClient,
@@ -12770,6 +12794,9 @@ app.post('/bets', async (c) => {
   if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
   const { targetType, tournamentId, choiceLogin, stake } = parsed.data;
   const result = await prisma.$transaction(async (tx) => {
+    // ECO-1/ECO-2 : verrou de ligne du parieur → sérialise le débit de la mise
+    // et le garde anti-doublon face aux placements concurrents.
+    await lockUserRowTx(tx, me);
     const tour = await tx.tournament.findUnique({
       where: { id: tournamentId },
       include: { entries: { select: { login: true, partnerLogin: true } } },
@@ -12845,6 +12872,9 @@ app.post('/bets/ops', async (c) => {
   if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
   const { challengeId, choiceLogin, stake } = parsed.data;
   const result = await prisma.$transaction(async (tx) => {
+    // ECO-1/ECO-2 : verrou de ligne du parieur → sérialise le débit de la mise
+    // et le garde anti-doublon face aux placements concurrents.
+    await lockUserRowTx(tx, me);
     const ch = await tx.challenge.findUnique({
       where: { id: challengeId },
       include: { ops: true },
@@ -12926,6 +12956,9 @@ app.post('/bets/match', async (c) => {
   if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
   const { matchId, choiceLogin, stake, predictedScoreA, predictedScoreB } = parsed.data;
   const result = await prisma.$transaction(async (tx) => {
+    // ECO-1/ECO-2 : verrou de ligne du parieur → sérialise le débit de la mise
+    // et le garde anti-doublon face aux placements concurrents.
+    await lockUserRowTx(tx, me);
     const m = await tx.tournamentMatch.findUnique({ where: { id: matchId } });
     if (!m) throw new HTTPException(404, { message: 'match introuvable' });
     const tour = await tx.tournament.findUnique({

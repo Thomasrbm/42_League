@@ -91,12 +91,14 @@ describe('logAdminAction — extraction d’IP (précédence)', () => {
     expect(create.mock.calls[0]![0].data.ipAddress).toBe('1.1.1.1');
   });
 
-  it('prend la première IP de x-forwarded-for, trimée', async () => {
+  it('prend la DERNIÈRE IP de x-forwarded-for, trimée (anti-spoof INJ-1)', async () => {
+    // Le dernier hop est l'IP ajoutée par le proxy de confiance ; la tête est
+    // forgeable par le client et ne doit pas polluer l'audit.
     await logAdminAction(
-      ctx({ 'x-forwarded-for': ' 9.9.9.9 , 8.8.8.8', 'x-real-ip': '3.3.3.3' }),
+      ctx({ 'x-forwarded-for': ' 9.9.9.9 , 8.8.8.8 ', 'x-real-ip': '3.3.3.3' }),
       base,
     );
-    expect(create.mock.calls[0]![0].data.ipAddress).toBe('9.9.9.9');
+    expect(create.mock.calls[0]![0].data.ipAddress).toBe('8.8.8.8');
   });
 
   it('retombe sur x-real-ip', async () => {

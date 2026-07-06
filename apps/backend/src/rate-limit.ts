@@ -43,10 +43,25 @@ function ensureSweeper(): void {
   sweeper.unref?.();
 }
 
-/** Extrait l'IP cliente derrière Caddy/nginx. */
+/**
+ * Extrait l'IP cliente derrière le reverse-proxy (Caddy).
+ *
+ * SÉCURITÉ (audit INJ-1) : on prend le DERNIER maillon de `X-Forwarded-For`, pas
+ * le premier. Le token le plus à gauche est celui que le CLIENT peut forger ;
+ * chaque proxy ajoute à DROITE l'IP qu'il a réellement vue. Derrière notre unique
+ * proxy de confiance, le dernier token est donc l'IP vue par Caddy. En prod Caddy
+ * réécrit déjà `XFF = {remote_host}` (un seul token) — prendre le dernier est
+ * alors équivalent, mais reste correct si l'app est exposée sans proxy ou si des
+ * hops multiples apparaissent. Prendre le premier laissait un attaquant choisir
+ * sa propre clé de rate-limit (bypass) via un header forgé.
+ */
 export function clientIp(c: Context): string {
   const xff = c.req.header('x-forwarded-for');
-  if (xff) { const first = xff.split(',')[0]?.trim(); if (first) return first; }
+  if (xff) {
+    const parts = xff.split(',').map((s) => s.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
+  }
   const real = c.req.header('x-real-ip');
   if (real) return real.trim();
   return c.req.header('cf-connecting-ip')?.trim() ?? 'unknown';

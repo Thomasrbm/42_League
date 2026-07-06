@@ -40,6 +40,7 @@ function loginToFtId(login: string): number {
 
 export interface SeedUserOpts {
   elo?: number;
+  leagueCoins?: number;
   role?: RoleName;
   matchesPlayed?: number;
   dodgeCount?: number;
@@ -62,6 +63,7 @@ export async function seedUser(login: string, opts: SeedUserOpts = {}) {
       // imageUrl renseigné → getOrCreateUser ne déclenchera pas le fetch 42.
       imageUrl: `https://example.test/${login}.jpg`,
       elo: opts.elo ?? 1000,
+      leagueCoins: opts.leagueCoins ?? 0,
       role: opts.role ?? 'USER',
       matchesPlayed: opts.matchesPlayed ?? 0,
       dodgeCount: opts.dodgeCount ?? 0,

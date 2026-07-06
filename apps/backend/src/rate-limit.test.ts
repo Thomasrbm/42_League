@@ -118,11 +118,21 @@ describe('rateLimit', () => {
 });
 
 describe('clientIp', () => {
-  it('prend le premier maillon de x-forwarded-for', () => {
+  it('prend le DERNIER maillon de x-forwarded-for (anti-spoof INJ-1)', () => {
+    // Le dernier hop est celui ajouté par le proxy de confiance (Caddy) = IP réelle.
     const c = {
       req: { header: (h: string) => (h === 'x-forwarded-for' ? '3.3.3.3, 4.4.4.4' : undefined) },
     } as never;
-    expect(clientIp(c)).toBe('3.3.3.3');
+    expect(clientIp(c)).toBe('4.4.4.4');
+  });
+
+  it('ignore une IP forgée en tête de x-forwarded-for', () => {
+    // Un attaquant préfixe une IP bidon pour choisir sa clé de rate-limit ;
+    // Caddy ajoute la vraie IP à droite → on ne retient que celle-là.
+    const c = {
+      req: { header: (h: string) => (h === 'x-forwarded-for' ? '9.9.9.9, 1.2.3.4' : undefined) },
+    } as never;
+    expect(clientIp(c)).toBe('1.2.3.4');
   });
 
   it('retombe sur x-real-ip', () => {

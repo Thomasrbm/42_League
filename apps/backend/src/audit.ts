@@ -40,12 +40,14 @@ const ACTION_EMOJI: Record<AdminAction, string> = {
 };
 
 function extractIp(c: Context): string | null {
-  return (
-    c.req.header('cf-connecting-ip') ??
-    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
-    c.req.header('x-real-ip') ??
-    null
-  );
+  // SÉCURITÉ (audit INJ-1) : dernier maillon de X-Forwarded-For (voir clientIp
+  // dans rate-limit.ts) — le premier token est forgeable par le client, ce qui
+  // permettait de falsifier l'IP enregistrée dans admin_audit_log.
+  const xff = c.req.header('x-forwarded-for');
+  const xffLast = xff
+    ? xff.split(',').map((s) => s.trim()).filter(Boolean).at(-1)
+    : undefined;
+  return c.req.header('cf-connecting-ip') ?? xffLast ?? c.req.header('x-real-ip') ?? null;
 }
 
 /**
