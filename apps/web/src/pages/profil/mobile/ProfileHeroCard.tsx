@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Crown, Flame, MapPin, TrendingDown, TrendingUp } from 'lucide-react';
+import { Crown, Flame, MapPin, Pencil, TrendingDown, TrendingUp } from 'lucide-react';
+import { StickerQuickPicker } from '../StickerQuickPicker';
 import { EloBoostBadge } from '../../../components/EloBoost';
 import { HeroCardFrame } from '../../../components/HeroCardFrame';
 import { useProfileFx } from '../../../hooks/useProfileFx';
@@ -78,6 +79,8 @@ export function ProfileHeroCard({
   // (label dans la modale au clic) pour ne pas écraser le nom.
   const { isMobile } = useViewport();
   const [editGame, setEditGame] = useState<FightingGame | null>(null);
+  // Sélecteur rapide de sticker (ouvert par le bouton crayon — profil perso).
+  const [stickerPicker, setStickerPicker] = useState(false);
   // Cosmétiques équipés : props (autre joueur) sinon ceux de `me` (profil perso).
   const titleColor = titleColorProp ?? (isMe ? me?.titleColor : null) ?? null;
   const equippedBadge = equippedBadgeProp ?? (isMe ? me?.equippedBadge : null) ?? null;
@@ -144,7 +147,8 @@ export function ProfileHeroCard({
       // Sans `gpu` côté style : un `will-change` permanent sur cette carte (qui
       // contient le picker de titre + les badges) décale le hit-testing des taps
       // sous Firefox Android. Le `gpu` du conic reste interne au frame.
-      className="no-select"
+      // `group` : sert au reveal au survol de l'autocollant équipé (coin haut-droit).
+      className="no-select group"
       animateIn
       // Conic profil : 30 s (réglage propre à cette carte ; opacité/flou/gpu par défaut).
       conic={{ duration: 30 }}
@@ -462,20 +466,37 @@ export function ProfileHeroCard({
         })()}
       </div>
 
-      {/* Autocollant équipé — « collé » dans le coin haut-droit de la carte (zone
-          vide à droite du titre ; le pied de carte, lui, est occupé par les stats).
-          Léger basculement + ombre pour l'effet sticker. Décoratif :
+      {/* Autocollant équipé — coin haut-droit de la carte (zone vide à droite du
+          titre ; le pied de carte est occupé par les stats). N'est plus « collé »
+          en permanence : il n'apparaît qu'au SURVOL de la carte (desktop) via
+          `group-hover`. Léger basculement + ombre pour l'effet sticker. Décoratif :
           pointer-events-none pour ne jamais bloquer les taps du contenu. */}
       {equippedSticker && (
         <img
           src={equippedSticker}
           alt=""
           aria-hidden
-          className="absolute top-2 right-2 z-20 w-[clamp(52px,15vw,72px)] h-[clamp(52px,15vw,72px)] object-contain pointer-events-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)]"
+          className="absolute top-2 right-2 z-20 w-[clamp(52px,15vw,72px)] h-[clamp(52px,15vw,72px)] object-contain pointer-events-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)] opacity-0 group-hover:opacity-100 transition-opacity duration-200"
           style={{ transform: 'rotate(-8deg)' }}
         />
       )}
+
+      {/* Bouton d'édition rapide du sticker — profil perso seulement. Petit crayon
+          en coin, discret au repos et pleinement visible au survol, qui ouvre le
+          sélecteur rapide (équiper / déséquiper) sans passer par l'inventaire. */}
+      {isMe && (
+        <button
+          type="button"
+          onClick={() => setStickerPicker(true)}
+          title={equippedSticker ? 'Changer de sticker' : 'Choisir un sticker'}
+          aria-label={equippedSticker ? 'Changer de sticker' : 'Choisir un sticker'}
+          className="absolute top-1.5 right-1.5 z-30 w-6 h-6 rounded-full bg-black/55 border border-white/15 backdrop-blur-sm flex items-center justify-center text-white/70 hover:text-white hover:border-pink-400/60 transition-all opacity-50 group-hover:opacity-100"
+        >
+          <Pencil className="w-3 h-3" strokeWidth={2.5} />
+        </button>
+      )}
     </HeroCardFrame>
+    {stickerPicker && <StickerQuickPicker onClose={() => setStickerPicker(false)} />}
     {isMe && editGame && (
       <FavoriteCharsEditor
         games={[editGame]}

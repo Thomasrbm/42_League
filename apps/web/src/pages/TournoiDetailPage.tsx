@@ -1584,11 +1584,43 @@ function LeagueSection({
   const pairKey = (m: TournamentMatch) =>
     [m.playerALogin ?? '', m.playerBLogin ?? ''].sort().join(' ');
   // Partition : affiches jouables (2 équipes), séparées « à jouer » / « jouées ».
-  // `matches` arrive déjà triées (méthode du cercle) → pending[0] = le PROCHAIN match.
   const playable = matches.filter((m) => m.playerALogin && m.playerBLogin);
   const pending = playable.filter((m) => !m.confirmedAt);
   const played = playable.filter((m) => m.confirmedAt);
-  const nextMatch = pending[0] ?? null;
+
+  // ── Auto-organisation : prochain match par « qui n'a pas joué depuis le plus
+  // longtemps » ──────────────────────────────────────────────────────────────
+  // Équipes déclarées absentes (retrait neutre) : exclues de la proposition.
+  const absentSet = useMemo(
+    () => new Set((tournament.entries ?? []).filter((e) => e.absentAt).map((e) => e.login)),
+    [tournament.entries],
+  );
+  const involvesAbsent = (m: TournamentMatch) =>
+    absentSet.has(m.playerALogin ?? '') || absentSet.has(m.playerBLogin ?? '');
+  // Dernière activité par équipe (ms du dernier match confirmé) — jamais joué → 0
+  // (a « attendu » depuis le début, donc prioritaire).
+  const lastActivity = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const m of played) {
+      const ts = m.confirmedAt ? new Date(m.confirmedAt).getTime() : 0;
+      for (const p of [m.playerALogin, m.playerBLogin]) {
+        if (p) map[p] = Math.max(map[p] ?? 0, ts);
+      }
+    }
+    return map;
+  }, [played]);
+  // Attente d'une affiche = ancienneté de l'équipe qui a le plus attendu (min des deux).
+  const pairWait = (m: TournamentMatch) =>
+    Math.min(lastActivity[m.playerALogin ?? ''] ?? 0, lastActivity[m.playerBLogin ?? ''] ?? 0);
+  const byWait = (a: TournamentMatch, b: TournamentMatch) => pairWait(a) - pairWait(b) || a.slot - b.slot;
+  // Affiches jouables hors équipes absentes, réparties active / reportée.
+  const pendingLive = pending.filter((m) => !involvesAbsent(m));
+  const pendingAbsent = pending.filter(involvesAbsent);
+  const activeQueue = pendingLive.filter((m) => !m.postponedAt).sort(byWait);
+  const postponedQueue = pendingLive.filter((m) => !!m.postponedAt).sort(byWait);
+  // Prochain match : la 1re affiche active (attente la plus longue) ; à défaut une
+  // affiche reportée resurgit (« skip puis revient »).
+  const nextMatch = activeQueue[0] ?? postponedQueue[0] ?? null;
   // Maps pp + binôme depuis les inscrits, pour le bandeau « Prochain match ».
   const leagueAvatars: Record<string, string | null> = {};
   const leaguePartners: Record<string, string | null> = {};
@@ -1655,6 +1687,30 @@ function LeagueSection({
     try {
       await api.deleteLeagueMatch(tournament.id, matchId);
       flash.show(t('tournois.league.matchDeleted'));
+      await onChange();
+    } catch (err) {
+      flash.show(err instanceof Error ? err.message : String(err), 'error');
+    }
+  };
+
+  // « Remettre à plus tard » une affiche (ou la réactiver). Report révocable : elle
+  // sort de la proposition « prochain match » mais reste jouable et resurgit ensuite.
+  const handlePostpone = async (matchId: string, postponed: boolean) => {
+    try {
+      await api.postponeLeagueMatch(tournament.id, matchId, postponed);
+      flash.show(postponed ? t('tournois.league.postponed') : t('tournois.league.reactivated'));
+      await onChange();
+    } catch (err) {
+      flash.show(err instanceof Error ? err.message : String(err), 'error');
+    }
+  };
+
+  // « Déclarer une équipe absente » (retrait neutre) ou la réintégrer. Révocable :
+  // ses affiches non jouées sont juste ignorées de la proposition, sans forfait.
+  const handleAbsent = async (login: string, absent: boolean) => {
+    try {
+      await api.setLeagueEntryAbsent(tournament.id, login, absent);
+      flash.show(absent ? t('tournois.league.declaredAbsent') : t('tournois.league.reinstated'));
       await onChange();
     } catch (err) {
       flash.show(err instanceof Error ? err.message : String(err), 'error');
@@ -1744,6 +1800,44 @@ function LeagueSection({
       setUndoing(false);
     }
   };
+
+  // Carte d'une affiche à jouer (pile-ou-face → score) avec les actions officiant :
+  // supprimer, et « remettre à plus tard » / « réactiver » (report révocable).
+  const fixtureCard = (m: TournamentMatch, postponed = false) => (
+    <div key={m.id} className="relative">
+      {(m.poolIndex ?? 0) === 1 && (
+        <span className="absolute -top-1 left-2 z-10 px-1.5 py-0.5 rounded bg-bg-1 border border-border/60 text-[9px] font-bold uppercase tracking-wider text-muted-2">
+          {t('tournois.league.legReturn')}
+        </span>
+      )}
+      {canManage && (
+        <button
+          type="button"
+          onClick={() => handleDelete(m.id)}
+          title={t('tournois.league.deleteMatch')}
+          className="absolute -top-1 -right-1 z-10 w-5 h-5 rounded-full bg-red/80 text-white text-xs font-bold flex items-center justify-center hover:bg-red"
+        >
+          ×
+        </button>
+      )}
+      <BracketMatch
+        tournament={tournament}
+        match={m}
+        myLogin={myLogin}
+        canOfficiate={canOfficiate}
+        onChange={onChange}
+      />
+      {canManage && (
+        <button
+          type="button"
+          onClick={() => handlePostpone(m.id, !postponed)}
+          className="mt-1.5 w-full text-[11px] font-semibold text-muted-2 hover:text-gold border border-border/60 hover:border-gold/40 rounded-lg py-1 transition-colors"
+        >
+          {postponed ? `↩ ${t('tournois.league.reactivate')}` : `⏱ ${t('tournois.league.later')}`}
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <section>
@@ -1901,53 +1995,123 @@ function LeagueSection({
         </div>
       )}
 
-      {/* Bandeau « Prochain match » : la 1re affiche à jouer (ordre équitable de la
-          méthode du cercle) mise en avant avec pp — repère parieurs & organisateur. */}
-      {editable && nextMatch && (
-        <NextMatchBanner
-          match={nextMatch}
-          partners={leaguePartners}
-          avatars={leagueAvatars}
-          live={false}
-          label={t('tournois.bracket.upNext')}
-        />
+      {/* Gestion des équipes : « déclarer absente » (retrait neutre, révocable) →
+          ses affiches non jouées sont ignorées de la proposition « prochain match ». */}
+      {canManage && editable && teams.length > 0 && (
+        <div className="mb-4 p-3 rounded-xl border border-border/60 bg-bg-2/30 space-y-2">
+          <div className="text-[10px] uppercase tracking-wider text-muted-2 font-extrabold">
+            {t('tournois.league.teamsManage')}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {teams.map((tm) => {
+              const isAbsent = absentSet.has(tm.captain);
+              return (
+                <button
+                  key={tm.captain}
+                  type="button"
+                  onClick={() => handleAbsent(tm.captain, !isAbsent)}
+                  title={isAbsent ? t('tournois.league.reinstate') : t('tournois.league.declareAbsent')}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                    isAbsent
+                      ? 'border-amber-400/50 bg-amber-400/10 text-amber-400 line-through'
+                      : 'border-border/60 text-muted-2 hover:text-text-strong hover:border-gold/40'
+                  }`}
+                >
+                  {isAbsent ? '↩' : '🚫'} {leagueTeamLabel(tm)}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-2">{t('tournois.league.absentHint')}</p>
+        </div>
       )}
 
-      {/* ── À jouer ── Affiches prêtes (round-robin auto + retours demandés) : pile-ou-face
-          puis saisie du score. Le retour porte un badge « Retour ». */}
-      {editable && pending.length > 0 && (
+      {/* Bandeau « Prochain match » : auto-proposé par l'équipe qui n'a pas joué
+          depuis le plus longtemps (hors absents/reportés). L'officiant peut le
+          « remettre à plus tard » — la proposition passe alors à l'affiche suivante. */}
+      {editable && nextMatch && (
+        <div className="mb-4">
+          <NextMatchBanner
+            match={nextMatch}
+            partners={leaguePartners}
+            avatars={leagueAvatars}
+            live={false}
+            label={t('tournois.bracket.upNext')}
+          />
+          {canManage && (
+            <div className="mt-1.5 flex items-center justify-between gap-2">
+              {nextMatch.postponedAt ? (
+                <span className="text-[11px] font-semibold text-amber-400/90">
+                  ↩ {t('tournois.league.resurfaced')}
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted-2">{t('tournois.league.autoNextHint')}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => handlePostpone(nextMatch.id, !nextMatch.postponedAt)}
+                className="shrink-0 text-[11px] font-semibold text-muted-2 hover:text-gold border border-border/60 hover:border-gold/40 rounded-lg px-2.5 py-1 transition-colors"
+              >
+                {nextMatch.postponedAt ? `↩ ${t('tournois.league.reactivate')}` : `⏱ ${t('tournois.league.later')}`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── À jouer ── Affiches actives, ordonnées par attente la plus longue.
+          Pile-ou-face puis saisie du score. Le retour porte un badge « Retour ». */}
+      {editable && activeQueue.length > 0 && (
         <div className="rounded-xl border border-gold/25 bg-bg-2/30 overflow-hidden mb-4">
           <div className="px-3 py-2 bg-gold/[0.07] border-b border-border/50 text-[11px] font-extrabold uppercase tracking-wider text-gold flex items-center justify-between">
             <span>{t('tournois.league.toPlay')}</span>
-            <span className="text-muted-2 tabular-nums font-mono">{pending.length}</span>
+            <span className="text-muted-2 tabular-nums font-mono">{activeQueue.length}</span>
           </div>
           <div className="p-2.5 space-y-2">
-            {pending.map((m) => (
-              <div key={m.id} className="relative">
-                {(m.poolIndex ?? 0) === 1 && (
-                  <span className="absolute -top-1 left-2 z-10 px-1.5 py-0.5 rounded bg-bg-1 border border-border/60 text-[9px] font-bold uppercase tracking-wider text-muted-2">
-                    {t('tournois.league.legReturn')}
+            {activeQueue.map((m) => fixtureCard(m, false))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Reportés ── Affiches « remises à plus tard » : retirées de la proposition
+          « prochain match » mais toujours jouables ; resurgissent une fois les autres jouées. */}
+      {editable && postponedQueue.length > 0 && (
+        <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.04] overflow-hidden mb-4">
+          <div className="px-3 py-2 bg-amber-400/[0.06] border-b border-border/50 text-[11px] font-extrabold uppercase tracking-wider text-amber-400 flex items-center justify-between">
+            <span>⏱ {t('tournois.league.postponedGroup')}</span>
+            <span className="text-muted-2 tabular-nums font-mono">{postponedQueue.length}</span>
+          </div>
+          <div className="p-2.5 space-y-2">
+            {postponedQueue.map((m) => fixtureCard(m, true))}
+          </div>
+        </div>
+      )}
+
+      {/* ── En attente (équipe absente) ── Affiches non jouées d'équipes déclarées
+          absentes : ignorées de la proposition tant que l'équipe n'est pas réintégrée. */}
+      {editable && pendingAbsent.length > 0 && (
+        <div className="rounded-xl border border-border bg-bg-2/20 overflow-hidden mb-4 opacity-70">
+          <div className="px-3 py-2 bg-bg-2/50 border-b border-border/50 text-[11px] font-extrabold uppercase tracking-wider text-muted-2 flex items-center justify-between">
+            <span>{t('tournois.league.absentPending')}</span>
+            <span className="tabular-nums font-mono">{pendingAbsent.length}</span>
+          </div>
+          <div className="p-2.5 space-y-1">
+            {pendingAbsent.map((m) => {
+              const lbl = (login: string | null) => {
+                const tm = login ? teamByCaptain.get(login) : null;
+                return tm ? leagueTeamLabel(tm) : (login ?? '—');
+              };
+              return (
+                <div key={m.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-bg-2/40">
+                  <span className="truncate">
+                    {lbl(m.playerALogin)} <span className="text-muted-2">vs</span> {lbl(m.playerBLogin)}
                   </span>
-                )}
-                {canManage && (
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(m.id)}
-                    title={t('tournois.league.deleteMatch')}
-                    className="absolute -top-1 -right-1 z-10 w-5 h-5 rounded-full bg-red/80 text-white text-xs font-bold flex items-center justify-center hover:bg-red"
-                  >
-                    ×
-                  </button>
-                )}
-                <BracketMatch
-                  tournament={tournament}
-                  match={m}
-                  myLogin={myLogin}
-                  canOfficiate={canOfficiate}
-                  onChange={onChange}
-                />
-              </div>
-            ))}
+                  <span className="text-[10px] uppercase tracking-wider text-amber-400/80 shrink-0 ml-2">
+                    {t('tournois.league.absent')}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -95,6 +95,7 @@ import {
   type Side2v2,
 } from './babyfoot2v2.js';
 import { seedStaging } from './staging-seed.js';
+import { computeTeamTrophies } from './team-trophies.js';
 import type { Prisma } from '@prisma/client';
 // Valeur runtime (Prisma.DbNull) pour stocker un JSON NULL en base — distinct du
 // `import type` ci-dessus qui, lui, ne sert qu'aux annotations de type.
@@ -6698,6 +6699,58 @@ app.delete('/tournaments/:id/league/matches/:matchId', async (c) => {
   return c.json({ id: matchId, deleted: true });
 });
 
+// Admin/officiant : « remettre à plus tard » une affiche de ligue NON jouée (ou
+// annuler ce report). Une affiche reportée est retirée de la proposition « prochain
+// match » côté front mais reste jouable ; elle resurgit une fois les autres jouées.
+app.post('/tournaments/:id/league/matches/:matchId/postpone', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  const matchId = c.req.param('matchId');
+  await assertLeagueOfficiant(me, id);
+  const body = await c.req.json().catch(() => null);
+  const parsed = z.object({ postponed: z.boolean() }).safeParse(body);
+  if (!parsed.success) throw new HTTPException(400, { message: 'requête invalide' });
+  const updated = await prisma.$transaction(async (tx) => {
+    const m = await tx.tournamentMatch.findUnique({ where: { id: matchId } });
+    if (!m || m.tournamentId !== id || m.stage !== 'league') {
+      throw new HTTPException(404, { message: 'match not found' });
+    }
+    if (m.confirmedAt) {
+      throw new HTTPException(409, { message: 'match déjà joué — non reportable' });
+    }
+    return tx.tournamentMatch.update({
+      where: { id: matchId },
+      data: { postponedAt: parsed.data.postponed ? new Date() : null },
+    });
+  });
+  broadcast({ type: 'tournament:update', payload: {} });
+  return c.json({ id: matchId, postponed: !!updated.postponedAt });
+});
+
+// Admin/officiant : « déclarer une équipe absente » d'une phase de ligue (ou la
+// réintégrer). Retrait NEUTRE : aucun forfait ni score, les affiches non jouées de
+// l'équipe sont juste ignorées de la proposition « prochain match ». Révocable.
+app.post('/tournaments/:id/league/entries/:login/absent', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  const login = c.req.param('login');
+  await assertLeagueOfficiant(me, id);
+  const body = await c.req.json().catch(() => null);
+  const parsed = z.object({ absent: z.boolean() }).safeParse(body);
+  if (!parsed.success) throw new HTTPException(400, { message: 'requête invalide' });
+  const entry = await prisma.tournamentEntry.findUnique({
+    where: { tournamentId_login: { tournamentId: id, login } },
+    select: { login: true },
+  });
+  if (!entry) throw new HTTPException(404, { message: 'équipe introuvable dans ce tournoi' });
+  await prisma.tournamentEntry.update({
+    where: { tournamentId_login: { tournamentId: id, login } },
+    data: { absentAt: parsed.data.absent ? new Date() : null },
+  });
+  broadcast({ type: 'tournament:update', payload: {} });
+  return c.json({ login, absent: parsed.data.absent });
+});
+
 // Admin/officiant : ÉDITE le score d'un match de ligue DÉJÀ CONFIRMÉ (correction
 // d'une erreur de saisie). Un match de ligue ne touche pas l'ELO réel → on met
 // simplement à jour score + vainqueur, et le classement se recalcule à l'affichage.
@@ -11282,28 +11335,29 @@ function tauntEmoteUnlockLevel(emote: string): number {
 interface EggStats {
   modesPlayed: number;      // nb de disciplines avec ≥1 match
   totalMatches: number;     // matchs joués, tous modes
-  totalTournaments: number; // tournois gagnés, tous modes
+  trophies: number;         // VRAIS trophées détenus (individuels + 2v2), calculés à la volée
   maxElo: number;           // meilleur Elo toutes disciplines
   level: number;            // niveau de passe
   bestStreak: number;       // record de série d'assiduité
 }
 
-function computeEggStats(user: Parameters<typeof projectStats>[0] & { xp: number; rankedStreakBest: number }): EggStats {
+function computeEggStats(
+  user: Parameters<typeof projectStats>[0] & { xp: number; rankedStreakBest: number },
+  trophies: number,
+): EggStats {
   let modesPlayed = 0;
   let totalMatches = 0;
-  let totalTournaments = 0;
   let maxElo = 0;
   for (const g of GAME_IDS) {
     const s = projectStats(user, g);
     if (s.matchesPlayed > 0) modesPlayed++;
     totalMatches += s.matchesPlayed;
-    totalTournaments += s.tournamentsWon;
     if (s.elo > maxElo) maxElo = s.elo;
   }
   return {
     modesPlayed,
     totalMatches,
-    totalTournaments,
+    trophies,
     maxElo,
     level: levelFromXp(user.xp).level,
     bestStreak: user.rankedStreakBest ?? 0,
@@ -11313,9 +11367,9 @@ function computeEggStats(user: Parameters<typeof projectStats>[0] & { xp: number
 const EASTER_EGG_EMOTES: { id: string; emoji: string; hint: string; test: (s: EggStats) => boolean }[] = [
   { id: 'egg_omnivore', emoji: '🌈', hint: 'Dispute au moins un match dans TOUTES les disciplines.', test: (s) => s.modesPlayed >= GAME_IDS.length },
   { id: 'egg_tripler', emoji: '🎲', hint: 'Joue à au moins 3 disciplines différentes.', test: (s) => s.modesPlayed >= 3 },
-  { id: 'egg_cup3', emoji: '🥉', hint: 'Gagne 3 tournois.', test: (s) => s.totalTournaments >= 3 },
-  { id: 'egg_cup5', emoji: '🥈', hint: 'Gagne 5 tournois.', test: (s) => s.totalTournaments >= 5 },
-  { id: 'egg_cup10', emoji: '🥇', hint: 'Gagne 10 tournois.', test: (s) => s.totalTournaments >= 10 },
+  { id: 'egg_cup3', emoji: '🥉', hint: 'Détiens 3 trophées (individuels ou 2v2).', test: (s) => s.trophies >= 3 },
+  { id: 'egg_cup5', emoji: '🥈', hint: 'Détiens 5 trophées (individuels ou 2v2).', test: (s) => s.trophies >= 5 },
+  { id: 'egg_cup10', emoji: '🥇', hint: 'Détiens 10 trophées (individuels ou 2v2).', test: (s) => s.trophies >= 10 },
   { id: 'egg_diamond', emoji: '💎', hint: 'Atteins le grade Diamant (Elo 1200) dans une discipline.', test: (s) => s.maxElo >= 1200 },
   { id: 'egg_streak7', emoji: '🧨', hint: 'Enchaîne 7 jours d’assiduité ranked.', test: (s) => s.bestStreak >= 7 },
   { id: 'egg_streak30', emoji: '🌪️', hint: 'Enchaîne 30 jours d’assiduité ranked.', test: (s) => s.bestStreak >= 30 },
@@ -11324,11 +11378,14 @@ const EASTER_EGG_EMOTES: { id: string; emoji: string; hint: string; test: (s: Eg
   { id: 'egg_prestige', emoji: '🚀', hint: 'Atteins le niveau 50 du passe.', test: (s) => s.level >= 50 },
 ];
 
+/** Emojis d'émotes secrètes dont le déblocage dépend du décompte de trophées (coûteux). */
+const TROPHY_EGG_EMOJIS = new Set(['🥉', '🥈', '🥇']);
+
 /** Un emoji easter egg débloqué pour ce joueur ? (validation d'équipement). */
-function eggUnlockedFor(user: Parameters<typeof computeEggStats>[0], emoji: string): boolean {
+function eggUnlockedFor(user: Parameters<typeof computeEggStats>[0], emoji: string, trophies: number): boolean {
   const egg = EASTER_EGG_EMOTES.find((e) => e.emoji === emoji);
   if (!egg) return false;
-  return egg.test(computeEggStats(user));
+  return egg.test(computeEggStats(user, trophies));
 }
 
 // GET /me/taunt-emotes — catalogue des émotes avec leur état de déblocage.
@@ -11336,7 +11393,7 @@ app.get('/me/taunt-emotes', async (c) => {
   const login = await getCurrentLogin(c);
   const user = await getOrCreateUser(login);
   const level = levelFromXp(user.xp).level;
-  const stats = computeEggStats(user);
+  const stats = computeEggStats(user, await trophyCountForLogin(login));
   return c.json({
     current: user.tauntEmote ?? DEFAULT_TAUNT_EMOTE,
     level,
@@ -11378,7 +11435,9 @@ app.put('/me/taunt-emote', async (c) => {
       });
     }
   } else if (EASTER_EGG_EMOTES.some((e) => e.emoji === emote)) {
-    if (!eggUnlockedFor(user, emote)) {
+    // Décompte des trophées (coûteux) seulement pour les émotes qui en dépendent.
+    const trophies = TROPHY_EGG_EMOJIS.has(emote) ? await trophyCountForLogin(login) : 0;
+    if (!eggUnlockedFor(user, emote, trophies)) {
       throw new HTTPException(403, { message: 'émote secrète encore verrouillée' });
     }
   } else {
@@ -11734,6 +11793,51 @@ const TROPHY_ELO_FIELD: Record<string, 'elo' | 'eloSmash' | 'eloChess' | 'eloSf'
   coding: 'eloCoding',
   pokemon: 'eloPokemon',
 };
+
+// Décompte des VRAIS trophées par login : trophées INDIVIDUELS par discipline
+// (comme l'onglet « Trophées ») + trophées d'ÉQUIPE 2v2 (une unité à chaque membre
+// du duo détenteur). Balaye tous les boards + matchs → mis en cache 60 s, car bien
+// trop coûteux pour être refait à chaque ouverture du sélecteur d'émotes.
+let _trophyCountsCache: { at: number; counts: Map<string, number> } | null = null;
+async function trophyCountsAllCached(): Promise<Map<string, number>> {
+  const now = Date.now();
+  if (_trophyCountsCache && now - _trophyCountsCache.at < 60_000) return _trophyCountsCache.counts;
+
+  const season = await prisma.season.findFirst({ where: { isActive: true } });
+  const seasonId = season?.id ?? null;
+  const rawMatches = await prisma.playedMatch.findMany({
+    where: { mode: null, ...(seasonId ? { seasonId } : {}) },
+    select: {
+      playerALogin: true, playerBLogin: true, scoreA: true, scoreB: true,
+      winner: true, playedAt: true, game: true, stocksA: true, stocksB: true,
+    },
+  });
+  const matches = rawMatches as unknown as TrophyMatch[];
+  const boards: GameBoards = {};
+  for (const game of GAME_IDS) {
+    const users = await prisma.user.findMany({
+      where: { ...VISIBLE_USER_WHERE, games: { has: game } },
+      select: { login: true, imageUrl: true, dodgeCount: true, elo: true, eloSmash: true, eloChess: true, eloSf: true, eloFlechettes: true, eloCoding: true, eloPokemon: true },
+    });
+    const field = TROPHY_ELO_FIELD[game];
+    boards[game] = users.map((u) => ({ login: u.login, imageUrl: u.imageUrl, elo: field ? u[field] : u.elo, dodgeCount: u.dodgeCount }));
+  }
+  const counts = trophyCountsByLogin(boards, matches);
+
+  // Trophées d'équipe 2v2 : chaque membre du duo détenteur gagne une unité.
+  for (const tr of await computeTeamTrophies(prisma)) {
+    if (!tr.earned) continue;
+    for (const l of [tr.player1Login, tr.player2Login]) {
+      if (l) counts.set(l, (counts.get(l) ?? 0) + 1);
+    }
+  }
+
+  _trophyCountsCache = { at: now, counts };
+  return counts;
+}
+async function trophyCountForLogin(login: string): Promise<number> {
+  return (await trophyCountsAllCached()).get(login) ?? 0;
+}
 
 async function runWeeklyTrophyIncome(now: Date = new Date()): Promise<void> {
   const weekKey = isoWeekKey(now);

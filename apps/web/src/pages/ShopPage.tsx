@@ -442,6 +442,9 @@ export function ShopPage() {
   // Onglets du shop : boutique (cosmétiques) · quêtes hebdo · paris. Les quêtes et
   // paris vivent désormais ici (hub des League Coins), plus sur le profil.
   const [tab, setTab] = useState<'shop' | 'inventory' | 'quests' | 'bets'>('shop');
+  // Tri de la vitrine : catégorie « épinglée » remontée en tête du rangement.
+  // null = ordre par défaut (CATEGORY_ORDER). Re-cliquer la puce active la remet à null.
+  const [firstCat, setFirstCat] = useState<ShopCategory | null>(null);
   // Cible des cartes « comment gagner » : matchs → page Défis ; quêtes/paris →
   // onglet correspondant (sans quitter le shop).
   const pickEarn = useCallback(
@@ -597,6 +600,13 @@ export function ShopPage() {
     ]),
   ) as Record<ShopCategory, ShopItemData[]>;
 
+  // Ordre d'affichage des sections : la catégorie épinglée (barre de tri) passe en
+  // tête, le reste conserve l'ordre par défaut. Sans épingle → CATEGORY_ORDER.
+  const orderedCats =
+    firstCat && presentCats.includes(firstCat)
+      ? [firstCat, ...presentCats.filter((c) => c !== firstCat)]
+      : presentCats;
+
   /** Section "Autre" : mystery_box + items Apôtre de Sheldon. */
   const autreItems = [
     ...visibleItems.filter((it) => it.category === 'mystery_box'),
@@ -678,6 +688,37 @@ export function ShopPage() {
       {/* ── Guide « comment gagner des coins » ─────────────────────────── */}
       <EarnGuide onPick={pickEarn} />
 
+      {/* ── Barre de tri : épingle une catégorie en tête du rangement ──── */}
+      {!loading && presentCats.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-0.5 px-0.5 no-scrollbar">
+          <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-2">
+            Trier
+          </span>
+          {presentCats.map((cat) => {
+            const meta = CAT_META[cat];
+            const ChipIcon = meta.Icon;
+            const active = firstCat === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setFirstCat((prev) => (prev === cat ? null : cat))}
+                aria-pressed={active}
+                title={active ? `${meta.label} en tête — cliquer pour rétablir` : `Afficher « ${meta.label} » en premier`}
+                className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide transition-all ${
+                  active
+                    ? 'bg-gold/15 border-gold/45 text-gold shadow-[inset_0_1px_0_rgba(255,215,120,0.15)]'
+                    : 'bg-bg-1/70 border-border/50 text-muted-2 hover:text-text hover:border-gold/30'
+                }`}
+              >
+                <ChipIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                {meta.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── Catalogue groupé par catégorie ─────────────────────────────── */}
       {loading ? (
         <div className="space-y-6">
@@ -694,7 +735,7 @@ export function ShopPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {presentCats.map((cat) => {
+          {orderedCats.map((cat) => {
             const catItems = itemsByCategory[cat] ?? [];
             const meta = CAT_META[cat];
             const CatIcon = meta.Icon;
