@@ -119,7 +119,7 @@ import { streamSSE } from 'hono/streaming';
 import { bodyLimit } from 'hono/body-limit';
 import { registerSse, emit, broadcast, type SseEvent } from './sse.js';
 import { issueStreamToken, issueToken, verifyStreamToken, verifyToken } from './tokens.js';
-import { logAdminAction, notifyClientError, notifyDiscordDispute } from './audit.js';
+import { logAdminAction, notifyClientError, notifyDiscordDispute, notifyShopProposalDiscord } from './audit.js';
 import { rateLimit, clientIp, clearPenalty, getPenaltyInfo } from './rate-limit.js';
 
 // Hardcoded — immutable. No API can grant or revoke this.
@@ -951,6 +951,9 @@ if (process.env.NODE_ENV !== 'test') {
   app.use('/matches/ffa', rateLimit({ name: 'ffa-declare',       windowMs: 3600_000, max: 800, key: bySubject, skip: orAdmin((c) => !isMutation(c)) }));
   app.use('/challenges',  rateLimit({ name: 'challenges-create', windowMs: 3600_000, max: 600, key: bySubject, skip: orAdmin((c) => !isMutation(c)) }));
   app.use('/tournaments', rateLimit({ name: 'tournaments-create',windowMs: 3600_000, max: 300, key: bySubject, skip: orAdmin((c) => !isMutation(c)) }));
+  // Propositions de cosmétiques par les joueurs — data-URL potentiellement lourde,
+  // on borne à 30/h par joueur (anti-spam de la file de relecture admin).
+  app.use('/shop/proposals', rateLimit({ name: 'shop-proposals', windowMs: 3600_000, max: 30, key: bySubject, skip: orAdmin((c) => !isMutation(c)) }));
 
   // Écriture générale (mutations restantes), par joueur. Admins exemptés.
   const writeLimiter = rateLimit({ name: 'write', windowMs: 60_000, max: 1200, key: bySubject, skip: orAdmin((c) => !isMutation(c)) });
@@ -10461,6 +10464,146 @@ app.delete('/admin/shop/items/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Propositions de cosmétiques (joueur → relecture admin) ──────────────────────
+// Un joueur normal propose une BANNIÈRE ou un TITRE via le même formulaire que le
+// GOD ; on enregistre une ShopProposal (status 'pending') et on notifie les admins
+// (panneau GOD via SSE + Discord). Les admins acceptent (→ crée le vrai ShopItem)
+// ou refusent. Cap de la data-URL de bannière un peu plus large que le shop admin.
+const PROPOSAL_MAX_DATAURL_LEN = 800_000;
+const ShopProposalCreateSchema = z
+  .object({
+    category: z.enum(['title', 'banner']),
+    name: z.string().trim().min(1).max(80),
+    color: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
+      .nullish(),
+    payload: z.record(z.any()),
+  })
+  .superRefine((d, ctx) => {
+    if (d.category === 'banner') {
+      const img = typeof d.payload.image === 'string' ? d.payload.image : '';
+      if (!img.startsWith('data:image/')) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'bannière : image (data-URL) requise' });
+      } else if (img.length > PROPOSAL_MAX_DATAURL_LEN) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'bannière trop lourde' });
+      }
+    }
+    if (d.category === 'title') {
+      const title = typeof d.payload.title === 'string' ? d.payload.title.trim() : '';
+      if (!title) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'titre : texte requis' });
+      }
+    }
+  });
+
+function serializeShopProposal(p: {
+  id: string;
+  proposerLogin: string;
+  category: string;
+  name: string;
+  color: string | null;
+  payload: Prisma.JsonValue | null;
+  createdAt: Date;
+}) {
+  return {
+    id: p.id,
+    proposerLogin: p.proposerLogin,
+    category: p.category,
+    name: p.name,
+    color: p.color ?? null,
+    payload: p.payload ?? null,
+    createdAt: p.createdAt.toISOString(),
+  };
+}
+
+// POST /shop/proposals — un joueur authentifié propose un titre ou une bannière.
+app.post('/shop/proposals', async (c) => {
+  const me = await getCurrentLogin(c);
+  await getOrCreateUser(me);
+  const body = await c.req.json().catch(() => null);
+  const parsed = ShopProposalCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HTTPException(400, { message: parsed.error.message });
+  }
+  const d = parsed.data;
+  const proposal = await prisma.shopProposal.create({
+    data: {
+      proposerLogin: me,
+      category: d.category,
+      name: d.name,
+      color: d.color ?? null,
+      payload: d.payload as Prisma.InputJsonValue,
+      status: 'pending',
+    },
+  });
+  // Rafraîchit le panneau GOD des admins en temps réel.
+  broadcast({ type: 'shop:proposal', payload: {} });
+  // Notifie Discord (fire-and-forget, ne jette jamais).
+  void notifyShopProposalDiscord({ proposerLogin: me, category: d.category, name: d.name });
+  return c.json(serializeShopProposal(proposal));
+});
+
+// GET /admin/shop/proposals — file des propositions en attente (récentes d'abord).
+app.get('/admin/shop/proposals', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const items = await prisma.shopProposal.findMany({
+    where: { status: 'pending' },
+    orderBy: { createdAt: 'desc' },
+  });
+  return c.json(items.map(serializeShopProposal));
+});
+
+// POST /admin/shop/proposals/:id/accept — crée le vrai ShopItem et clôt la propo.
+app.post('/admin/shop/proposals/:id/accept', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const id = c.req.param('id');
+  const proposal = await prisma.shopProposal.findUnique({ where: { id } });
+  if (!proposal) throw new HTTPException(404, { message: 'proposition introuvable' });
+  if (proposal.status !== 'pending') {
+    throw new HTTPException(409, { message: 'proposition déjà traitée' });
+  }
+  const item = await prisma.shopItem.create({
+    data: {
+      name: proposal.name,
+      description: null,
+      category: proposal.category,
+      color: proposal.color ?? null,
+      rarity: 'common',
+      price: 0,
+      payload: (proposal.payload ?? PrismaRuntime.DbNull) as Prisma.InputJsonValue | typeof PrismaRuntime.DbNull,
+      active: true,
+      sortOrder: 0,
+    },
+  });
+  await prisma.shopProposal.update({
+    where: { id },
+    data: { status: 'accepted', reviewedBy: me, reviewedAt: new Date() },
+  });
+  broadcast({ type: 'shop:proposal', payload: {} });
+  return c.json(serializeShopItem(item));
+});
+
+// POST /admin/shop/proposals/:id/reject — clôt la proposition sans rien créer.
+app.post('/admin/shop/proposals/:id/reject', async (c) => {
+  const me = await getCurrentLogin(c);
+  await requireAdmin(me);
+  const id = c.req.param('id');
+  const proposal = await prisma.shopProposal.findUnique({ where: { id } });
+  if (!proposal) throw new HTTPException(404, { message: 'proposition introuvable' });
+  if (proposal.status !== 'pending') {
+    throw new HTTPException(409, { message: 'proposition déjà traitée' });
+  }
+  await prisma.shopProposal.update({
+    where: { id },
+    data: { status: 'rejected', reviewedBy: me, reviewedAt: new Date() },
+  });
+  broadcast({ type: 'shop:proposal', payload: {} });
+  return c.json({ ok: true });
+});
+
 // ── Passe de combat ───────────────────────────────────────────────────────────
 
 // Validation d'un palier (admin). itemId requis pour 'item', coins pour 'coins',
@@ -10667,74 +10810,6 @@ app.delete('/me/push/subscribe', async (c) => {
     throw new HTTPException(400, { message: 'endpoint requis' });
   }
   await prisma.pushSubscription.deleteMany({ where: { endpoint, userLogin: login } });
-  return c.json({ ok: true });
-});
-
-// ── « Je suis chaud » : disponibilité éphémère pour jouer (30 min) ───────────
-// Volontairement EN MÉMOIRE (perdu au redéploiement, assumé) : c'est de la
-// présence, pas de la donnée. login → { game, until }.
-
-const HOT_DURATION_MS = 30 * 60 * 1000;
-const hotPlayers = new Map<string, { game: string; until: number }>();
-
-function pruneHotPlayers(): void {
-  const now = Date.now();
-  for (const [login, h] of hotPlayers) {
-    if (h.until <= now) hotPlayers.delete(login);
-  }
-}
-
-const HotGameSchema = z.object({
-  game: z.enum(['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes']),
-});
-
-// GET /hot — joueurs actuellement « chauds » (non expirés), plus anciens d'abord.
-app.get('/hot', async (c) => {
-  await getCurrentLogin(c);
-  pruneHotPlayers();
-  const logins = [...hotPlayers.keys()];
-  const users = logins.length
-    ? await prisma.user.findMany({
-        where: { login: { in: logins } },
-        select: { login: true, firstName: true, lastName: true, imageUrl: true },
-      })
-    : [];
-  const byLogin = new Map(users.map((u) => [u.login, u]));
-  return c.json(
-    [...hotPlayers.entries()]
-      .sort((a, b) => a[1].until - b[1].until)
-      .map(([login, h]) => ({
-        login,
-        game: h.game,
-        until: new Date(h.until).toISOString(),
-        firstName: byLogin.get(login)?.firstName ?? null,
-        lastName: byLogin.get(login)?.lastName ?? null,
-        imageUrl: byLogin.get(login)?.imageUrl ?? null,
-      })),
-  );
-});
-
-// POST /me/hot — se déclare chaud pour 30 min sur un jeu (ré-appel = prolonge).
-app.post('/me/hot', async (c) => {
-  const login = await getCurrentLogin(c);
-  await getOrCreateUser(login);
-  const body = await c.req.json().catch(() => null);
-  const parsed = HotGameSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new HTTPException(400, { message: 'jeu invalide' });
-  }
-  pruneHotPlayers();
-  const until = Date.now() + HOT_DURATION_MS;
-  hotPlayers.set(login, { game: parsed.data.game, until });
-  broadcast({ type: 'hot:update', payload: {} });
-  return c.json({ ok: true, until: new Date(until).toISOString() });
-});
-
-// DELETE /me/hot — se retire de la liste.
-app.delete('/me/hot', async (c) => {
-  const login = await getCurrentLogin(c);
-  hotPlayers.delete(login);
-  broadcast({ type: 'hot:update', payload: {} });
   return c.json({ ok: true });
 });
 
@@ -13033,6 +13108,29 @@ if (process.env.NODE_ENV !== 'test') {
         })
         .catch((err) => console.error(`failed to upsert consumable ${ci.id}`, err));
     }
+    // Annonce de version v1.2 — idempotente : créée une seule fois (repérée par son
+    // titre exact stable). Ne bloque jamais le boot (fire-and-forget + try/catch).
+    void (async () => {
+      try {
+        const V12_TITLE = 'OneLeague v1.2 — Saison Piscine 2026';
+        const existing = await prisma.announcement.findFirst({ where: { title: V12_TITLE } });
+        if (!existing) {
+          await prisma.announcement.create({
+            data: {
+              title: V12_TITLE,
+              body:
+                '🌴 Nouvelle version ! Refonte des grades, passe de combat garni de vrais items, ' +
+                'propose tes propres cosmétiques pour la boutique, activité récente enrichie, ' +
+                'et plein de peaufinage. Bon jeu !',
+              kind: 'event',
+              active: true,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('failed to upsert v1.2 announcement', err);
+      }
+    })();
     // Seed de données de test — staging uniquement, jamais en prod.
     if (process.env.APP_ENV === 'staging') {
       seedStaging().catch((err) => {

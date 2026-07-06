@@ -20,12 +20,15 @@ import {
   Toggle,
   CATEGORY_LABEL,
   ItemFormFields,
+  ItemPreview,
   buildInput,
   emptyForm,
   formFromItem,
   type FormState,
 } from '../components/shop/CosmeticForm';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useServerEvents } from '../hooks/useServerEvents';
+import type { ShopProposal } from '../lib/api';
 
 type Role = 'ADMIN' | 'SUPERADMIN';
 
@@ -653,6 +656,98 @@ function PlayersSection() {
 
 // ── Page principale (self-guard admin) ──────────────────────────────────────
 
+// ── Section : propositions de cosmétiques des joueurs (relecture) ───────────
+
+/** Construit un FormState minimal depuis une proposition pour l'aperçu (ItemPreview). */
+function formFromProposal(p: ShopProposal): FormState {
+  const payload = (p.payload ?? {}) as Record<string, unknown>;
+  return {
+    ...emptyForm(),
+    name: p.name,
+    category: p.category,
+    color: p.color ?? '#ffc94a',
+    titleText: typeof payload.title === 'string' ? payload.title : '',
+    bannerImage: typeof payload.image === 'string' ? payload.image : '',
+  };
+}
+
+function ProposalsSection() {
+  const [proposals, setProposals] = useState<ShopProposal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const load = useCallback((silent = false) => {
+    if (!silent) setLoading(true);
+    api.adminShopProposals()
+      .then(setProposals)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Erreur'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Rafraîchit en temps réel quand un joueur soumet une proposition.
+  useServerEvents(() => load(true), ['shop:proposal']);
+
+  async function decide(p: ShopProposal, action: 'accept' | 'reject') {
+    setPendingId(p.id);
+    setError('');
+    try {
+      if (action === 'accept') await api.acceptShopProposal(p.id);
+      else await api.rejectShopProposal(p.id);
+      setProposals((prev) => prev.filter((x) => x.id !== p.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur');
+      load(true);
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  return (
+    <div className="p-4">
+      <Section
+        title={`Propositions boutique${proposals.length ? ` — ${proposals.length} en attente` : ''}`}
+      >
+        {loading ? (
+          <div className="text-xs text-zinc-500 font-mono px-1">Chargement…</div>
+        ) : proposals.length === 0 ? (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-xs text-zinc-500 font-mono">
+            Aucune proposition en attente.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {proposals.map((p) => (
+              <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${CATEGORY_BADGE[p.category]}`}>
+                      {CATEGORY_LABEL[p.category]}
+                    </span>
+                    <span className="text-sm text-zinc-100 font-bold truncate">{p.name}</span>
+                  </div>
+                  <span className="text-[10px] text-zinc-500 font-mono shrink-0">par {p.proposerLogin}</span>
+                </div>
+                <ItemPreview form={formFromProposal(p)} />
+                <div className="flex justify-end gap-2">
+                  <Btn variant="success" disabled={pendingId === p.id} onClick={() => decide(p, 'accept')}>
+                    Accepter
+                  </Btn>
+                  <Btn variant="danger" disabled={pendingId === p.id} onClick={() => decide(p, 'reject')}>
+                    Refuser
+                  </Btn>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {error && <div className="mt-3 text-xs text-red-400 font-mono px-1">{error}</div>}
+      </Section>
+    </div>
+  );
+}
+
 // Coquille commune des pages GOD (auth admin + header + zone scrollable). Partagée
 // par la page principale et la sous-page « Suivi des joueurs ».
 function GodChrome({ children }: { children: ReactNode }) {
@@ -754,6 +849,7 @@ export function ShopGODPage() {
           <ChevronRight className="w-4 h-4 text-zinc-500" />
         </button>
       </div>
+      <ProposalsSection />
       <GrantCoinsSection />
       <GrantItemSection items={items} />
       <ItemsSection onItemsChanged={setItems} />

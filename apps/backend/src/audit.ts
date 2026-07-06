@@ -124,6 +124,47 @@ export async function notifyDiscordDispute(params: {
   });
 }
 
+/**
+ * Notifie Discord qu'un joueur vient de proposer un cosmétique pour la boutique,
+ * en fire-and-forget. Réutilise le webhook d'audit. Ignoré en staging (canal réel)
+ * et si pas de webhook. Contrairement au canal d'audit RGPD anonymisé, il s'agit
+ * ici d'une notification INTERNE aux admins (file de relecture) : on PEUT inclure
+ * le login de l'auteur. Ne jette jamais.
+ */
+export async function notifyShopProposalDiscord(params: {
+  proposerLogin: string;
+  category: string;
+  name: string;
+}): Promise<void> {
+  try {
+    if (process.env.APP_ENV === 'staging') return;
+    const url = process.env.DISCORD_AUDIT_WEBHOOK_URL;
+    if (!url) return;
+    const catLabel = params.category === 'banner' ? 'Bannière' : params.category === 'title' ? 'Titre' : params.category;
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [
+          {
+            title: '🛍️ Nouvelle proposition boutique',
+            color: 0x8b5cf6,
+            fields: [
+              { name: 'Nom', value: String(params.name).slice(0, 256) || '—', inline: true },
+              { name: 'Catégorie', value: catLabel, inline: true },
+              { name: 'Auteur', value: String(params.proposerLogin).slice(0, 256) || '—', inline: true },
+            ],
+            footer: { text: 'À relire dans /GOD → Propositions boutique.' },
+          },
+        ],
+        allowed_mentions: { parse: [] },
+      }),
+    });
+  } catch (err) {
+    console.error('[audit] shop proposal webhook failed', err);
+  }
+}
+
 async function notifyDiscord(action: AdminAction): Promise<void> {
   // En staging, on ne notifie pas Discord : les admins testent des actions
   // fictives et les notifications pollueraient le canal de sécurité réel.

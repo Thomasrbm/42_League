@@ -30,7 +30,7 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useFlash } from '../../hooks/useFlash';
 import { useT } from '../../lib/i18n';
 import { useIsLite } from '../../hooks/usePerf';
-import { api, type BattlePassResponse, type BattlePassTierView } from '../../lib/api';
+import { api, type BattlePassResponse, type BattlePassTierView, type ShopItemData } from '../../lib/api';
 import { resolveRarity, type Rarity } from '../../lib/rarity';
 import { TAUNT_EMOTES, FREE_TAUNT_EMOTES, TAUNT_EMOTE_LEVEL_STEP } from '../../lib/tauntEmotes';
 
@@ -90,6 +90,15 @@ const SHOP_TO_FN: Record<Rarity, FnRarity> = {
   rare: 'rare',
   epic: 'epique',
   legendary: 'legendaire',
+};
+
+/** Échelle de la page → rareté boutique (pour choisir un vrai item cohérent). */
+const FN_TO_SHOP: Record<FnRarity, Rarity> = {
+  commun: 'common',
+  atypique: 'rare',
+  rare: 'rare',
+  epique: 'epic',
+  legendaire: 'legendary',
 };
 
 const CONSUMABLE_ICON: Record<string, LucideIcon> = {
@@ -232,7 +241,23 @@ interface TileView {
   Icon: LucideIcon | 'coin';
 }
 
-function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileView[] {
+function buildTiles(
+  data: BattlePassResponse,
+  t: (k: string) => string,
+  realPool: ShopItemData[],
+): TileView[] {
+  // Vrais cosmétiques de la boutique (≤ 2000 coins) rangés par rareté, pour
+  // remplacer les faux items (bannières/titres inventés) par des items qui
+  // existent réellement, en respectant la bande de rareté du palier.
+  const byRarity: Record<Rarity, ShopItemData[]> = { common: [], rare: [], epic: [], legendary: [] };
+  for (const it of realPool) byRarity[resolveRarity(it)].push(it);
+  function realItemFor(tier: number, fn: FnRarity): ShopItemData | null {
+    if (realPool.length === 0) return null;
+    const want = FN_TO_SHOP[fn];
+    const bucket = byRarity[want].length > 0 ? byRarity[want] : realPool;
+    return bucket[tier % bucket.length] ?? null;
+  }
+
   // Aucun palier configuré → piste 100% factice de 60 paliers pour la démo.
   const source: BattlePassTierView[] =
     data.tiers.length > 0
@@ -297,6 +322,27 @@ function buildTiles(data: BattlePassResponse, t: (k: string) => string): TileVie
     const claimed = !!tier.claimedAt;
     const isCoins = fk.kind === 'coins';
     const isConsumable = fk.kind === 'consumable';
+
+    // Remplace les faux cosmétiques (bannières/titres inventés) par de VRAIS
+    // items de la boutique qui existent (≤ 2000 coins). On ne touche PAS aux
+    // émotes (déblocage réel), ni aux coins/consommables.
+    if (fk.kind === 'item' && !fk.name.startsWith('Émote ')) {
+      const real = realItemFor(tier.tier, fk.rarity);
+      if (real) {
+        const fn = FN[SHOP_TO_FN[resolveRarity(real)]];
+        return {
+          tier: tier.tier,
+          xpRequired: tier.xpRequired,
+          unlocked: tier.unlocked,
+          claimed,
+          claimable: tier.unlocked && !claimed,
+          name: real.name,
+          tag: fn.label,
+          hex: fn.hex,
+          Icon: Gem,
+        };
+      }
+    }
     return {
       tier: tier.tier,
       xpRequired: tier.xpRequired,
@@ -642,7 +688,35 @@ export function PassePage() {
     void load();
   }, [load]);
 
-  const tiles = useMemo(() => (data ? buildTiles(data, t) : []), [data, t]);
+  // Catalogue réel de la boutique (cosmétiques ≤ 2000 coins) — sert à remplacer
+  // les faux items du passe par de vrais items achetables qui existent.
+  const [realCosmetics, setRealCosmetics] = useState<ShopItemData[]>([]);
+  useEffect(() => {
+    let alive = true;
+    api
+      .shop()
+      .then((r) => {
+        if (!alive) return;
+        const pool = r.items
+          .filter(
+            (it) =>
+              (it.category === 'title' || it.category === 'banner' || it.category === 'badge') &&
+              it.active &&
+              it.price <= 2000,
+          )
+          .sort((a, b) => a.price - b.price);
+        setRealCosmetics(pool);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const tiles = useMemo(
+    () => (data ? buildTiles(data, t, realCosmetics) : []),
+    [data, t, realCosmetics],
+  );
 
   // À l'arrivée : centrer la piste sur le palier du niveau courant.
   useEffect(() => {

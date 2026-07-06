@@ -130,6 +130,32 @@ interface Release {
 
 const CHANGELOG: Release[] = [
   {
+    version: 'V1.2',
+    date: '6 juillet 2026',
+    changes: [
+      {
+        kind: 'feature',
+        text: "Saison Piscine 2026 : nouvel habillage (palmiers, splash de bienvenue) et refonte des grades — paliers resserrés (étain → diamant) et fins de saison revues.",
+      },
+      {
+        kind: 'feature',
+        text: "Passe de combat : les paliers cosmétiques affichent désormais de vrais items de la boutique.",
+      },
+      {
+        kind: 'feature',
+        text: "Propose tes propres cosmétiques (bannière ou titre) pour la boutique : les admins les relisent et les ajoutent.",
+      },
+      {
+        kind: 'feature',
+        text: "Changer d'émote de victoire joue son animation en aperçu. Profil épuré : courbe d'ELO remontée juste après ta carte, paris retirés.",
+      },
+      {
+        kind: 'feature',
+        text: "Accueil : activité récente avec photos et jeu affichés, boutons plus punchy. Retrait de « Je suis chaud » et de la présence cluster.",
+      },
+    ],
+  },
+  {
     version: 'V1.1',
     date: '10 juin 2026',
     changes: [

@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { ChevronRight, LogOut } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
 import { PullToRefresh } from '../../mobile/primitives/PullToRefresh';
 import { ProfileHeroCard } from './mobile/ProfileHeroCard';
@@ -11,8 +10,6 @@ import { MyTeamsSection } from './mobile/MyTeamsSection';
 import { FollowLists } from '../../components/FollowLists';
 import { EloChart } from '../../components/EloChart';
 import { SectionHeader } from './shared/SectionHeader';
-import { RankingScopeToggle } from '../leaderboard/RankingScopeToggle';
-import { BetsPanel } from './BetsPanel';
 import { XpBar } from '../../components/XpBar';
 import { TauntEmotePicker } from '../../components/TauntEmotePicker';
 import { useProfilLogic } from './shared/useProfilLogic';
@@ -22,8 +19,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { useT } from '../../lib/i18n';
 import { haptic } from '../../mobile/feedback/useHaptic';
 
-type ProfilTab = 'profile' | 'quests' | 'bets';
-
 export function ProfilMobile() {
   const { stats, myLogin } = useProfilLogic();
   const { me, matches, playedDarts, refresh } = useLeagueData();
@@ -31,11 +26,6 @@ export function ProfilMobile() {
   const { signOut } = useAuth();
   const t = useT();
   const navigate = useNavigate();
-  // Deep-link `?tab=bets` (ex. depuis une notif « parie sur ce duel »).
-  const [params] = useSearchParams();
-  const queryTab = params.get('tab');
-  const initialTab: ProfilTab = queryTab === 'bets' ? 'bets' : 'profile';
-  const [tab, setTab] = useState<ProfilTab>(initialTab);
 
   if (!me?.user) {
     return (
@@ -54,6 +44,20 @@ export function ProfilMobile() {
       <div key={game} className="space-y-5">
         {/* Héro : ELO, stats, badges, autres disciplines — tout dans la carte */}
         <ProfileHeroCard stats={stats} />
+
+        {/* Courbe d'ELO — 2e section, juste après la carte principale */}
+        {myLogin && (
+          <div className="card-hud rounded-2xl px-4 pt-3 pb-4 border-gold/20">
+            <SectionHeader title={t('profil.eloEvolution')} />
+            <EloChart
+              matches={matches}
+              myLogin={myLogin}
+              currentElo={stats.elo}
+              game={game}
+              height={150}
+            />
+          </div>
+        )}
 
         {/* Passe de combat : niveau + barre d'XP + accès à la page /passe */}
         {typeof me.level === 'number' && (
@@ -74,35 +78,6 @@ export function ProfilMobile() {
           <SectionHeader title={t('settings.tauntEmote')} />
           <TauntEmotePicker />
         </section>
-
-        {/* Onglets : profil · paris. Les quêtes hebdo ont migré dans la Boutique
-            (hub des League Coins). */}
-        <RankingScopeToggle<ProfilTab>
-          value={tab === 'quests' ? 'profile' : tab}
-          onChange={setTab}
-          choices={[
-            { value: 'profile', label: t('profil.tab.profile') },
-            { value: 'bets', label: t('profil.tab.bets') },
-          ]}
-        />
-
-        {tab === 'bets' && <BetsPanel />}
-
-        {tab === 'profile' && (
-          <>
-        {/* ELO evolution chart */}
-        {myLogin && (
-          <div className="card-hud rounded-2xl px-4 pt-3 pb-4 border-gold/20">
-            <SectionHeader title={t('profil.eloEvolution')} />
-            <EloChart
-              matches={matches}
-              myLogin={myLogin}
-              currentElo={stats.elo}
-              game={game}
-              height={150}
-            />
-          </div>
-        )}
 
         {/* Ops card (urgent rouge) */}
         <OpsCard />
@@ -143,8 +118,6 @@ export function ProfilMobile() {
             </div>
             <MyTeamsSection myLogin={myLogin} />
           </section>
-        )}
-          </>
         )}
 
         {/* Sign out button */}

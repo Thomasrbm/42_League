@@ -8,13 +8,11 @@ import {
   Trophy,
   Flame,
   Activity,
-  MapPin,
   ChevronRight,
   Sparkles,
   Zap,
   TrendingUp,
   PartyPopper,
-  CalendarCheck,
   ShoppingBag,
   Orbit,
   Medal,
@@ -24,8 +22,6 @@ import {
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
 import { EmptyState } from '../components/EmptyState';
-import { HotPlayers } from '../components/HotPlayers';
-import { OnlineBadge } from '../components/OnlineBadge';
 import { PlayerLink } from '../components/PlayerLink';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { api } from '../lib/api';
@@ -49,9 +45,16 @@ const UPSET_DELTA = 20;
 // main quand une nouveauté sort. App interne francophone → FR en dur assumé.
 const WHATS_NEW: { to: string; Icon: LucideIcon; color: string; title: string; desc: string }[] = [
   {
+    to: '/grades',
+    Icon: Medal,
+    color: '#ffc94a',
+    title: 'Refonte des grades',
+    desc: 'Nouveaux paliers resserrés (étain → diamant) et fins de saison revues.',
+  },
+  {
     to: '/passe',
     Icon: Zap,
-    color: '#ffc94a',
+    color: '#ff9500',
     title: 'Passe de combat',
     desc: 'Gagne de l’XP à chaque match, même perdu, et réclame tes récompenses.',
   },
@@ -70,11 +73,11 @@ const WHATS_NEW: { to: string; Icon: LucideIcon; color: string; title: string; d
     desc: 'Nargue tes victimes après un 1v1 — à choisir dans tes réglages.',
   },
   {
-    to: '/tournaments',
-    Icon: CalendarCheck,
-    color: '#4ade80',
-    title: 'Check-in tournoi',
-    desc: 'Confirme ta présence avant le coup d’envoi pour garder ta place.',
+    to: '/shop/propose',
+    Icon: ShoppingBag,
+    color: '#a78bfa',
+    title: 'Propose un item boutique',
+    desc: 'Imagine une bannière ou un titre : les admins le relisent et l’ajoutent.',
   },
 ];
 
@@ -208,7 +211,7 @@ function WeeklyIdeasCard() {
 export function HomePage() {
   const t = useT();
   const { lang } = useI18n();
-  const { me, challenges, pending, tournaments, matches, leaderboard, locations } = useLeagueData();
+  const { me, challenges, pending, tournaments, matches, leaderboard } = useLeagueData();
   const myLogin = me?.login ?? null;
 
   // Paliers de passe réclamables — compteur léger, rechargé à chaque visite.
@@ -263,12 +266,6 @@ export function HomePage() {
     for (const e of leaderboard) map.set(e.login, e.imageUrl);
     return map;
   }, [leaderboard]);
-
-  // Joueurs actuellement au cluster (API 42), moi exclu.
-  const online = useMemo(
-    () => [...locations.entries()].filter(([login]) => login !== myLogin).slice(0, 10),
-    [locations, myLogin],
-  );
 
   const todo = [
     {
@@ -342,28 +339,40 @@ export function HomePage() {
           {todo.map((item, i) => (
             <motion.div
               key={item.key}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06, duration: 0.3, ease: 'easeOut' }}
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: i * 0.07, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             >
               <Link
                 to={item.to}
-                className="flex items-center gap-3 card-hud rounded-2xl px-4 py-3.5 hover:brightness-110 transition-all group"
-                style={{ borderColor: `${item.color}44` }}
+                className="group relative flex items-center gap-3 rounded-2xl px-4 py-3.5 overflow-hidden transition-transform duration-150 hover:scale-[1.03] active:scale-[0.97]"
+                style={{
+                  background: `radial-gradient(120% 130% at 0% 0%, ${item.color}30 0%, ${item.color}12 45%, rgba(14,16,22,0.9) 100%)`,
+                  border: `1.5px solid ${item.color}66`,
+                  boxShadow: `0 0 22px -6px ${item.color}88, inset 0 1px 0 ${item.color}33`,
+                }}
               >
+                {/* Reflet qui balaie au survol */}
                 <span
-                  className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center border"
-                  style={{ color: item.color, background: `${item.color}14`, borderColor: `${item.color}40` }}
+                  className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out"
+                  style={{ background: `linear-gradient(105deg, transparent 35%, ${item.color}44 50%, transparent 65%)` }}
+                />
+                <span
+                  className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center border transition-transform duration-150 group-hover:scale-110 group-hover:-rotate-6"
+                  style={{ color: item.color, background: `${item.color}22`, borderColor: `${item.color}66`, boxShadow: `0 0 16px -4px ${item.color}` }}
                 >
-                  <item.Icon className="w-5 h-5" strokeWidth={2.2} />
+                  <item.Icon className="w-5 h-5" strokeWidth={2.4} />
                 </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block font-gaming text-xl font-extrabold tabular-nums leading-none" style={{ color: item.color }}>
+                <span className="flex-1 min-w-0 relative">
+                  <span
+                    className="block font-gaming text-2xl font-black tabular-nums leading-none"
+                    style={{ color: item.color, textShadow: `0 0 18px ${item.color}88` }}
+                  >
                     {item.count}
                   </span>
-                  <span className="block text-xs text-muted-2 font-semibold mt-0.5">{item.label}</span>
+                  <span className="block text-xs text-text font-bold mt-0.5">{item.label}</span>
                 </span>
-                <ChevronRight className="w-4 h-4 text-muted-2 group-hover:translate-x-0.5 transition-transform" strokeWidth={2.5} />
+                <ChevronRight className="w-4 h-4 text-text-strong/70 group-hover:translate-x-1 transition-transform relative" strokeWidth={2.6} />
               </Link>
             </motion.div>
           ))}
@@ -385,9 +394,6 @@ export function HomePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:items-start">
         <div className="space-y-4">
-          {/* Dispo pour jouer (30 min) */}
-          <HotPlayers />
-
           {/* Tournoi en avant */}
           {featuredTournament && (
             <Link
@@ -431,34 +437,6 @@ export function HomePage() {
 
           {/* Mini-quêtes de la semaine (idées d'activités) */}
           <WeeklyIdeasCard />
-
-          {/* Au cluster en ce moment */}
-          {online.length > 0 && (
-            <div className="card-hud rounded-2xl px-4 py-3.5">
-              <div className="flex items-center gap-2 mb-2.5">
-                <MapPin className="w-4 h-4 text-[#4ade80]" strokeWidth={2.4} />
-                <span className="font-gaming text-xs font-extrabold uppercase tracking-[0.14em] text-text-strong">
-                  {t('home.cluster')}
-                </span>
-                <span className="text-[11px] font-extrabold tabular-nums text-[#4ade80]">{online.length}</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {online.map(([login, host]) => (
-                  <PlayerLink
-                    key={login}
-                    login={login}
-                    className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-bg-2/60 border border-border/50 hover:border-[#4ade80]/50 transition-colors"
-                  >
-                    <span className="relative">
-                      <Avatar login={login} imageUrl={imgByLogin.get(login) ?? null} size="xs" />
-                      <OnlineBadge host={host} compact className="absolute -bottom-0.5 -right-0.5" />
-                    </span>
-                    <span className="text-xs font-semibold text-text">{login}</span>
-                  </PlayerLink>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Activité récente */}
@@ -472,7 +450,7 @@ export function HomePage() {
           {recent.length === 0 ? (
             <p className="text-sm text-muted-2 py-4 text-center">{t('home.activity.empty')}</p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {recent.map((m) => {
                 const gm = m.game ? GAME_META[m.game] : null;
                 const winnerLogin =
@@ -482,44 +460,53 @@ export function HomePage() {
                 const winnerDelta = m.winner === 'A' ? m.deltaA : m.deltaB;
                 const upset = winnerLogin != null && winnerDelta >= UPSET_DELTA;
                 return (
-                  <div key={m.id} className="flex items-center gap-2 py-1">
+                  <div key={m.id} className="flex items-center gap-2 py-1.5 border-b border-border/40 last:border-0">
+                    {/* Pastille du jeu : logo + accent de couleur */}
                     <span
-                      className="shrink-0 w-1 h-7 rounded-full"
-                      style={{ background: gm?.color ?? '#7d6e54' }}
+                      className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border"
+                      style={{ background: gm ? gm.bgColor : 'rgba(125,110,84,0.12)', borderColor: gm ? gm.borderColor : 'rgba(125,110,84,0.4)' }}
                       title={gm?.label}
-                    />
-                    <span className="flex-1 min-w-0 text-[13px] leading-tight">
-                      {winnerLogin && loserLogin ? (
-                        <>
-                          <PlayerLink login={winnerLogin} className="font-bold text-text-strong hover:text-gold">
-                            {winnerLogin}
-                          </PlayerLink>{' '}
-                          <span className="text-muted-2">{t('home.activity.beat')}</span>{' '}
-                          <PlayerLink login={loserLogin} className="font-semibold text-muted-2 hover:text-gold">
-                            {loserLogin}
-                          </PlayerLink>{' '}
-                          <span className="tabular-nums text-muted-2">
-                            {m.scoreA}–{m.scoreB}
-                          </span>
-                          {upset && (
-                            <span
-                              className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] font-extrabold text-[#ff7a18]"
-                              title={`+${winnerDelta} ELO`}
-                            >
-                              <Flame className="w-3 h-3" strokeWidth={2.6} />
-                              UPSET
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <span className="font-semibold text-text">{m.playerALogin}</span>{' '}
-                          <span className="text-muted-2">·</span>{' '}
-                          <span className="font-semibold text-text">{m.playerBLogin}</span>{' '}
-                          <span className="text-muted-2">{t('home.activity.draw')}</span>
-                        </>
-                      )}
+                    >
+                      {gm ? gm.icon(true, 18) : <Swords className="w-4 h-4 text-muted-2" strokeWidth={2.2} />}
                     </span>
+
+                    {winnerLogin && loserLogin ? (
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5 text-[13px] leading-tight flex-wrap">
+                        <PlayerLink login={winnerLogin} className="flex items-center gap-1 font-bold text-text-strong hover:text-gold">
+                          <Avatar login={winnerLogin} imageUrl={imgByLogin.get(winnerLogin) ?? null} size="xs" />
+                          <span className="truncate max-w-[92px]">{winnerLogin}</span>
+                        </PlayerLink>
+                        <span className="text-muted-2 shrink-0">{t('home.activity.beat')}</span>
+                        <PlayerLink login={loserLogin} className="flex items-center gap-1 font-semibold text-muted-2 hover:text-gold">
+                          <Avatar login={loserLogin} imageUrl={imgByLogin.get(loserLogin) ?? null} size="xs" />
+                          <span className="truncate max-w-[92px]">{loserLogin}</span>
+                        </PlayerLink>
+                        <span className="tabular-nums text-muted-2 shrink-0">
+                          {m.scoreA}–{m.scoreB}
+                        </span>
+                        {upset && (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-[#ff7a18] shrink-0"
+                            title={`+${winnerDelta} ELO`}
+                          >
+                            <Flame className="w-3 h-3" strokeWidth={2.6} />
+                            UPSET
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5 text-[13px] leading-tight flex-wrap">
+                        <PlayerLink login={m.playerALogin} className="flex items-center gap-1 font-semibold text-text hover:text-gold">
+                          <Avatar login={m.playerALogin} imageUrl={imgByLogin.get(m.playerALogin) ?? null} size="xs" />
+                          <span className="truncate max-w-[92px]">{m.playerALogin}</span>
+                        </PlayerLink>
+                        <span className="text-muted-2 shrink-0">{t('home.activity.draw')}</span>
+                        <PlayerLink login={m.playerBLogin} className="flex items-center gap-1 font-semibold text-text hover:text-gold">
+                          <Avatar login={m.playerBLogin} imageUrl={imgByLogin.get(m.playerBLogin) ?? null} size="xs" />
+                          <span className="truncate max-w-[92px]">{m.playerBLogin}</span>
+                        </PlayerLink>
+                      </div>
+                    )}
                     <span className="shrink-0 text-[10px] text-muted tabular-nums">
                       {fmtRelative(m.playedAt, lang).text}
                     </span>

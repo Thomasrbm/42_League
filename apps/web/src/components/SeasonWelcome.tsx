@@ -13,7 +13,7 @@ import { useLeagueData } from '../hooks/useLeagueData';
  *    empiler deux modales sur un tout nouveau compte.
  */
 const SEASON_KEY = 'season-welcome:piscine-2026';
-const AUTO_MS = 5000;
+const AUTO_MS = 3200;
 
 export function SeasonWelcome() {
   const { me } = useLeagueData();

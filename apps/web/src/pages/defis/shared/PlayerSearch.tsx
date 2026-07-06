@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import type { LeaderboardEntry } from '../../../lib/api';
-import { OnlineBadge } from '../../../components/OnlineBadge';
 import { useT } from '../../../lib/i18n';
 
 interface PlayerSearchProps {
@@ -187,7 +186,6 @@ export function PlayerSearch({
             {visibleList.map((p, i) => {
               const count = opponentCounts[p.login] ?? 0;
               const played = count > 0;
-              const host = locations?.get(p.login);
               return (
                 <button
                   key={p.login}
@@ -211,16 +209,12 @@ export function PlayerSearch({
                         {p.login[0]?.toUpperCase()}
                       </div>
                     )}
-                    {host && (
-                      <OnlineBadge host={host} compact className="absolute bottom-0 right-0" />
-                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-bold truncate">
                         <HighlightMatch text={p.login} query={query} />
                       </span>
-                      {host && <OnlineBadge host={host} />}
                     </div>
                     <div className="text-[11px] text-muted font-medium">
                       {played ? (

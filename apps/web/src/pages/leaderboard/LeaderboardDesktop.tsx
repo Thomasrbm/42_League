@@ -6,7 +6,6 @@ import { Panel } from '../../components/Panel';
 import { PlayerLink } from '../../components/PlayerLink';
 import { Skeleton } from '../../mobile/primitives/Skeleton';
 import { Avatar } from '../../components/Avatar';
-import { OnlineBadge } from '../../components/OnlineBadge';
 import { Tooltip } from '../../components/Tooltip';
 import { WinRateBar } from '../../components/WinRateBar';
 import { RankBadge } from '../../components/RankBadge';
@@ -218,7 +217,7 @@ type SortDir = 'asc' | 'desc';
  */
 export function LeaderboardDesktop() {
   const t = useT();
-  const { leaderboard, matches: allMatches, me, allOps, locations, activeSeasonId } = useLeagueData();
+  const { leaderboard, matches: allMatches, me, allOps, activeSeasonId } = useLeagueData();
   const { game } = useGameMode();
   const myLogin = me?.login;
 
@@ -603,10 +602,9 @@ export function LeaderboardDesktop() {
               <tbody>
                 {sortedRows.map(({ entry: u, stats }) => {
                   const isMe = u.login === myLogin;
-                  // Indicateurs temps réel (Ops, en ligne) : sans objet sur un
-                  // classement figé d'une saison passée → on les masque.
+                  // Indicateur Ops : sans objet sur un classement figé d'une
+                  // saison passée → on le masque.
                   const targetedBy = viewingPast ? undefined : allOps.find((o) => o.targetLogin === u.login);
-                  const host = viewingPast ? undefined : locations.get(u.login);
                   const rankCls =
                     u.rank === 1
                       ? 'text-gold'
@@ -633,9 +631,6 @@ export function LeaderboardDesktop() {
                         <PlayerLink login={u.login}>
                           <div className="relative flex-shrink-0">
                             <Avatar login={u.login} imageUrl={u.imageUrl} size="sm" grayscale={viewingPast} />
-                            {host && (
-                              <OnlineBadge host={host} compact className="absolute -bottom-0.5 -right-0.5" />
-                            )}
                           </div>
                           <span className="truncate max-w-[120px] sm:max-w-[150px] font-semibold">
                             {u.login}

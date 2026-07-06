@@ -22,7 +22,7 @@ type LeaderboardTab = 'personal' | 'teams' | 'xp';
 
 export function LeaderboardMobile() {
   const t = useT();
-  const { leaderboard, matches: allMatches, me, allOps, locations, refresh, activeSeasonId } = useLeagueData();
+  const { leaderboard, matches: allMatches, me, allOps, refresh, activeSeasonId } = useLeagueData();
   const { game } = useGameMode();
   const matches = useMemo(
     () => allMatches.filter((m) => (m.game ?? 'babyfoot') === game),
@@ -412,7 +412,6 @@ export function LeaderboardMobile() {
                       losses={wl.losses}
                       isMe={isMe}
                       targetedBy={targetedBy}
-                      host={viewingPast ? undefined : locations.get(entry.login)}
                       past={viewingPast}
                     />
                   </div>

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Swords, UserPlus, UserCheck } from 'lucide-react';
-import { OnlineBadge } from '../components/OnlineBadge';
 import { Panel } from '../components/Panel';
 import { Tooltip } from '../components/Tooltip';
 import { Button } from '../components/Button';
@@ -30,7 +29,7 @@ export function PlayerPage() {
   const login = rawLogin ?? '';
   const navigate = useNavigate();
   const t = useT();
-  const { me, opsMe, matches, playedDarts, refresh, activeSeasonId, locations } = useLeagueData();
+  const { me, opsMe, matches, playedDarts, refresh, activeSeasonId } = useLeagueData();
   const { game } = useGameMode();
   const flash = useFlash();
   const confirm = useConfirm();
@@ -134,11 +133,20 @@ export function PlayerPage() {
       {/* Carte héro — même design que le profil perso (sans le sélecteur de titre) */}
       <ProfileHeroCard stats={stats} user={p.user} badges={p.badges} customBadges={p.customBadges} titleColor={p.titleColor} equippedBadge={p.equippedBadge} equippedBanner={p.equippedBanner} isMe={isMe} coins={p.coins} />
 
-      {/* Présence au cluster (API 42 locations) — visible sur toute fiche */}
-      {locations.get(login) && (
-        <div className="flex justify-center -mt-2">
-          <OnlineBadge host={locations.get(login)!} />
-        </div>
+      {/* Courbe d'évolution ELO — 2e section, juste après la carte principale */}
+      {recentMatches.length >= 2 && (
+        <section>
+          <SectionHeader title={t('profil.eloEvolution')} />
+          <div className="card-hud rounded-2xl px-4 pt-3 pb-4 border-gold/20">
+            <EloChart
+              matches={matches}
+              myLogin={p.user.login}
+              currentElo={stats.elo}
+              game={game}
+              height={150}
+            />
+          </div>
+        </section>
       )}
 
       {/* Actions propres à la fiche d'un autre joueur : suivre + head-to-head */}
@@ -263,22 +271,6 @@ export function PlayerPage() {
         confirm={confirm}
         flash={flash}
       />
-
-      {/* Courbe d'évolution ELO — comme sur son propre profil */}
-      {recentMatches.length >= 2 && (
-        <section>
-          <SectionHeader title={t('profil.eloEvolution')} />
-          <div className="card-hud rounded-2xl px-4 pt-3 pb-4 border-gold/20">
-            <EloChart
-              matches={matches}
-              myLogin={p.user.login}
-              currentElo={stats.elo}
-              game={game}
-              height={150}
-            />
-          </div>
-        </section>
-      )}
 
       {/* Réseau du joueur (following / followers, style GitHub) */}
       <section>

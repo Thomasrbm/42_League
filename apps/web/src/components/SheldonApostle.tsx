@@ -19,14 +19,13 @@ export const SHELDON_COLORS = {
   spore:   '#b8ff8a', // particule claire
 } as const;
 
-/** Détecte si le titre d'un joueur signale l'allégeance à Sheldon. */
-export function isSheldonTitle(title: string | null | undefined): boolean {
-  if (!title) return false;
-  return title
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .includes('sheldon');
+/**
+ * Halo vert « Apôtre de Sheldon » DÉSACTIVÉ (juillet 2026) : retourne toujours
+ * false → plus aucune aura/liseré vert sur les cartes qui consomment cette copie
+ * (PlayerRankCard, DefisDesktop). Le titre reste affiché, seul l'effet vert part.
+ */
+export function isSheldonTitle(_title: string | null | undefined): boolean {
+  return false;
 }
 
 /** Une spore : position, taille, timing (pseudo-aléatoire déterministe). */
