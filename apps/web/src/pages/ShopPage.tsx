@@ -445,6 +445,9 @@ export function ShopPage() {
   // Tri de la vitrine : catégorie « épinglée » remontée en tête du rangement.
   // null = ordre par défaut (CATEGORY_ORDER). Re-cliquer la puce active la remet à null.
   const [firstCat, setFirstCat] = useState<ShopCategory | null>(null);
+  // Filtre par rareté (null = toutes) et tri par prix (none = ordre rareté par défaut).
+  const [rarityFilter, setRarityFilter] = useState<Rarity | null>(null);
+  const [priceSort, setPriceSort] = useState<'none' | 'asc' | 'desc'>('none');
   // Cible des cartes « comment gagner » : matchs → page Défis ; quêtes/paris →
   // onglet correspondant (sans quitter le shop).
   const pickEarn = useCallback(
@@ -587,16 +590,26 @@ export function ShopPage() {
     const rd = RARITY_ORDER.indexOf(resolveRarity(b)) - RARITY_ORDER.indexOf(resolveRarity(a));
     return rd !== 0 ? rd : a.name.localeCompare(b.name);
   };
+  // Tri effectif d'une section : par prix si demandé, sinon par rareté décroissante.
+  const sortItems = (a: ShopItemData, b: ShopItemData) => {
+    if (priceSort === 'asc') return a.price - b.price || a.name.localeCompare(b.name);
+    if (priceSort === 'desc') return b.price - a.price || a.name.localeCompare(b.name);
+    return sortByRarity(a, b);
+  };
+  // Filtre par rareté appliqué au catalogue affiché (sections + « Autre »).
+  const filteredItems = rarityFilter
+    ? visibleItems.filter((it) => resolveRarity(it) === rarityFilter)
+    : visibleItems;
 
   /** mystery_box et Sheldon vont dans "Autre" — exclus des sections normales. */
   const presentCats = CATEGORY_ORDER.filter(
-    (c) => c !== 'mystery_box' && visibleItems.some((it) => it.category === c && !isSheldonItem(it)),
+    (c) => c !== 'mystery_box' && filteredItems.some((it) => it.category === c && !isSheldonItem(it)),
   );
 
   const itemsByCategory = Object.fromEntries(
     presentCats.map((cat) => [
       cat,
-      visibleItems.filter((it) => it.category === cat && !isSheldonItem(it)).sort(sortByRarity),
+      filteredItems.filter((it) => it.category === cat && !isSheldonItem(it)).sort(sortItems),
     ]),
   ) as Record<ShopCategory, ShopItemData[]>;
 
@@ -609,9 +622,9 @@ export function ShopPage() {
 
   /** Section "Autre" : mystery_box + items Apôtre de Sheldon. */
   const autreItems = [
-    ...visibleItems.filter((it) => it.category === 'mystery_box'),
-    ...visibleItems.filter((it) => it.category === 'title' && isSheldonItem(it)),
-  ].sort(sortByRarity);
+    ...filteredItems.filter((it) => it.category === 'mystery_box'),
+    ...filteredItems.filter((it) => it.category === 'title' && isSheldonItem(it)),
+  ].sort(sortItems);
 
   return (
     <div className="space-y-5">
@@ -716,6 +729,71 @@ export function ShopPage() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Filtres : rareté + tri par prix ────────────────────────────── */}
+      {!loading && visibleItems.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 pb-1">
+          <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted-2">
+            Filtrer
+          </span>
+          {/* Rareté */}
+          <button
+            type="button"
+            onClick={() => setRarityFilter(null)}
+            aria-pressed={rarityFilter === null}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide transition-all ${
+              rarityFilter === null
+                ? 'bg-gold/15 border-gold/45 text-gold'
+                : 'bg-bg-1/70 border-border/50 text-muted-2 hover:text-text hover:border-gold/30'
+            }`}
+          >
+            Toutes
+          </button>
+          {RARITY_ORDER.map((r) => {
+            const active = rarityFilter === r;
+            const hex = RARITY[r].hex;
+            return (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRarityFilter((prev) => (prev === r ? null : r))}
+                aria-pressed={active}
+                className="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide transition-all"
+                style={
+                  active
+                    ? { color: hex, borderColor: `${hex}99`, background: `${hex}22` }
+                    : { color: `${hex}b0`, borderColor: `${hex}3a`, background: 'transparent' }
+                }
+              >
+                {RARITY[r].label}
+              </button>
+            );
+          })}
+          {/* Séparateur */}
+          <span className="shrink-0 w-px h-4 bg-border/60 mx-0.5" />
+          {/* Tri par prix : cycle aucun → croissant → décroissant */}
+          <button
+            type="button"
+            onClick={() => setPriceSort((p) => (p === 'none' ? 'asc' : p === 'asc' ? 'desc' : 'none'))}
+            aria-pressed={priceSort !== 'none'}
+            title="Trier par prix"
+            className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide transition-all ${
+              priceSort !== 'none'
+                ? 'bg-gold/15 border-gold/45 text-gold'
+                : 'bg-bg-1/70 border-border/50 text-muted-2 hover:text-text hover:border-gold/30'
+            }`}
+          >
+            Prix {priceSort === 'asc' ? '↑' : priceSort === 'desc' ? '↓' : ''}
+          </button>
+        </div>
+      )}
+
+      {/* Aucun objet pour le filtre courant. */}
+      {!loading && rarityFilter && orderedCats.length === 0 && autreItems.length === 0 && (
+        <div className="rounded-xl border border-border/50 bg-bg-1/50 px-4 py-8 text-center text-sm text-muted-2">
+          Aucun objet {RARITY[rarityFilter].label.toLowerCase()} en boutique pour l'instant.
         </div>
       )}
 
