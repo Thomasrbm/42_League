@@ -11259,7 +11259,12 @@ app.delete('/me/push/subscribe', async (c) => {
  *  - index 1-2 : gratuites ;
  *  - index 3+ : débloquées par le PASSE DE COMBAT, une tous les 7 niveaux
  *    (niveau 7, 14, 21, … — cf. tauntEmoteUnlockLevel). */
-const TAUNT_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'] as const;
+const TAUNT_EMOTES = [
+  '😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭',
+  // Nouveaux paliers de passe (niveaux 56, 63, 70, … 119). Garder en synchro avec
+  // le front (lib/tauntEmotes.ts) et sans collision avec les easter eggs.
+  '🤖', '👽', '🦍', '🥷', '🦅', '🎯', '⚡', '👻', '🍕', '🌟',
+] as const;
 const DEFAULT_TAUNT_EMOTE = TAUNT_EMOTES[0];
 /** Nombre d'émotes gratuites (défaut inclus) en tête de liste. */
 const FREE_TAUNT_EMOTES = 3;

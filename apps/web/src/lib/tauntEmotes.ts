@@ -5,9 +5,13 @@
  *  - index 0        : émote par défaut de tout le monde ;
  *  - index 1-2      : gratuites ;
  *  - index 3 et +   : débloquées par le passe de combat, une tous les 7 niveaux
- *                     (niveau 7, 14, 21, … 49).
+ *                     (niveau 7, 14, 21, … 119).
  */
-export const TAUNT_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'] as const;
+export const TAUNT_EMOTES = [
+  '😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭',
+  // Nouveaux paliers de passe (niveaux 56, 63, 70, … 119).
+  '🤖', '👽', '🦍', '🥷', '🦅', '🎯', '⚡', '👻', '🍕', '🌟',
+] as const;
 
 export const DEFAULT_TAUNT_EMOTE = TAUNT_EMOTES[0];
 
@@ -50,6 +54,17 @@ const TAUNT_PHRASES: Record<string, readonly string[]> = {
   '🕺': ['{winner} danse sur ta défaite.', 'La victoire se fête — sans toi.', 'Petite danse pour {winner}.'],
   '🧂': ['Salé, le petit ? {winner} en rajoute.', 'Passe-moi le sel de tes larmes.', '{winner} t’assaisonne.'],
   '😭': ['Pleure pas, ça arrive… souvent.', '{winner} t’a fait chialer.', 'Les larmes, c’est gratuit au moins.'],
+  // ── Nouveaux paliers de passe ──
+  '🤖': ['{winner} a joué en mode automatique.', 'Calcul terminé : {winner} gagne.', 'Résistance futile face à {winner}.'],
+  '👽': ['{winner} vient d’une autre planète.', 'Niveau extraterrestre pour {winner}.', 'Tu n’étais pas de ce monde… celui de {winner}.'],
+  '🦍': ['{winner} a tapé fort.', 'Domination bestiale de {winner}.', 'La jungle appartient à {winner}.'],
+  '🥷': ['{winner} t’a éliminé sans un bruit.', 'Tu n’as rien vu venir de {winner}.', 'Ombre fatale : {winner}.'],
+  '🦅': ['{winner} t’a fondu dessus.', 'Vue d’aigle, proie facile.', '{winner} plane, tu rampes.'],
+  '🎯': ['{winner} ne rate jamais.', 'En plein dans le mille, {winner}.', 'Cible atteinte : ton ego, par {winner}.'],
+  '⚡': ['{winner} t’a foudroyé.', 'Trop rapide pour toi, {winner}.', 'Éclair de génie signé {winner}.'],
+  '👻': ['{winner} t’a hanté.', 'Tu as vu un fantôme ? C’était {winner}.', 'Disparais — {winner} l’a déjà fait de toi.'],
+  '🍕': ['{winner} t’a mangé une part.', 'Chaud devant : {winner} se régale.', 'Tu es la garniture, {winner} le chef.'],
+  '🌟': ['{winner} brille au sommet.', 'Une étoile est née : {winner}.', 'Fais un vœu — {winner} l’a déjà exaucé.'],
   // ── Émotes secrètes (easter eggs) ──
   '🌈': ['{winner} maîtrise TOUS les modes.', 'Aucune discipline ne résiste à {winner}.', 'Touche-à-tout, {winner} t’a touché.'],
   '🎲': ['{winner} joue sur tous les tableaux.', 'Le hasard n’y est pour rien, {winner}.', '{winner} varie les plaisirs — à tes dépens.'],
