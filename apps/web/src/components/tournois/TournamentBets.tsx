@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Swords, Trophy } from 'lucide-react';
+import { Coins, Swords, Trophy } from 'lucide-react';
 import {
   api,
   DRAW_CHOICE,
@@ -91,6 +91,11 @@ export function TournamentBets({
   const [openForm, setOpenForm] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  // Prime « gambler » : reflet immédiat du claim sans attendre un refetch du
+  // tournoi (le payload GET /tournaments/:id porte gamblerBonusClaimed).
+  const [claimedLocal, setClaimedLocal] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const gamblerClaimed = claimedLocal || !!tournament.gamblerBonusClaimed;
 
   const loadBets = useCallback(() => {
     api
@@ -136,6 +141,25 @@ export function TournamentBets({
     (input: PlaceMatchBetInput) => runPlace(() => api.placeMatchBet(input)),
     [runPlace],
   );
+  // Réclame la prime « gambler » (150 coins, une fois par tournoi en cours).
+  const claimGambler = useCallback(async () => {
+    setClaiming(true);
+    setFlash(null);
+    try {
+      await api.claimGamblerBonus(tournament.id);
+      setClaimedLocal(true);
+      trackEvent('bet.gambler_claim');
+      setFlash(t('bets.gamblerClaimed'));
+      loadBets();
+      void refresh();
+    } catch {
+      // Erreur transitoire OU déjà réclamée : on n'affirme rien (le prochain refetch
+      // du tournoi posera gamblerBonusClaimed si c'était vraiment déjà pris).
+      setFlash(t('bets.error'));
+    } finally {
+      setClaiming(false);
+    }
+  }, [tournament.id, loadBets, refresh, t]);
 
   const entries = tournament.entries ?? [];
   const entrants = entries.map((e) => e.login);
@@ -307,6 +331,30 @@ export function TournamentBets({
       {flash && (
         <div className="text-center text-xs font-bold text-gold bg-gold/10 border border-gold/20 rounded-xl py-2">
           {flash}
+        </div>
+      )}
+
+      {/* Prime « gambler » : 150 coins offerts une fois par tournoi en cours. */}
+      {isInProgress && (
+        <div className="rounded-2xl border border-gold/25 bg-gold/[0.06] p-4 flex items-center gap-3">
+          <Coins className="w-6 h-6 text-gold shrink-0" strokeWidth={2.2} />
+          <p className="flex-1 min-w-0 text-[11px] text-muted-2 leading-snug">
+            {t('bets.gamblerHint')}
+          </p>
+          {gamblerClaimed ? (
+            <span className="shrink-0 text-[11px] font-extrabold text-emerald-300">
+              {t('bets.gamblerClaimed')}
+            </span>
+          ) : (
+            <button
+              type="button"
+              disabled={claiming}
+              onClick={claimGambler}
+              className="shrink-0 px-3 h-9 rounded-lg bg-gold text-black text-xs font-black uppercase tracking-[0.12em] hover:brightness-110 disabled:opacity-50 tap-transparent"
+            >
+              {t('bets.gamblerClaim')}
+            </button>
+          )}
         </div>
       )}
 

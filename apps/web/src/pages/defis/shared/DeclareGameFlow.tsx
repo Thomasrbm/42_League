@@ -67,6 +67,12 @@ export function DeclareGameFlow({
   // Street Fighter == Smash pour la saisie (set Bo3/Bo5 + 2 persos), mais sans stocks.
   const isSetGame = isSmash || isSf;
   const isChess = game === 'chess';
+  // Disciplines à résultat BINAIRE (gagné/perdu) : échecs, coding, pokémon. Elles
+  // partagent la saisie « issue seule » (pas de score chiffré, pas de perso).
+  const isBinary = isChess || game === 'coding' || game === 'pokemon';
+  // Seul le mode échecs autorise la nulle (GameDef.hasDraw). Coding/Pokémon = false
+  // → le bouton « nul » n'apparaît jamais pour eux.
+  const allowDraw = isChess;
   const [opponent, setOpponent] = useState<LeaderboardEntry | null>(null);
   // Issue déclarée : victoire / défaite / nulle (la nulle n'existe qu'aux échecs).
   const [outcome, setOutcome] = useState<'win' | 'loss' | 'draw' | null>(null);
@@ -122,20 +128,21 @@ export function DeclareGameFlow({
           charSelf: setValue.charSelf,
           charOpponent: setValue.charOpponent,
         });
-      } else if (isChess) {
-        // Échecs : victoire 1-0, défaite 0-1, ou nulle 0-0.
+      } else if (isBinary) {
+        // Binaire : victoire 1-0, défaite 0-1 (nulle 0-0 aux échecs uniquement).
+        // Coding/Pokémon n'ont pas de nulle → isDraw est toujours faux pour eux.
         declared = await api.declareMatch({
           opponentLogin: opponent.login,
           scoreSelf: isDraw ? 0 : iWon ? 1 : 0,
           scoreOpponent: isDraw ? 0 : iWon ? 0 : 1,
-          game: 'chess',
+          game,
         });
       } else {
         const scoreSelf = iWon ? WINNING_SCORE : loserScore;
         const scoreOpponent = iWon ? loserScore : WINNING_SCORE;
         declared = await api.declareMatch({ opponentLogin: opponent.login, scoreSelf, scoreOpponent });
       }
-      trackEvent('match.declare', isSf ? 'streetfighter' : isSmash ? 'smash' : isChess ? 'chess' : 'babyfoot');
+      trackEvent('match.declare', isSf ? 'streetfighter' : isSmash ? 'smash' : isBinary ? game : 'babyfoot');
       // Pattern « Annuler » : zéro friction à la déclaration, filet de sécurité
       // dans le toast (le déclarant peut retirer sa déclaration tant qu'elle
       // est en attente — l'endpoint /matches/:id/cancel le permet de toute façon).
@@ -161,7 +168,7 @@ export function DeclareGameFlow({
       setBusy(false);
       setSending(false);
     }
-  }, [opponent, hasOutcome, iWon, isDraw, loserScore, isSetGame, isSmash, isSf, isChess, setValue, flash, onSubmitted, t]);
+  }, [opponent, hasOutcome, iWon, isDraw, loserScore, isSetGame, isSmash, isSf, isBinary, game, setValue, flash, onSubmitted, t]);
 
   const triggerSend = () => {
     setSending(true);
@@ -225,8 +232,8 @@ export function DeclareGameFlow({
             <OutcomeButton kind="win" onClick={() => handleOutcome('win')}>{t('defis.iWon')}</OutcomeButton>
             <OutcomeButton kind="loss" onClick={() => handleOutcome('loss')}>{t('defis.iLost')}</OutcomeButton>
           </div>
-          {/* Nulle : échecs uniquement (la seule discipline qui l'autorise). */}
-          {isChess && (
+          {/* Nulle : échecs uniquement (hasDraw). Coding/Pokémon ne l'affichent pas. */}
+          {allowDraw && (
             <button
               type="button"
               onClick={() => handleOutcome('draw')}
@@ -366,8 +373,9 @@ export function DeclareGameFlow({
         </div>
       )}
 
-      {/* ─── Variante ÉCHECS : victoire / défaite / nulle ─────────────────── */}
-      {opponent && hasOutcome && isChess && (
+      {/* ─── Variante BINAIRE (échecs / coding / pokémon) : victoire / défaite ── */}
+      {/* Échecs = nulle possible ; coding/pokémon = strictement gagné/perdu. */}
+      {opponent && hasOutcome && isBinary && (
         <div className="relative mt-6 animate-slide-down space-y-4">
           <div className="px-4 py-3 rounded-xl bg-bg-1/80 border border-border text-center text-sm text-muted-2 leading-relaxed shadow-inner">
             {isDraw ? (
@@ -377,11 +385,11 @@ export function DeclareGameFlow({
             ) : (
               <>
                 <span className={`font-extrabold ${iWon ? 'text-teal' : 'text-text-strong'}`}>{winnerLogin}</span>
-                {' '}{t('defis.checkmated')}{' '}
+                {' '}{isChess ? t('defis.checkmated') : t('defis.binaryBeat')}{' '}
                 <span className={`font-extrabold ${iWon ? 'text-text-strong' : 'text-teal'}`}>{loserLogin}</span>
               </>
             )}
-            <div className="text-[11px] text-muted-2 mt-1">{t('defis.chessOnlyResult')}</div>
+            <div className="text-[11px] text-muted-2 mt-1">{isChess ? t('defis.chessOnlyResult') : t('defis.binaryOnlyResult')}</div>
           </div>
           <Button
             size="md"

@@ -58,6 +58,14 @@ model User {
   eloFlechettes            Int  @default(1000) @map("elo_flechettes")
   matchesPlayedFlechettes  Int  @default(0) @map("matches_played_flechettes")
   tournamentsWonFlechettes Int  @default(0) @map("tournaments_won_flechettes")
+  // Classement Coding (6e discipline — binaire gagné/perdu, calqué sur les échecs).
+  eloCoding            Int  @default(1000) @map("elo_coding")
+  matchesPlayedCoding  Int  @default(0) @map("matches_played_coding")
+  tournamentsWonCoding Int  @default(0) @map("tournaments_won_coding")
+  // Classement Pokémon (7e discipline — binaire gagné/perdu, calqué sur les échecs).
+  eloPokemon            Int @default(1000) @map("elo_pokemon")
+  matchesPlayedPokemon  Int @default(0) @map("matches_played_pokemon")
+  tournamentsWonPokemon Int @default(0) @map("tournaments_won_pokemon")
   // Porte-monnaie « League Coin » — solde dépensable dans la boutique (cf. ShopItem).
   leagueCoins         Int       @default(0) @map("league_coins")
   // XP cumulée à vie (ne reset jamais) — pilote le niveau et le passe de combat.
@@ -157,6 +165,7 @@ model User {
   // XP & passe de combat — journal des gains d'XP + paliers déjà accordés.
   xpTransactions            XpTransaction[]
   battlePassClaims          BattlePassClaim[]
+  gamblerClaims             TournamentGamblerClaim[]
   // Émote de victoire (narguage) : émoji montré au perdant à sa prochaine
   // connexion, après l'écran versus. Null = émote par défaut côté front.
   tauntEmote                String?                 @map("taunt_emote")
@@ -473,6 +482,7 @@ model Tournament {
   matches   TournamentMatch[]
   invites   TournamentInvite[]
   bets      Bet[]              @relation("tournamentBets")
+  gamblerClaims TournamentGamblerClaim[]
 
   @@index([status])
   @@map("tournaments")
@@ -558,6 +568,9 @@ model Challenge {
   opponentLogin   String    @map("opponent_login")
   status          String // 'pending' | 'accepted' | 'declined' | 'recorded' | 'cancelled'
   game            String    @default("babyfoot") // 'babyfoot' | 'smash'
+  // Lien d'invitation OPTIONNEL vers la room du site de code (coding uniquement) —
+  // pure métadonnée affichée sur la carte du défi, sans effet sur l'ELO.
+  inviteUrl       String?   @map("invite_url")
   scheduledAt     DateTime  @map("scheduled_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   decidedAt       DateTime? @map("decided_at")
@@ -1134,6 +1147,21 @@ model BattlePassClaim {
 
   @@id([userLogin, tier])
   @@map("battle_pass_claim")
+}
+
+// Prime « gambler » : 150 League Coins offerts UNE FOIS par tournoi EN COURS, pour
+// encourager les paris. Idempotence par la PK composite (userLogin, tournamentId) —
+// une ligne = prime déjà réclamée pour ce tournoi (impossible de la toucher 2×).
+model TournamentGamblerClaim {
+  userLogin    String   @map("user_login")
+  tournamentId String   @map("tournament_id")
+  grantedAt    DateTime @default(now()) @map("granted_at")
+
+  user       User       @relation(fields: [userLogin], references: [login], onDelete: Cascade, onUpdate: Cascade)
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userLogin, tournamentId])
+  @@map("tournament_gambler_claim")
 }
 
 // Idempotence des revenus passifs hebdomadaires (podium des trophées). Une ligne par

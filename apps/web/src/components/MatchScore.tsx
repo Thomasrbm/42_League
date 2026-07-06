@@ -41,7 +41,7 @@ export function GameIcon({ game, size = 'sm' }: { game?: Game; size?: 'xs' | 'sm
   if (!game || game === 'babyfoot') return null; // babyfoot = défaut, pas d'icône
   return (
     <span className={`${cls} leading-none opacity-80 flex-shrink-0`} title={game}>
-      {game === 'smash' ? '🎮' : game === 'streetfighter' ? '🥊' : '♟'}
+      {game === 'smash' ? '🎮' : game === 'streetfighter' ? '🥊' : GAME_EMOJI[game]}
     </span>
   );
 }
@@ -71,8 +71,10 @@ export function MatchScore({ game, winnerScore, loserScore, myPerspective, bestO
   const won = myPerspective === 'win';
   const draw = myPerspective === 'draw';
 
-  // ── Échecs : pill lisible (Victoire / Nulle / Défaite) ─────────────────────
-  if (game === 'chess') {
+  // ── Binaire (échecs / coding / pokémon) : pill lisible (Victoire / Nulle /
+  // Défaite), pas de score chiffré. La nulle n'apparaît qu'aux échecs. ──────────
+  if (game === 'chess' || game === 'coding' || game === 'pokemon') {
+    const emoji = GAME_EMOJI[game];
     return (
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <span
@@ -84,7 +86,7 @@ export function MatchScore({ game, winnerScore, loserScore, myPerspective, bestO
                 : 'bg-red/10 border-red/30 text-red'
           }`}
         >
-          {draw ? '♟ Nulle' : won ? '♟ Victoire' : '♟ Défaite'}
+          {draw ? `${emoji} Nulle` : won ? `${emoji} Victoire` : `${emoji} Défaite`}
         </span>
       </div>
     );

@@ -93,7 +93,13 @@ function QuestRow({
           </div>
           <div className="text-[12px] text-muted-2 mt-0.5">{t(`quest.${quest.id}.desc`)}</div>
         </div>
-        <CoinAmount value={quest.reward} className="text-gold font-extrabold shrink-0" />
+        {/* Récompenses : gros gain d'XP (mis en avant) + coins. */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="inline-flex items-center gap-1 rounded-md bg-[#2cc3ff]/15 border border-[#2cc3ff]/30 px-1.5 py-0.5 text-[#7fe0ff] text-[11px] font-black tabular-nums">
+            +{quest.xpReward} XP
+          </span>
+          <CoinAmount value={quest.reward} className="text-gold font-extrabold" />
+        </div>
       </div>
 
       {/* Barre de progression */}

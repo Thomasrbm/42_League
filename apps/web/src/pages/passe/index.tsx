@@ -168,6 +168,8 @@ interface FakeReward {
   rarity: FnRarity;
   coins?: number;
   consumableKind?: string;
+  /** Émote de victoire (emoji) quand la récompense factice EST une émote. */
+  emote?: string;
   Icon: LucideIcon;
 }
 
@@ -204,7 +206,7 @@ function fakeRewardFor(tier: number): FakeReward {
   // avec le backend, cf. lib/tauntEmotes.ts) — affichées sur la piste.
   if (tier % TAUNT_EMOTE_LEVEL_STEP === 0) {
     const emote = TAUNT_EMOTES[FREE_TAUNT_EMOTES + tier / TAUNT_EMOTE_LEVEL_STEP - 1];
-    if (emote) return { kind: 'item', name: `Émote ${emote}`, rarity: 'epique', Icon: PartyPopper };
+    if (emote) return { kind: 'item', name: `Émote ${emote}`, rarity: 'epique', emote, Icon: PartyPopper };
   }
   if (tier % 10 === 0) {
     const [name, Icon] = FAKE_LEGENDARY[(tier / 10 - 1 + FAKE_LEGENDARY.length * 10) % FAKE_LEGENDARY.length]!;
@@ -239,6 +241,10 @@ interface TileView {
   tag: string;
   hex: string;
   Icon: LucideIcon | 'coin';
+  /** Vrai cosmétique de boutique → rendu de son visuel réel (titre/bannière/badge). */
+  item?: ShopItemData;
+  /** Émote de victoire (emoji) → rendu du glyphe réel. */
+  emote?: string;
 }
 
 function buildTiles(
@@ -314,6 +320,7 @@ function buildTiles(
         tag: fn.label,
         hex: fn.hex,
         Icon: Gem,
+        item: tier.item!,
       };
     }
 
@@ -340,6 +347,7 @@ function buildTiles(
           tag: fn.label,
           hex: fn.hex,
           Icon: Gem,
+          item: real,
         };
       }
     }
@@ -357,6 +365,7 @@ function buildTiles(
           : FN[fk.rarity].label,
       hex: FN[fk.rarity].hex,
       Icon: isCoins ? 'coin' : fk.Icon,
+      emote: fk.emote,
     };
   });
 }
@@ -378,6 +387,69 @@ function RewardIcon({
   }
   const Icon = tile.Icon;
   return <Icon className={className} strokeWidth={2} style={{ color: color ?? tile.hex }} />;
+}
+
+// ─── Visuel RÉEL d'une récompense (émote / titre / bannière), sinon icône ────
+// Rend l'objet exactement comme en boutique, mais en petit pour rentrer dans la
+// tuile : glyphe emoji pour une émote, texte stylisé (dans sa couleur, rainbow
+// géré par CSS) pour un titre, image pour une bannière. Repli sur RewardIcon
+// (pièce / Lucide) pour les coins, consommables et récompenses factices restantes.
+function RewardVisual({
+  tile,
+  unlocked,
+  size = 'sm',
+}: {
+  tile: TileView;
+  unlocked: boolean;
+  size?: 'sm' | 'lg';
+}) {
+  const big = size === 'lg';
+  if (tile.emote) {
+    return (
+      <span
+        className="leading-none select-none"
+        style={{ fontSize: big ? 'clamp(4.5rem, 16vw, 6.5rem)' : 'clamp(2.4rem, 9vw, 3.2rem)' }}
+      >
+        {tile.emote}
+      </span>
+    );
+  }
+  const item = tile.item;
+  if (item) {
+    const payload = (item.payload ?? {}) as Record<string, unknown>;
+    if (item.category === 'banner' && typeof payload.image === 'string') {
+      return (
+        <img
+          src={payload.image}
+          alt=""
+          className={`object-cover rounded-lg border border-white/25 shadow-md ${
+            big ? 'w-28 h-28 sm:w-36 sm:h-36' : 'w-[4.2rem] h-[4.2rem] sm:w-[4.8rem] sm:h-[4.8rem]'
+          }`}
+        />
+      );
+    }
+    if (item.category === 'title') {
+      const title = (typeof payload.title === 'string' && payload.title) || item.name;
+      const rainbow = item.color === 'rainbow';
+      return (
+        <span
+          className={`text-center font-black italic leading-tight line-clamp-3 ${
+            big ? 'max-w-[10rem] text-lg sm:text-2xl' : 'max-w-[5.5rem] text-[13px]'
+          } ${rainbow ? 'title-rainbow' : ''}`}
+          style={{ color: rainbow ? undefined : item.color ?? '#ffc94a' }}
+        >
+          ❝{title}❞
+        </span>
+      );
+    }
+  }
+  return (
+    <RewardIcon
+      tile={tile}
+      className={big ? 'w-24 h-24 sm:w-32 sm:h-32' : 'w-14 h-14 sm:w-16 sm:h-16'}
+      color={unlocked ? '#ffffff' : tile.hex}
+    />
+  );
 }
 
 // ─── Cinématique de claim (rayons rotatifs + zoom, façon Fortnite) ──────────
@@ -488,7 +560,7 @@ function ClaimFx({
           animate={{ scale: 1, rotate: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 320, damping: 15, delay: 0.05 }}
         >
-          <RewardIcon tile={tile} className="w-24 h-24 sm:w-32 sm:h-32" />
+          <RewardVisual tile={tile} unlocked size="lg" />
           <span
             className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1 text-[11px] font-gaming font-black italic uppercase tracking-[0.18em] text-[#0a1228] whitespace-nowrap"
             style={{ background: tile.hex, transform: 'translateX(-50%) skewX(-8deg)', boxShadow: `0 0 18px ${tile.hex}` }}
@@ -609,11 +681,7 @@ function TierTile({
           opacity: claimed ? 0.85 : 1,
         }}
       >
-        <RewardIcon
-          tile={tile}
-          className="w-14 h-14 sm:w-16 sm:h-16"
-          color={unlocked ? '#ffffff' : tile.hex}
-        />
+        <RewardVisual tile={tile} unlocked={unlocked} />
       </span>
 
       {/* Bas de tuile : rareté + nom */}
@@ -665,6 +733,7 @@ export function PassePage() {
   const [loading, setLoading] = useState(true);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const currentTileRef = useRef<HTMLDivElement | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
 
   useDragScroll(scrollerRef);
 
@@ -751,6 +820,51 @@ export function PassePage() {
     window.addEventListener('resize', onTrackScroll);
     return () => window.removeEventListener('resize', onTrackScroll);
   }, [onTrackScroll, loading]);
+
+  // Barre de position INTERACTIVE : molette pour défiler la piste, et drag/clic
+  // sur la barre pour se déplacer directement à un endroit du passe (souris ET
+  // tactile). Listeners natifs (wheel non-passif) façon useDragScroll.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const seek = (clientX: number) => {
+      const sc = scrollerRef.current;
+      if (!sc) return;
+      const rect = bar.getBoundingClientRect();
+      const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
+      sc.scrollLeft = ratio * (sc.scrollWidth - sc.clientWidth);
+    };
+    let dragging = false;
+    const onDown = (e: PointerEvent) => {
+      dragging = true;
+      seek(e.clientX);
+      e.preventDefault();
+    };
+    const onMove = (e: PointerEvent) => {
+      if (dragging) seek(e.clientX);
+    };
+    const onUp = () => {
+      dragging = false;
+    };
+    const onWheel = (e: WheelEvent) => {
+      const sc = scrollerRef.current;
+      if (!sc) return;
+      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (delta === 0) return;
+      sc.scrollLeft += delta;
+      e.preventDefault();
+    };
+    bar.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    bar.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      bar.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      bar.removeEventListener('wheel', onWheel);
+    };
+  }, [loading]);
 
   const claimables = useMemo(() => tiles.filter((tl) => tl.claimable), [tiles]);
 
@@ -987,13 +1101,15 @@ export function PassePage() {
             ))}
           </div>
 
-          {/* Barre de position du scroll (part visible + avancement) */}
+          {/* Barre de position du scroll (part visible + avancement) —
+              INTERACTIVE : molette pour défiler, drag/clic pour se déplacer. */}
           <div
-            className="mt-1 mx-1 h-2 rounded-full overflow-hidden"
+            ref={barRef}
+            className="mt-1 mx-1 h-2.5 rounded-full overflow-hidden cursor-pointer touch-none select-none"
             style={{ background: '#101f42', border: '1px solid #27407c' }}
           >
             <div
-              className="h-full rounded-full"
+              className="h-full rounded-full pointer-events-none"
               style={{
                 width: `${Math.min(100, scrollPos.size * 100)}%`,
                 marginLeft: `${Math.min(100, scrollPos.pos * 100)}%`,

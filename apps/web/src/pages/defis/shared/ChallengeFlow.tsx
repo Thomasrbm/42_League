@@ -55,16 +55,22 @@ export function ChallengeFlow({
   const t = useT();
   const [opponent, setOpponent] = useState<LeaderboardEntry | null>(presetOpponent);
   const [when, setWhen] = useState<Date>(defaultWhen);
+  const [inviteUrl, setInviteUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Le lien d'invitation n'existe QUE pour le mode « coding » (métadonnée du défi).
+  const isCoding = getGame() === 'coding';
 
   const handleSubmit = useCallback(async () => {
     if (!opponent) return;
     setBusy(true);
     try {
+      const trimmedInvite = inviteUrl.trim();
       await api.createChallenge({
         opponentLogin: opponent.login,
         scheduledAt: when.toISOString(),
+        ...(getGame() === 'coding' && trimmedInvite ? { inviteUrl: trimmedInvite } : {}),
       });
       trackEvent('challenge.create');
       // Cinématique « coup de foudre → VERSUS » : on lance le duel.
@@ -86,7 +92,7 @@ export function ChallengeFlow({
       setBusy(false);
       setSending(false);
     }
-  }, [opponent, when, flash, onSubmitted, t, myLogin]);
+  }, [opponent, when, inviteUrl, flash, onSubmitted, t, myLogin]);
 
   const triggerSend = () => {
     setSending(true);
@@ -154,6 +160,23 @@ export function ChallengeFlow({
             </label>
 
             <TimePicker value={when} onChange={setWhen} lang={lang} />
+
+            {/* Coding uniquement : lien d'invitation OPTIONNEL vers la room de code. */}
+            {isCoding && (
+              <div className="mt-5">
+                <label className="block text-[10px] uppercase tracking-wider text-muted font-bold mb-2">
+                  {t('defis.inviteUrl.label')}
+                </label>
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={inviteUrl}
+                  onChange={(e) => setInviteUrl(e.target.value)}
+                  placeholder={t('defis.inviteUrl.placeholder')}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg-1/80 border border-border text-sm text-text-strong placeholder:text-muted/60 focus:outline-none focus:border-teal transition-colors"
+                />
+              </div>
+            )}
 
             <div className="mt-6 px-4 py-3 rounded-xl bg-bg-1/80 border border-border text-center text-sm text-muted-2 leading-relaxed shadow-inner">
               {t('defis.to')}{' '}

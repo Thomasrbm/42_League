@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Coins, ChevronRight } from 'lucide-react';
 import { Panel } from '../components/Panel';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -33,6 +34,8 @@ const GAME_ACCENT: Record<Game, string> = {
   chess: '#56c46e',
   streetfighter: '#ff7a18',
   flechettes: '#14b8a6',
+  coding: '#58a6ff',
+  pokemon: '#ff4d4d',
 };
 function gameAccent(game: Game | null | undefined): string {
   return (game && GAME_ACCENT[game]) || '#ffc94a';
@@ -68,7 +71,11 @@ export function TournoiDetailPage() {
   const [addPartner, setAddPartner] = useState<LeaderboardEntry | null>(null);
   const [coAdminPick, setCoAdminPick] = useState<LeaderboardEntry | null>(null);
   // Cérémonie de lancement : déclenchée une fois au passage registration→in_progress.
-  const [detailTab, setDetailTab] = useState<'bracket' | 'bets'>('bracket');
+  // Ouvre directement l'onglet paris si l'URL le demande (?tab=bets), p.ex. depuis
+  // le gros bouton « Parier » de la page d'accueil.
+  const [detailTab, setDetailTab] = useState<'bracket' | 'bets'>(() =>
+    new URLSearchParams(window.location.search).get('tab') === 'bets' ? 'bets' : 'bracket',
+  );
   const [showCeremony, setShowCeremony] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   // Onglet de la vue d'un tournoi en cours : bracket/poules ou paris.
@@ -160,6 +167,21 @@ export function TournoiDetailPage() {
   );
   const checkedInCount = (tournament.entries ?? []).filter((e) => e.checkedInAt).length;
   const entriesCount = tournament.entries?.length ?? 0;
+  // Nombre de matchs ENCORE pariables (2 joueurs connus, pile-ou-face pas lancé, pas
+  // de score saisi) → pilote le CTA « Parie » mis en avant sur l'onglet bracket.
+  // Même filtre que TournamentBets.openMatches (source de vérité serveur au placement).
+  const openBetMatchCount =
+    tournament.status === 'in_progress'
+      ? (tournament.matches ?? []).filter(
+          (m) =>
+            m.playerALogin &&
+            m.playerBLogin &&
+            !m.tossAt &&
+            !m.betsLockedAt &&
+            !m.recordedAt &&
+            !m.confirmedAt,
+        ).length
+      : 0;
   // Ligue : la capacité est une cible indicative — on peut inscrire au-delà du nombre
   // déclaré et l'organisateur lance MANUELLEMENT dès 2 inscrits (pas d'auto-démarrage).
   const isLeagueReg = tournament.format === 'league';
@@ -885,13 +907,35 @@ export function TournoiDetailPage() {
             {tournament.status === 'in_progress' && detailTab === 'bets' ? (
               <TournamentBets tournament={tournament} myLogin={myLogin ?? null} />
             ) : (
-              <PoolsAndBracket
-                tournament={tournament}
-                myLogin={myLogin ?? null}
-                canManage={isOrganizer || isAdmin}
-                canOfficiate={canOfficiate}
-                onChange={refreshSilent}
-              />
+              <>
+                {/* CTA paris mis en avant sur le bracket : rend évident qu'on peut
+                    parier sur chaque match à venir sans chercher l'onglet. */}
+                {tournament.status === 'in_progress' && openBetMatchCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDetailTab('bets')}
+                    className="mb-4 w-full flex items-center gap-3 rounded-xl border border-gold/40 bg-gold/[0.08] px-4 py-3 text-left hover:bg-gold/15 transition-all"
+                  >
+                    <Coins className="w-6 h-6 text-gold shrink-0" strokeWidth={2.2} />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-extrabold text-gold">
+                        {t('bets.bracketCta')}
+                      </span>
+                      <span className="block text-[11px] text-muted-2">
+                        {t('bets.bracketCtaHint').replace('{n}', String(openBetMatchCount))}
+                      </span>
+                    </span>
+                    <ChevronRight className="w-5 h-5 text-gold shrink-0" strokeWidth={2.5} />
+                  </button>
+                )}
+                <PoolsAndBracket
+                  tournament={tournament}
+                  myLogin={myLogin ?? null}
+                  canManage={isOrganizer || isAdmin}
+                  canOfficiate={canOfficiate}
+                  onChange={refreshSilent}
+                />
+              </>
             )}
           </div>
 
@@ -1123,7 +1167,10 @@ function PoolsAndBracket({
   // « Match suivant » (organisateur/admin, hors échecs) : matchs jouables, triés
   // par tour puis position. La cible = le match sélectionné s'il est jouable,
   // sinon le prochain match prêt (en sautant celui déjà désigné « en cours »).
-  const isChess = (tournament.game ?? 'babyfoot') === 'chess';
+  // Disciplines à résultat binaire (échecs / coding / pokémon) : pas de cérémonie
+  // d'annonce de match (ni toss/stage), comme les échecs.
+  const tGame = tournament.game ?? 'babyfoot';
+  const isChess = tGame === 'chess' || tGame === 'coding' || tGame === 'pokemon';
   const readyMatches = useMemo(
     () =>
       bracketMatchesFlat
@@ -2552,10 +2599,10 @@ function RecordBracketForm({
     );
   }
 
-  // Étape 1 — vainqueur. Aux échecs, le résultat est binaire : un clic suffit.
+  // Étape 1 — vainqueur. Binaire (échecs / coding / pokémon) : un clic suffit.
   if (!winner) {
     const pick = (w: 'a' | 'b') => {
-      if (game === 'chess') void send(w === 'a' ? 1 : 0, w === 'a' ? 0 : 1);
+      if (game === 'chess' || game === 'coding' || game === 'pokemon') void send(w === 'a' ? 1 : 0, w === 'a' ? 0 : 1);
       else setWinner(w);
     };
     return (

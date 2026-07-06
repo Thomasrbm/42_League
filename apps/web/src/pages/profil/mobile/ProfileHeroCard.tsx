@@ -42,6 +42,10 @@ interface ProfileHeroCardProps {
   /** Badges « libres » (GOD) du joueur affiché — rendus en plus des badges catalogue. */
   customBadges?: MeResponse['customBadges'];
   equippedBanner?: string | null;
+  /** Ornement de photo de profil équipé (cadre autour de l'avatar). */
+  equippedAvatarFrame?: string | null;
+  /** Variante animée de l'ornement (jouée au survol de l'avatar). */
+  equippedAvatarFrameAnimated?: string | null;
   /** Solde de League Coins (pour les fiches d'autres joueurs ; `me.coins` est utilisé quand isMe). */
   coins?: number;
 }
@@ -60,6 +64,8 @@ export function ProfileHeroCard({
   equippedBadge: equippedBadgeProp,
   customBadges: customBadgesProp,
   equippedBanner: equippedBannerProp,
+  equippedAvatarFrame: equippedAvatarFrameProp,
+  equippedAvatarFrameAnimated: equippedAvatarFrameAnimatedProp,
   coins: coinsProp,
 }: ProfileHeroCardProps) {
   const { me, leaderboard, refresh } = useLeagueData();
@@ -74,6 +80,8 @@ export function ProfileHeroCard({
   const equippedBadge = equippedBadgeProp ?? (isMe ? me?.equippedBadge : null) ?? null;
   const customBadges = customBadgesProp ?? (isMe ? me?.customBadges : []) ?? [];
   const equippedBanner = equippedBannerProp ?? (isMe ? me?.equippedBanner : null) ?? null;
+  const equippedAvatarFrame = equippedAvatarFrameProp ?? (isMe ? me?.equippedAvatarFrame : null) ?? null;
+  const equippedAvatarFrameAnimated = equippedAvatarFrameAnimatedProp ?? (isMe ? me?.equippedAvatarFrameAnimated : null) ?? null;
   const user = userProp ?? me?.user;
   const badges = badgesProp ?? me?.badges;
   if (!user) return null;
@@ -207,6 +215,8 @@ export function ProfileHeroCard({
               className="relative"
               // La carte porte déjà l'aura complète → pas de double effet sur la PP.
               fx={false}
+              frame={equippedAvatarFrame}
+              frameAnimated={equippedAvatarFrameAnimated}
             />
           </div>
 

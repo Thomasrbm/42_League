@@ -84,6 +84,28 @@ const UNIVERSE: Record<Game, {
       </svg>
     ),
   },
+  coding: {
+    bg: 'rgba(6, 16, 30, 0.94)',
+    glow: 'rgba(88, 166, 255, 0.7)',
+    accent: '#58a6ff',
+    label: 'CODING',
+    symbol: (s) => (
+      <svg viewBox="0 0 120 120" width={s} height={s} aria-hidden>
+        <image href="/universe/coding-symbol.png" x="10" y="10" width="100" height="100" preserveAspectRatio="xMidYMid meet" />
+      </svg>
+    ),
+  },
+  pokemon: {
+    bg: 'rgba(28, 6, 6, 0.94)',
+    glow: 'rgba(255, 77, 77, 0.7)',
+    accent: '#ff4d4d',
+    label: 'POKÉMON',
+    symbol: (s) => (
+      <svg viewBox="0 0 120 120" width={s} height={s} aria-hidden>
+        <image href="/universe/pokemon-symbol.png" x="10" y="10" width="100" height="100" preserveAspectRatio="xMidYMid meet" />
+      </svg>
+    ),
+  },
 };
 
 // ─── Composant principal ──────────────────────────────────────────────────────

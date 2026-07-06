@@ -18,6 +18,7 @@ import {
   Medal,
   ChevronsUp,
   Target,
+  Coins,
   type LucideIcon,
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
@@ -66,11 +67,11 @@ const WHATS_NEW: { to: string; Icon: LucideIcon; color: string; title: string; d
     desc: 'Le nouveau ladder d’XP toutes disciplines confondues.',
   },
   {
-    to: '/settings',
+    to: '/profile#taunt-emote',
     Icon: PartyPopper,
     color: '#ff5d73',
     title: 'Émotes de victoire',
-    desc: 'Nargue tes victimes après un 1v1 — à choisir dans tes réglages.',
+    desc: 'Nargue tes victimes après un 1v1 — à choisir sur ton profil.',
   },
   {
     to: '/shop/propose',
@@ -317,7 +318,7 @@ export function HomePage() {
           src="/season/piscine.webp"
           alt="Saison Piscine 2026"
           draggable={false}
-          className="block w-full h-32 sm:h-44 object-cover select-none"
+          className="block w-full h-52 sm:h-72 lg:h-80 object-cover object-center select-none"
         />
         <div
           className="absolute inset-0 pointer-events-none"
@@ -395,45 +396,78 @@ export function HomePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:items-start">
         <div className="space-y-4">
           {/* Tournoi en avant */}
-          {featuredTournament && (
-            <Link
-              to={`/tournaments/${encodeURIComponent(featuredTournament.tour.id)}`}
-              className="block card-hud rounded-2xl px-4 py-3.5 hover:brightness-110 transition-all"
-              style={{ borderColor: featuredTournament.live ? 'rgba(255,93,115,0.4)' : 'rgba(255,201,74,0.3)' }}
-            >
-              <div className="flex items-center gap-3">
-                <span
-                  className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center border"
-                  style={
-                    featuredTournament.live
-                      ? { color: '#ff5d73', background: '#ff5d7314', borderColor: '#ff5d7340' }
-                      : { color: '#ffc94a', background: '#ffc94a14', borderColor: '#ffc94a40' }
-                  }
+          {featuredTournament &&
+            (featuredTournament.live ? (
+              /* EN COURS : carte agrandie, gros bouton « Parier » + prime gambler. */
+              <div
+                className="card-hud rounded-2xl p-5 space-y-4"
+                style={{
+                  borderColor: 'rgba(255,93,115,0.45)',
+                  background: 'linear-gradient(180deg, rgba(255,93,115,0.07), transparent 70%)',
+                }}
+              >
+                <Link
+                  to={`/tournaments/${encodeURIComponent(featuredTournament.tour.id)}`}
+                  className="flex items-center gap-3.5 group"
                 >
-                  <Trophy className="w-5 h-5" strokeWidth={2.2} />
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="flex items-center gap-2">
-                    <span className="font-gaming text-sm font-extrabold text-text-strong truncate">
-                      {featuredTournament.tour.name}
-                    </span>
-                    {featuredTournament.live && (
-                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red/15 border border-red/40 text-[#ffb3bf] text-[9px] font-extrabold uppercase tracking-wide">
+                  <span
+                    className="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center border"
+                    style={{ color: '#ff5d73', background: '#ff5d7314', borderColor: '#ff5d7340' }}
+                  >
+                    <Trophy className="w-7 h-7" strokeWidth={2.2} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-2 flex-wrap">
+                      <span className="font-gaming text-lg font-black text-text-strong truncate group-hover:text-white transition-colors">
+                        {featuredTournament.tour.name}
+                      </span>
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red/15 border border-red/40 text-[#ffb3bf] text-[10px] font-extrabold uppercase tracking-wide">
                         <span className="w-1.5 h-1.5 rounded-full bg-red animate-pulse" />
                         {t('home.tournament.live')}
                       </span>
-                    )}
+                    </span>
+                    <span className="block text-[13px] text-muted-2 mt-1">
+                      {t('home.tournament.betLive')}
+                    </span>
                   </span>
-                  <span className="block text-[11px] text-muted-2 mt-0.5">
-                    {featuredTournament.live
-                      ? t('home.tournament.liveHint')
-                      : `${t('home.tournament.open')} · ${featuredTournament.tour.entries?.length ?? 0}/${featuredTournament.tour.capacity}`}
-                  </span>
-                </span>
-                <ChevronRight className="w-4 h-4 text-muted-2" strokeWidth={2.5} />
+                </Link>
+                <Link
+                  to={`/tournaments/${encodeURIComponent(featuredTournament.tour.id)}?tab=bets`}
+                  className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-gold text-black font-gaming font-black text-base uppercase tracking-[0.14em] hover:brightness-110 transition-all shadow-[0_0_24px_rgba(255,201,74,0.25)]"
+                >
+                  <Coins className="w-5 h-5" strokeWidth={2.4} />
+                  {t('home.tournament.bet')}
+                </Link>
+                <p className="text-center text-[12px] font-bold text-gold/90">
+                  {t('home.tournament.gamblerBonus')}
+                </p>
               </div>
-            </Link>
-          )}
+            ) : (
+              /* INSCRIPTIONS : carte compacte. */
+              <Link
+                to={`/tournaments/${encodeURIComponent(featuredTournament.tour.id)}`}
+                className="block card-hud rounded-2xl px-4 py-3.5 hover:brightness-110 transition-all"
+                style={{ borderColor: 'rgba(255,201,74,0.3)' }}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center border"
+                    style={{ color: '#ffc94a', background: '#ffc94a14', borderColor: '#ffc94a40' }}
+                  >
+                    <Trophy className="w-5 h-5" strokeWidth={2.2} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="font-gaming text-sm font-extrabold text-text-strong truncate block">
+                      {featuredTournament.tour.name}
+                    </span>
+                    <span className="block text-[11px] text-muted-2 mt-0.5">
+                      {`${t('home.tournament.open')} · ${featuredTournament.tour.entries?.length ?? 0}/${featuredTournament.tour.capacity}`}
+                    </span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-muted-2" strokeWidth={2.5} />
+                </div>
+              </Link>
+            ))}
 
           {/* Mini-quêtes de la semaine (idées d'activités) */}
           <WeeklyIdeasCard />

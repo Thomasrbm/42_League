@@ -23,3 +23,48 @@ export function tauntEmoteUnlockLevel(emote: string): number {
   if (idx < FREE_TAUNT_EMOTES) return 0;
   return (idx - FREE_TAUNT_EMOTES + 1) * TAUNT_EMOTE_LEVEL_STEP;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phrases de narguage — affichées sous l'émote de victoire. `{winner}` est
+// remplacé par le nom du vainqueur. Chaque émote a ses répliques dédiées (le ton
+// colle à l'emoji : le clown se moque du niveau, la tête de mort enterre, etc.),
+// plus un pot commun générique. Choix DÉTERMINISTE par narguage (cf. tauntPhrase)
+// pour rester stable au re-render / skip.
+// ─────────────────────────────────────────────────────────────────────────────
+const GENERIC_TAUNT_PHRASES = [
+  '{winner} se rit de toi.',
+  'Celui qui rigole, c’est {winner}.',
+  '{winner} t’a passé dessus.',
+  'Reviens quand tu sauras jouer.',
+  '{winner} t’a mis une leçon.',
+] as const;
+
+const TAUNT_PHRASES: Record<string, readonly string[]> = {
+  '😂': ['{winner} se marre encore.', 'Celui qui rigole, c’est {winner} — pas toi.', 'C’était pour rire, ce match ?'],
+  '💀': ['R.I.P. ta dignité.', '{winner} t’a enterré.', 'C’est mort, remballe.'],
+  '🤡': ['Ton niveau est clownesque.', '{winner} t’a transformé en cirque.', 'Honk honk — bien joué le clown.'],
+  '😎': ['Trop facile pour {winner}.', '{winner} n’a même pas transpiré.', 'Classe. Toi, moins.'],
+  '🥱': ['{winner} s’est ennuyé.', 'Réveille-moi quand tu marques.', 'Bâillement… c’était gagné d’avance.'],
+  '🐐': ['{winner}, le vrai GOAT.', 'Tu affrontais une légende.', 'GOAT status : {winner}.'],
+  '🔥': ['{winner} t’a carbonisé.', 'Ça brûle, hein ?', '{winner} est en feu, toi en cendres.'],
+  '🕺': ['{winner} danse sur ta défaite.', 'La victoire se fête — sans toi.', 'Petite danse pour {winner}.'],
+  '🧂': ['Salé, le petit ? {winner} en rajoute.', 'Passe-moi le sel de tes larmes.', '{winner} t’assaisonne.'],
+  '😭': ['Pleure pas, ça arrive… souvent.', '{winner} t’a fait chialer.', 'Les larmes, c’est gratuit au moins.'],
+};
+
+/** Petit hash déterministe d'une chaîne (stable au re-render). */
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+/**
+ * Phrase de narguage pour un couple (émote, vainqueur), choisie de façon
+ * déterministe via `seed` (ex. l'id du narguage) → même phrase à chaque rendu.
+ */
+export function tauntPhrase(emote: string, winner: string, seed: string): string {
+  const pool = TAUNT_PHRASES[emote] ?? GENERIC_TAUNT_PHRASES;
+  const phrase = pool[hashStr(seed + emote) % pool.length] ?? GENERIC_TAUNT_PHRASES[0];
+  return phrase.replace(/\{winner\}/g, winner);
+}

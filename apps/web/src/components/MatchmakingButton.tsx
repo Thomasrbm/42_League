@@ -36,7 +36,7 @@ function RandomButton({
         boxShadow: `inset 0 1px 0 rgba(255,247,228,0.5), 0 4px 14px ${b.glow}`,
       }}
       className={`shine relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-xl border
-                  px-5 py-3.5 font-display font-black uppercase tracking-wider text-sm
+                  px-5 py-3.5 font-display font-bold uppercase tracking-wide text-[15px]
                   transition-all duration-200 hover:brightness-105 active:scale-[0.98] ${className}`}
     >
       <Dices className="w-5 h-5" strokeWidth={2.5} />
@@ -215,7 +215,7 @@ export function MatchmakingCTACard({ className = '' }: { className?: string }) {
 
         {/* Texte */}
         <span className="relative min-w-0 flex-1">
-          <span className="block font-display text-xl font-black tracking-tight leading-none mb-1.5"
+          <span className="block font-display text-xl font-bold tracking-normal leading-none mb-1.5"
             style={{ color: gm.color }}>
             {t('defis.random')}
           </span>
@@ -250,7 +250,7 @@ export function MatchmakingCTACard({ className = '' }: { className?: string }) {
       {/* En-tête */}
       <div className="flex items-center gap-2 mb-0.5">
         <Dices className="w-4 h-4 flex-shrink-0" style={{ color: gm.color }} strokeWidth={2.5} />
-        <span className="font-display text-sm font-black" style={{ color: gm.color }}>
+        <span className="font-display text-sm font-bold" style={{ color: gm.color }}>
           {t('defis.random')}
         </span>
       </div>

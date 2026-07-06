@@ -331,7 +331,7 @@ async function seed() {
   // seront garnis depuis /GOD. La piste complète 1..100 est visible côté joueur.
   console.log('🎟️  Upserting battle pass tiers (100, cosmétiques existants)...');
   const cosmetics = await prisma.shopItem.findMany({
-    where: { active: true, category: { in: ['title', 'banner', 'badge', 'cosmetic'] } },
+    where: { active: true, category: { in: ['title', 'banner', 'badge', 'cosmetic', 'avatar_frame'] } },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     select: { id: true },
   });

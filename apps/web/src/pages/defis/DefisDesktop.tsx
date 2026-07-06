@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Swords, X, Clock, Zap, Users, Target } from 'lucide-react';
+import { Plus, Swords, X, Clock, Zap, Users, Target, LinkIcon } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
 import { Panel } from '../../components/Panel';
 import { Avatar } from '../../components/Avatar';
@@ -1591,6 +1591,19 @@ function ChallengeRow({ challenge, kind, myLogin, lang, onAccept, onDecline, onA
         <GameTag game={challenge.game} />
         <span className={`text-[11px] ml-auto ${when.late ? 'text-red' : 'text-muted-2'}`}>{when.text}</span>
 
+        {/* Coding : lien d'invitation cliquable vers la room de code (métadonnée). */}
+        {challenge.inviteUrl && (
+          <a
+            href={challenge.inviteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center gap-1 text-[11px] font-semibold text-teal hover:underline break-all"
+          >
+            <LinkIcon className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} />
+            <span className="truncate">{t('defis.inviteUrl.open')}</span>
+          </a>
+        )}
+
         {kind === 'incoming' && (
           <>
             {/* Cooldown 48h : un défi non accepté sous ce délai expire (sans pénalité). */}
@@ -1673,11 +1686,12 @@ function RecordResultForm({ challengeId, game, oppLogin, onDone }: {
     }
   };
 
-  if (game === 'chess') {
+  // Binaire (échecs / coding / pokémon) : simple gagné/perdu (pas de score chiffré).
+  if (game === 'chess' || game === 'coding' || game === 'pokemon') {
     return (
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <OutcomeButton kind="win" onClick={() => send({ scoreSelf: 1, scoreOpponent: 0, game: 'chess' })}>{t('defis.iWon')}</OutcomeButton>
-        <OutcomeButton kind="loss" onClick={() => send({ scoreSelf: 0, scoreOpponent: 1, game: 'chess' })}>{t('defis.iLost')}</OutcomeButton>
+        <OutcomeButton kind="win" onClick={() => send({ scoreSelf: 1, scoreOpponent: 0, game })}>{t('defis.iWon')}</OutcomeButton>
+        <OutcomeButton kind="loss" onClick={() => send({ scoreSelf: 0, scoreOpponent: 1, game })}>{t('defis.iLost')}</OutcomeButton>
       </div>
     );
   }

@@ -5,7 +5,6 @@ import { GameModesSettings } from '../components/GameModesSettings';
 import { Pills } from '../components/Pills';
 import { Button } from '../components/Button';
 import { FeatureRequestBox } from '../components/FeatureRequestBox';
-import { TauntEmotePicker } from '../components/TauntEmotePicker';
 import { BugReportBox } from '../components/BugReportBox';
 import { useAuth } from '../hooks/useAuth';
 import { useFlash } from '../hooks/useFlash';
@@ -185,17 +184,9 @@ export function ReglagesPage() {
           </p>
         </div>
 
-        {/* Émote de victoire (narguage post-1v1) — sélecteur partagé avec le
-            Profil, avec l'économie du passe (gratuites + déblocages). */}
-        <div>
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-2 mb-2">
-            {t('settings.tauntEmote')}
-          </label>
-          <TauntEmotePicker />
-          <p className="mt-2 text-[11px] leading-relaxed text-muted-2/70">
-            {t('settings.tauntEmote.hint')}
-          </p>
-        </div>
+        {/* L'émote de victoire se choisit désormais UNIQUEMENT sur le profil
+            (carte « Émote de victoire ») — retirée des réglages pour éviter le
+            doublon. Le lien de la page d'accueil pointe vers le profil. */}
 
         {/* Compte */}
         <div className="border-t border-gold/20 pt-5">

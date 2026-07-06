@@ -12,7 +12,7 @@ export const LoginSchema = z
 export const MatchScoreSchema = z.number().int().min(-10).max(10);
 
 // ─── Multi-jeu (babyfoot | smash | chess | streetfighter | flechettes) ───────
-export const GameSchema = z.enum(['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes']);
+export const GameSchema = z.enum(['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes', 'coding', 'pokemon']);
 export type Game = z.infer<typeof GameSchema>;
 export const SmashBestOfSchema = z.union([z.literal(3), z.literal(5)]);
 export const SmashCharSchema = z.string().trim().min(1).max(40);
@@ -76,6 +76,15 @@ function matchScoreRefiner(m: MatchScores, ctx: z.RefinementCtx): void {
     }
     return;
   }
+  if (m.game === 'coding' || m.game === 'pokemon') {
+    // Coding / Pokémon : résultat BINAIRE strict, victoire 1-0 / 0-1, PAS de nulle.
+    const win = (m.scoreSelf === 1 && m.scoreOpponent === 0) ||
+      (m.scoreSelf === 0 && m.scoreOpponent === 1);
+    if (!win) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'result must be 1-0 (win) or 0-1 (loss)' });
+    }
+    return;
+  }
   if (m.game === 'smash' || m.game === 'streetfighter') {
     // Street Fighter == Smash mécaniquement : set Bo3/Bo5. Persos non requis.
     if (!m.bestOf) {
@@ -130,6 +139,9 @@ export const CreateChallengeSchema = z.object({
       message: 'scheduledAt must be in the future (or within the last minute)',
     }),
   game: GameSchema.default('babyfoot'),
+  // Lien d'invitation OPTIONNEL vers la room du site de code (coding uniquement) —
+  // pure métadonnée : n'influe ni sur l'ELO, ni sur le règlement du défi.
+  inviteUrl: z.string().url().max(500).optional(),
 });
 
 export type CreateChallengeInput = z.infer<typeof CreateChallengeSchema>;
@@ -152,7 +164,7 @@ export const ShopItemCreateSchema = z
   .object({
     name: z.string().trim().min(1),
     description: z.string().nullish(),
-    category: z.enum(['title', 'banner', 'badge', 'consumable']),
+    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame']),
     color: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
@@ -180,6 +192,20 @@ export const ShopItemCreateSchema = z
       const kind = d.payload && typeof d.payload.kind === 'string' ? d.payload.kind : '';
       if (kind !== 'anti_ops' && kind !== 'elo_mult' && kind !== 'force_duel') {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "consommable : payload.kind doit être 'anti_ops', 'elo_mult' ou 'force_duel'" });
+      }
+    }
+    if (d.category === 'avatar_frame') {
+      // Ornement de photo de profil (PNG transparent carré superposé). Image
+      // statique requise ; `animated` (webp/gif joué au survol) optionnel.
+      const img = d.payload && typeof d.payload.image === 'string' ? d.payload.image : '';
+      if (!img.startsWith('data:image/')) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ornement : image (data-URL) requise' });
+      } else if (img.length > MAX_BANNER_DATAURL_LEN) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ornement trop lourd (max ~700 Ko)' });
+      }
+      const anim = d.payload && typeof d.payload.animated === 'string' ? d.payload.animated : '';
+      if (anim && anim.length > MAX_BANNER_DATAURL_LEN) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ornement animé trop lourd (max ~700 Ko)' });
       }
     }
   });

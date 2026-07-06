@@ -256,8 +256,8 @@ export function GlobalMatchCard({ match, lang, imgByLogin, delay = 0 }: GlobalMa
 
       {/* Score + date — centre */}
       <div className="flex-shrink-0 flex flex-col items-center gap-0.5 px-1">
-        {match.game === 'chess' ? (
-          /* Échecs : Victoire / Nulle plutôt qu'un score 1-0 brut */
+        {match.game === 'chess' || match.game === 'coding' || match.game === 'pokemon' ? (
+          /* Binaire (échecs / coding / pokémon) : Victoire / Nulle plutôt qu'un score 1-0 brut */
           <div className={`text-[11px] font-extrabold uppercase tracking-wide whitespace-nowrap ${isDraw ? 'text-gold' : 'text-gold text-gold-emboss'}`}>
             {isDraw ? t('history.result.draw') : t('history.result.win')}
           </div>

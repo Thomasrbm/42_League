@@ -159,6 +159,39 @@ export const GAMES: Record<GameId, GameDef> = {
       complementary: false,
     },
   },
+  // Coding : discipline BINAIRE (gagné / perdu, pas de nulle). Mécaniquement calquée
+  // sur les échecs (même Elo), sans nulle. Le lien d'invitation éventuel est une
+  // métadonnée du défi, sans effet sur l'Elo (identique quel que soit le site).
+  coding: {
+    id: 'coding',
+    label: 'Coding',
+    scoring: 'binary',
+    hasDraw: false,
+    elo: (a, b, w) => calculateChessElo(a, b, w),
+    formatScore: (a, b) => (a > b ? '1-0' : '0-1'),
+    outcomeLabel: (p) => (p === 'win' ? 'Victoire' : p === 'loss' ? 'Défaite' : 'Nul'),
+    advantage: {
+      label: 'Le gagnant commence',
+      options: [{ key: 'first', label: 'Commencer', icon: '💻' }],
+      complementary: false,
+    },
+  },
+  // Pokémon : discipline BINAIRE (gagné / perdu, pas de nulle), calquée sur les
+  // échecs (même Elo) sans la nulle.
+  pokemon: {
+    id: 'pokemon',
+    label: 'Pokémon',
+    scoring: 'binary',
+    hasDraw: false,
+    elo: (a, b, w) => calculateChessElo(a, b, w),
+    formatScore: (a, b) => (a > b ? '1-0' : '0-1'),
+    outcomeLabel: (p) => (p === 'win' ? 'Victoire' : p === 'loss' ? 'Défaite' : 'Nul'),
+    advantage: {
+      label: 'Le gagnant commence',
+      options: [{ key: 'first', label: 'Commencer', icon: '🔴' }],
+      complementary: false,
+    },
+  },
 };
 
 /** Toutes les disciplines, dans l'ordre d'affichage. */
@@ -172,7 +205,9 @@ export function parseGameId(value: unknown): GameId {
   return value === 'smash' ||
     value === 'chess' ||
     value === 'streetfighter' ||
-    value === 'flechettes'
+    value === 'flechettes' ||
+    value === 'coding' ||
+    value === 'pokemon'
     ? value
     : 'babyfoot';
 }

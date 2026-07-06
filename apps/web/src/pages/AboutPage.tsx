@@ -130,6 +130,28 @@ interface Release {
 
 const CHANGELOG: Release[] = [
   {
+    version: 'V1.3',
+    date: '6 juillet 2026',
+    changes: [
+      {
+        kind: 'feature',
+        text: "Deux nouvelles disciplines : Coding (CodinGame, Clash of Code, LeetCode duels…) et Pokémon (tout duel accepté, ex. Pokémon Showdown). Résultat simple gagné/perdu, classement et passe comme les autres modes.",
+      },
+      {
+        kind: 'feature',
+        text: "Coding : possibilité de coller un lien d'invitation vers ta room au moment du défi.",
+      },
+      {
+        kind: 'feature',
+        text: "Nouveau cosmétique : les ornements de photo de profil (cadres façon Discord), statiques ou animés au survol.",
+      },
+      {
+        kind: 'fix',
+        text: "Lisibilité : police allégée sur le bouton « Match aléatoire » et bannière de saison agrandie.",
+      },
+    ],
+  },
+  {
     version: 'V1.2',
     date: '6 juillet 2026',
     changes: [
@@ -556,6 +578,52 @@ const RULES_FR: Record<Game, GameRules> = {
       ],
     },
   },
+  coding: {
+    label: 'coding (1 contre 1)',
+    terrain: {
+      intro: (
+        <>Tout jeu de code accepté (CodinGame, Clash of Code, LeetCode duels…).</>
+      ),
+      bullets: [
+        <>Résultat <span className="text-gold font-semibold">binaire</span> : gagné ou perdu, sans score chiffré ni nul.</>,
+        <>Le <span className="text-text font-semibold">site de code est libre</span> — l'ELO est identique quel que soit le support.</>,
+        <>Aucune sélection de personnage : on déclare simplement le <span className="text-text font-semibold">vainqueur</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League classe le <span className="text-text font-semibold">coding</span> en 1 contre 1. Chaque membre peut défier n'importe quel autre.</>
+      ),
+      bullets: [
+        <>Déclarer = choisir <span className="text-gold font-semibold">« j'ai gagné »</span> ou « j'ai perdu ».</>,
+        <>Un <span className="text-text font-semibold">lien d'invitation optionnel</span> peut être joint au défi (room du site de code).</>,
+        <>L'<span className="text-text font-semibold">ELO est propre à la discipline</span>, distinct des autres jeux.</>,
+      ],
+    },
+  },
+  pokemon: {
+    label: 'pokémon (1 contre 1)',
+    terrain: {
+      intro: (
+        <>Tout duel Pokémon accepté (ex. Pokémon Showdown, cartouches, cartes…).</>
+      ),
+      bullets: [
+        <>Résultat <span className="text-gold font-semibold">binaire</span> : gagné ou perdu, sans score chiffré ni nul.</>,
+        <>Tous les <span className="text-text font-semibold">supports sont acceptés</span> — l'ELO est identique quel que soit le format.</>,
+        <>Aucune sélection de personnage : on déclare simplement le <span className="text-text font-semibold">vainqueur</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League classe le <span className="text-text font-semibold">pokémon</span> en 1 contre 1. Chaque membre peut défier n'importe quel autre.</>
+      ),
+      bullets: [
+        <>Déclarer = choisir <span className="text-gold font-semibold">« j'ai gagné »</span> ou « j'ai perdu ».</>,
+        <>L'<span className="text-text font-semibold">ELO est propre à la discipline</span>, distinct des autres jeux.</>,
+        <>Pas de <span className="text-text font-semibold">détail de match</span> : seul le résultat compte.</>,
+      ],
+    },
+  },
 };
 
 const RULES_EN: Record<Game, GameRules> = {
@@ -781,6 +849,52 @@ const RULES_EN: Record<Game, GameRules> = {
           Your <span className="text-text font-semibold">ELO is per discipline</span>: your darts rating is separate from the other games.
           No darts tournament and no 2v2.
         </>,
+      ],
+    },
+  },
+  coding: {
+    label: 'coding (1 vs 1)',
+    terrain: {
+      intro: (
+        <>Any coding game accepted (CodinGame, Clash of Code, LeetCode duels…).</>
+      ),
+      bullets: [
+        <><span className="text-gold font-semibold">Binary</span> result: win or loss, no numeric score, no draw.</>,
+        <>The <span className="text-text font-semibold">coding site is free</span> — ELO is the same whatever the platform.</>,
+        <>No character selection: you simply declare the <span className="text-text font-semibold">winner</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League ranks <span className="text-text font-semibold">coding</span> as 1 vs 1. Any member can challenge any other.</>
+      ),
+      bullets: [
+        <>Declaring = pick <span className="text-gold font-semibold">“I won”</span> or “I lost”.</>,
+        <>An <span className="text-text font-semibold">optional invite link</span> can be attached to a challenge (the code room).</>,
+        <><span className="text-text font-semibold">ELO is per-discipline</span>, separate from other games.</>,
+      ],
+    },
+  },
+  pokemon: {
+    label: 'pokémon (1 vs 1)',
+    terrain: {
+      intro: (
+        <>Any Pokémon duel accepted (e.g. Pokémon Showdown, cartridges, cards…).</>
+      ),
+      bullets: [
+        <><span className="text-gold font-semibold">Binary</span> result: win or loss, no numeric score, no draw.</>,
+        <>All <span className="text-text font-semibold">formats accepted</span> — ELO is the same whatever the medium.</>,
+        <>No character selection: you simply declare the <span className="text-text font-semibold">winner</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League ranks <span className="text-text font-semibold">pokémon</span> as 1 vs 1. Any member can challenge any other.</>
+      ),
+      bullets: [
+        <>Declaring = pick <span className="text-gold font-semibold">“I won”</span> or “I lost”.</>,
+        <><span className="text-text font-semibold">ELO is per-discipline</span>, separate from other games.</>,
+        <>No <span className="text-text font-semibold">match details</span>: only the result matters.</>,
       ],
     },
   },
@@ -1010,6 +1124,52 @@ const RULES_ES: Record<Game, GameRules> = {
           El <span className="text-text font-semibold">ELO es propio de la disciplina</span>: tu rating de dardos es distinto del de los demás juegos.
           Sin torneo de dardos ni 2v2.
         </>,
+      ],
+    },
+  },
+  coding: {
+    label: 'coding (1 contra 1)',
+    terrain: {
+      intro: (
+        <>Cualquier juego de código válido (CodinGame, Clash of Code, duelos LeetCode…).</>
+      ),
+      bullets: [
+        <>Resultado <span className="text-gold font-semibold">binario</span>: victoria o derrota, sin marcador ni empate.</>,
+        <>El <span className="text-text font-semibold">sitio de código es libre</span> — el ELO es el mismo sea cual sea la plataforma.</>,
+        <>Sin selección de personaje: solo declaras al <span className="text-text font-semibold">ganador</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League clasifica el <span className="text-text font-semibold">coding</span> en 1 contra 1. Cualquier miembro puede desafiar a otro.</>
+      ),
+      bullets: [
+        <>Declarar = elegir <span className="text-gold font-semibold">«gané»</span> o «perdí».</>,
+        <>Se puede adjuntar un <span className="text-text font-semibold">enlace de invitación opcional</span> al desafío (sala de código).</>,
+        <>El <span className="text-text font-semibold">ELO es propio de la disciplina</span>, distinto de los otros juegos.</>,
+      ],
+    },
+  },
+  pokemon: {
+    label: 'pokémon (1 contra 1)',
+    terrain: {
+      intro: (
+        <>Cualquier duelo Pokémon válido (p. ej. Pokémon Showdown, cartuchos, cartas…).</>
+      ),
+      bullets: [
+        <>Resultado <span className="text-gold font-semibold">binario</span>: victoria o derrota, sin marcador ni empate.</>,
+        <>Todos los <span className="text-text font-semibold">formatos válidos</span> — el ELO es el mismo sea cual sea el medio.</>,
+        <>Sin selección de personaje: solo declaras al <span className="text-text font-semibold">ganador</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League clasifica el <span className="text-text font-semibold">pokémon</span> en 1 contra 1. Cualquier miembro puede desafiar a otro.</>
+      ),
+      bullets: [
+        <>Declarar = elegir <span className="text-gold font-semibold">«gané»</span> o «perdí».</>,
+        <>El <span className="text-text font-semibold">ELO es propio de la disciplina</span>, distinto de los otros juegos.</>,
+        <>Sin <span className="text-text font-semibold">detalles del partido</span>: solo cuenta el resultado.</>,
       ],
     },
   },

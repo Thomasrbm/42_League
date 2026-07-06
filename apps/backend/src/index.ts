@@ -756,12 +756,12 @@ async function palmaresFor(login: string): Promise<
 async function ownedTitlesFor(
   login: string,
   role: string,
-  user: { tournamentsWon: number; tournamentsWonSmash: number; tournamentsWonChess: number; tournamentsWonSf: number; tournamentsWonFlechettes: number; games: string[] } | null,
+  user: { tournamentsWon: number; tournamentsWonSmash: number; tournamentsWonChess: number; tournamentsWonSf: number; tournamentsWonFlechettes: number; tournamentsWonCoding: number; tournamentsWonPokemon: number; games: string[] } | null,
 ): Promise<{ key: string; label: string }[]> {
   if (!user) return [];
   const badges = await badgesFor(login, role, user.games);
   const tournamentsWon =
-    user.tournamentsWon + user.tournamentsWonSmash + user.tournamentsWonChess + user.tournamentsWonSf + user.tournamentsWonFlechettes;
+    user.tournamentsWon + user.tournamentsWonSmash + user.tournamentsWonChess + user.tournamentsWonSf + user.tournamentsWonFlechettes + user.tournamentsWonCoding + user.tournamentsWonPokemon;
   return ownedTitles({ login, badges, tournamentsWon });
 }
 
@@ -1164,13 +1164,17 @@ interface EquippedCosmetics {
   titleColor: string | null;
   equippedBadge: { code: string; label: string; icon: string; color: string | null } | null;
   equippedBanner: string | null;
+  // Ornement de photo de profil (cadre superposé AUTOUR de l'avatar) : image
+  // statique + variante animée optionnelle (jouée au survol côté front).
+  equippedAvatarFrame: string | null;
+  equippedAvatarFrameAnimated: string | null;
 }
 async function equippedCosmetics(login: string): Promise<EquippedCosmetics> {
   const rows = await prisma.shopInventory.findMany({
-    where: { userLogin: login, equipped: true, item: { category: { in: ['title', 'badge', 'banner'] } } },
+    where: { userLogin: login, equipped: true, item: { category: { in: ['title', 'badge', 'banner', 'avatar_frame'] } } },
     include: { item: true },
   });
-  const out: EquippedCosmetics = { titleColor: null, equippedBadge: null, equippedBanner: null };
+  const out: EquippedCosmetics = { titleColor: null, equippedBadge: null, equippedBanner: null, equippedAvatarFrame: null, equippedAvatarFrameAnimated: null };
   for (const r of rows) {
     const it = r.item;
     const payload =
@@ -1193,6 +1197,15 @@ async function equippedCosmetics(login: string): Promise<EquippedCosmetics> {
         : null;
       const userImg = up && typeof up.image === 'string' ? up.image : null;
       out.equippedBanner = userImg ?? (typeof payload.image === 'string' ? payload.image : null);
+    } else if (it.category === 'avatar_frame') {
+      // Ornement autour de l'avatar : image perso du joueur prioritaire (comme
+      // les bannières), sinon l'image du catalogue ; `animated` vient du catalogue.
+      const up = r.userPayload && typeof r.userPayload === 'object' && !Array.isArray(r.userPayload)
+        ? (r.userPayload as Record<string, unknown>)
+        : null;
+      const userImg = up && typeof up.image === 'string' ? up.image : null;
+      out.equippedAvatarFrame = userImg ?? (typeof payload.image === 'string' ? payload.image : null);
+      out.equippedAvatarFrameAnimated = typeof payload.animated === 'string' ? payload.animated : null;
     }
   }
   return out;
@@ -1236,6 +1249,8 @@ app.get('/me', async (c) => {
     titleColor: cosmetics.titleColor,
     equippedBadge: cosmetics.equippedBadge,
     equippedBanner: cosmetics.equippedBanner,
+    equippedAvatarFrame: cosmetics.equippedAvatarFrame,
+    equippedAvatarFrameAnimated: cosmetics.equippedAvatarFrameAnimated,
     // Solde « League Coin » du joueur (porte-monnaie boutique).
     coins: user?.leagueCoins ?? 0,
     // XP & passe de combat : total à vie + niveau/progression dérivés (autorité serveur).
@@ -1376,7 +1391,7 @@ app.patch('/me/games', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const raw = Array.isArray(body.games) ? body.games : [];
   const games = [
-    ...new Set(raw.filter((g: unknown) => g === 'babyfoot' || g === 'smash' || g === 'chess' || g === 'streetfighter' || g === 'flechettes')),
+    ...new Set(raw.filter((g: unknown) => g === 'babyfoot' || g === 'smash' || g === 'chess' || g === 'streetfighter' || g === 'flechettes' || g === 'coding' || g === 'pokemon')),
   ] as string[];
   if (games.length === 0) {
     throw new HTTPException(400, { message: 'choisis au moins un mode de jeu' });
@@ -1707,6 +1722,8 @@ app.get('/users/:login', async (c) => {
     titleColor: cosmetics.titleColor,
     equippedBadge: cosmetics.equippedBadge,
     equippedBanner: cosmetics.equippedBanner,
+    equippedAvatarFrame: cosmetics.equippedAvatarFrame,
+    equippedAvatarFrameAnimated: cosmetics.equippedAvatarFrameAnimated,
     followingList: followingRows,
     followersList: followersRows,
     following: !!follow,
@@ -2259,6 +2276,10 @@ async function performSeasonRollover(newName: string) {
             matchesPlayedSf: 0,
             eloFlechettes: resetEloFor('flechettes', u.login, u.eloFlechettes),
             matchesPlayedFlechettes: 0,
+            eloCoding: resetEloFor('coding', u.login, u.eloCoding),
+            matchesPlayedCoding: 0,
+            eloPokemon: resetEloFor('pokemon', u.login, u.eloPokemon),
+            matchesPlayedPokemon: 0,
             // Trophées remis à zéro pour la nouvelle saison : titres de tournois par
             // discipline (compteurs « palmarès »/trophées) + dodges (trophées « hontes »).
             // L'historique des matchs/tournois n'est pas purgé → GOAT et snapshots de
@@ -2268,6 +2289,8 @@ async function performSeasonRollover(newName: string) {
             tournamentsWonChess: 0,
             tournamentsWonSf: 0,
             tournamentsWonFlechettes: 0,
+            tournamentsWonCoding: 0,
+            tournamentsWonPokemon: 0,
             dodgeCount: 0,
           },
         });
@@ -4692,7 +4715,7 @@ app.post('/challenges', async (c) => {
   if (!parsed.success) {
     throw new HTTPException(400, { message: parsed.error.message });
   }
-  const { opponentLogin, scheduledAt, game } = parsed.data;
+  const { opponentLogin, scheduledAt, game, inviteUrl } = parsed.data;
   if (opponentLogin === me) {
     throw new HTTPException(400, { message: 'cannot challenge yourself' });
   }
@@ -4741,6 +4764,8 @@ app.post('/challenges', async (c) => {
       ...(isForced ? { opsId: forcedOps!.id } : {}),
       scheduledAt: new Date(scheduledAt),
       game,
+      // Lien d'invitation coding (métadonnée) — persisté seulement s'il est fourni.
+      ...(inviteUrl ? { inviteUrl } : {}),
     },
   });
 
@@ -5724,7 +5749,18 @@ async function loadTournamentForViewer(me: string, id: string) {
   const visibleInvites = isOrganizer
     ? tournament.invites
     : tournament.invites.filter((inv) => inv.inviteeLogin === me);
-  return { ...tournament, entries: entriesOut, invites: visibleInvites };
+  // Prime « gambler » : le viewer l'a-t-il déjà réclamée pour ce tournoi ? (pilote
+  // l'état du bouton de claim côté front ; la prime n'est offerte qu'« en cours »).
+  const gamblerClaim = await prisma.tournamentGamblerClaim.findUnique({
+    where: { userLogin_tournamentId: { userLogin: me, tournamentId: tournament.id } },
+    select: { userLogin: true },
+  });
+  return {
+    ...tournament,
+    entries: entriesOut,
+    invites: visibleInvites,
+    gamblerBonusClaimed: !!gamblerClaim,
+  };
 }
 
 app.get('/tournaments/:id', async (c) => {
@@ -7946,8 +7982,14 @@ app.patch('/admin/users/:login/stats', async (c) => {
     eloFlechettes: z.number().int().min(0).optional(),
     matchesPlayedFlechettes: z.number().int().min(0).optional(),
     tournamentsWonFlechettes: z.number().int().min(0).optional(),
+    eloCoding: z.number().int().min(0).optional(),
+    matchesPlayedCoding: z.number().int().min(0).optional(),
+    tournamentsWonCoding: z.number().int().min(0).optional(),
+    eloPokemon: z.number().int().min(0).optional(),
+    matchesPlayedPokemon: z.number().int().min(0).optional(),
+    tournamentsWonPokemon: z.number().int().min(0).optional(),
     // Modes auxquels le joueur adhère.
-    games: z.array(z.enum(['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes'])).min(1).optional(),
+    games: z.array(z.enum(['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes', 'coding', 'pokemon'])).min(1).optional(),
   });
   const parsed = schema.safeParse(body);
   if (!parsed.success) throw new HTTPException(400, { message: parsed.error.message });
@@ -7970,6 +8012,12 @@ app.patch('/admin/users/:login/stats', async (c) => {
       eloFlechettes: true,
       matchesPlayedFlechettes: true,
       tournamentsWonFlechettes: true,
+      eloCoding: true,
+      matchesPlayedCoding: true,
+      tournamentsWonCoding: true,
+      eloPokemon: true,
+      matchesPlayedPokemon: true,
+      tournamentsWonPokemon: true,
       games: true,
     },
   });
@@ -9104,7 +9152,7 @@ const AuditQuerySchema = z.object({
 // actifs vs inscrits, par jeu & global). Ingestion best-effort : un échec ne doit
 // JAMAIS casser l'UX → on avale les erreurs et on répond 204 quoi qu'il arrive.
 
-const ANALYTICS_GAMES = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes'] as const;
+const ANALYTICS_GAMES = ['babyfoot', 'smash', 'chess', 'streetfighter', 'flechettes', 'coding', 'pokemon'] as const;
 
 const TrackBatchSchema = z.object({
   events: z
@@ -9267,7 +9315,7 @@ app.get('/admin/all-history', async (c) => {
   // Filtre par discipline. challenge/pending/played portent `game` ; rejected/ops
   // sont antérieurs au multi-jeu (babyfoot) → exclus dès qu'on cible smash/échecs.
   const gq = url.searchParams.get('game');
-  const gameFilter = gq === 'smash' || gq === 'chess' || gq === 'streetfighter' || gq === 'babyfoot' ? gq : null;
+  const gameFilter = gq === 'smash' || gq === 'chess' || gq === 'streetfighter' || gq === 'babyfoot' || gq === 'coding' || gq === 'pokemon' ? gq : null;
   const gameWhere = gameFilter ? { game: gameFilter } : {};
   const includeLegacy = !gameFilter || gameFilter === 'babyfoot';
 
@@ -9463,8 +9511,10 @@ function bestEloOf(u: {
   eloChess: number;
   eloSf: number;
   eloFlechettes: number;
+  eloCoding: number;
+  eloPokemon: number;
 }): number {
-  return Math.max(u.elo, u.eloBabyfoot2v2, u.eloSmash, u.eloChess, u.eloSf, u.eloFlechettes);
+  return Math.max(u.elo, u.eloBabyfoot2v2, u.eloSmash, u.eloChess, u.eloSf, u.eloFlechettes, u.eloCoding, u.eloPokemon);
 }
 function isSheldonApostle(item: { name: string }): boolean {
   return item.name
@@ -9595,7 +9645,7 @@ app.post('/shop/:id/buy', async (c) => {
       // SEUL endroit où ce seuil apparaît (absent de la description du produit).
       const elos = await tx.user.findUnique({
         where: { login },
-        select: { elo: true, eloBabyfoot2v2: true, eloSmash: true, eloChess: true, eloSf: true, eloFlechettes: true },
+        select: { elo: true, eloBabyfoot2v2: true, eloSmash: true, eloChess: true, eloSf: true, eloFlechettes: true, eloCoding: true, eloPokemon: true },
       });
       if (elos && bestEloOf(elos) < MYSTERY_BOX_MIN_BEST_ELO) {
         throw new HTTPException(403, {
@@ -10310,7 +10360,7 @@ const ShopItemUpdateSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
     description: z.string().nullish(),
-    category: z.enum(['title', 'banner', 'badge', 'consumable']).optional(),
+    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame']).optional(),
     color: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
@@ -10345,6 +10395,18 @@ const ShopItemUpdateSchema = z
       const kind = typeof d.payload.kind === 'string' ? d.payload.kind : '';
       if (!isConsumableKind(kind)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "consommable : payload.kind invalide (anti_ops | elo_mult | force_duel | mini_ops)" });
+      }
+    }
+    if (d.category === 'avatar_frame') {
+      const img = typeof d.payload.image === 'string' ? d.payload.image : '';
+      if (!img.startsWith('data:image/')) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ornement : image (data-URL) requise' });
+      } else if (img.length > MAX_BANNER_DATAURL_LEN) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ornement trop lourd (max ~700 Ko)' });
+      }
+      const anim = typeof d.payload.animated === 'string' ? d.payload.animated : '';
+      if (anim && anim.length > MAX_BANNER_DATAURL_LEN) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'ornement animé trop lourd (max ~700 Ko)' });
       }
     }
   });
@@ -11028,6 +11090,7 @@ type CoinTxType =
   | 'trophy_income'
   | 'dispute_malus'
   | 'battlepass_tier'
+  | 'gambler_bonus'
   | 'admin_grant';
 
 interface CoinTxEntry {
@@ -11191,12 +11254,14 @@ function isoWeekKey(d: Date): string {
 const TROPHY_PODIUM_WEEKLY = [1200, 700, 350]; // 1er, 2e, 3e
 const TROPHY_PER_TROPHY_WEEKLY = 25; // par trophée détenu (podium compris)
 // Colonne d'Elo par discipline (board de trophées) — évite de tirer tout RatingFields.
-const TROPHY_ELO_FIELD: Record<string, 'elo' | 'eloSmash' | 'eloChess' | 'eloSf' | 'eloFlechettes'> = {
+const TROPHY_ELO_FIELD: Record<string, 'elo' | 'eloSmash' | 'eloChess' | 'eloSf' | 'eloFlechettes' | 'eloCoding' | 'eloPokemon'> = {
   babyfoot: 'elo',
   smash: 'eloSmash',
   chess: 'eloChess',
   streetfighter: 'eloSf',
   flechettes: 'eloFlechettes',
+  coding: 'eloCoding',
+  pokemon: 'eloPokemon',
 };
 
 async function runWeeklyTrophyIncome(now: Date = new Date()): Promise<void> {
@@ -11222,7 +11287,7 @@ async function runWeeklyTrophyIncome(now: Date = new Date()): Promise<void> {
   for (const game of GAME_IDS) {
     const users = await prisma.user.findMany({
       where: { ...VISIBLE_USER_WHERE, games: { has: game } },
-      select: { login: true, imageUrl: true, dodgeCount: true, elo: true, eloSmash: true, eloChess: true, eloSf: true, eloFlechettes: true },
+      select: { login: true, imageUrl: true, dodgeCount: true, elo: true, eloSmash: true, eloChess: true, eloSf: true, eloFlechettes: true, eloCoding: true, eloPokemon: true },
     });
     const field = TROPHY_ELO_FIELD[game];
     boards[game] = users.map((u) => ({ login: u.login, imageUrl: u.imageUrl, elo: field ? u[field] : u.elo, dodgeCount: u.dodgeCount }));
@@ -11271,14 +11336,17 @@ type QuestMetric = 'distinctGames' | 'matchesPlayed' | 'wins';
 interface QuestDef {
   id: string;
   reward: number;
+  /** Gros gain d'XP (bien supérieur à l'XP d'un match, plafonnée ~125) — les
+   *  quêtes hebdo sont la meilleure source d'XP du jeu, en plus des coins. */
+  xpReward: number;
   target: number;
   metric: QuestMetric;
 }
 const WEEKLY_QUESTS: QuestDef[] = [
-  { id: 'two_modes', reward: 200, target: 2, metric: 'distinctGames' },
-  { id: 'all_modes', reward: 300, target: GAME_IDS.length, metric: 'distinctGames' },
-  { id: 'play_5', reward: 150, target: 5, metric: 'matchesPlayed' },
-  { id: 'win_3', reward: 200, target: 3, metric: 'wins' },
+  { id: 'two_modes', reward: 200, xpReward: 300, target: 2, metric: 'distinctGames' },
+  { id: 'all_modes', reward: 300, xpReward: 500, target: GAME_IDS.length, metric: 'distinctGames' },
+  { id: 'play_5', reward: 150, xpReward: 300, target: 5, metric: 'matchesPlayed' },
+  { id: 'win_3', reward: 200, xpReward: 400, target: 3, metric: 'wins' },
 ];
 
 type QuestProgressRow = { matchesPlayed: number; wins: number; gamesPlayed: string[] };
@@ -11422,7 +11490,7 @@ function cumulativeXpForTier(T: number): number {
   return sum;
 }
 
-type XpTxType = 'match' | 'admin_grant' | 'tier_bonus';
+type XpTxType = 'match' | 'admin_grant' | 'tier_bonus' | 'quest';
 
 interface XpTxEntry {
   type: XpTxType;
@@ -11899,6 +11967,7 @@ app.get('/quests', async (c) => {
     return {
       id: q.id,
       reward: q.reward,
+      xpReward: q.xpReward,
       target: q.target,
       progress: Math.min(progress, q.target),
       claimed: isClaimed,
@@ -11941,10 +12010,17 @@ app.post('/quests/:id/claim', async (c) => {
       refId: quest.id,
       meta: { questId: quest.id, metric: quest.metric },
     });
-    return { coins: coins ?? 0 };
+    // Gros gain d'XP en plus des coins — les quêtes hebdo font grimper le passe
+    // plus vite qu'un match. Journalisé en 'quest'.
+    const xp = await grantXpTx(tx, me, quest.xpReward, {
+      type: 'quest',
+      refId: quest.id,
+      meta: { questId: quest.id, metric: quest.metric },
+    });
+    return { coins: coins ?? 0, xp: xp ?? 0 };
   });
   emit([me], { type: 'panel:update', payload: {} });
-  return c.json({ id: quest.id, reward: quest.reward, coins: result.coins });
+  return c.json({ id: quest.id, reward: quest.reward, xpReward: quest.xpReward, coins: result.coins, xp: result.xp });
 });
 
 // ─── Endpoints : paris (volet C) ─────────────────────────────────────────────
@@ -12325,6 +12401,49 @@ app.post('/bets/match', async (c) => {
   emit([me], { type: 'panel:update', payload: {} });
   broadcast({ type: 'tournament:update', payload: {} });
   return c.json({ bet: result.bet, coins: result.balance }, 201);
+});
+
+// Prime « gambler » : montant fixe offert une seule fois par tournoi en cours.
+const GAMBLER_BONUS_COINS = 150;
+
+// POST /tournaments/:id/gambler-claim — réclame la prime « gambler » (150 coins),
+// offerte UNE FOIS par tournoi EN COURS pour encourager les paris. Idempotent :
+// TournamentGamblerClaim a une PK composite (user, tournoi) → un 2e appel est
+// rejeté (409), et même une double-requête concurrente ne crédite jamais 2× (la
+// contrainte d'unicité fait échouer le create perdant → P2002 capté en 409).
+app.post('/tournaments/:id/gambler-claim', async (c) => {
+  const me = await getCurrentLogin(c);
+  const id = c.req.param('id');
+  try {
+    const balance = await prisma.$transaction(async (tx) => {
+      const tour = await tx.tournament.findUnique({ where: { id }, select: { status: true } });
+      if (!tour) throw new HTTPException(404, { message: 'tournoi introuvable' });
+      if (tour.status !== 'in_progress') {
+        throw new HTTPException(409, { message: 'la prime n’est offerte que pour un tournoi en cours' });
+      }
+      const already = await tx.tournamentGamblerClaim.findUnique({
+        where: { userLogin_tournamentId: { userLogin: me, tournamentId: id } },
+      });
+      if (already) throw new HTTPException(409, { message: 'prime déjà réclamée pour ce tournoi' });
+      // Le create AVANT le crédit : la PK garantit l'idempotence même en course.
+      await tx.tournamentGamblerClaim.create({ data: { userLogin: me, tournamentId: id } });
+      const next = await grantCoinsTx(tx, me, GAMBLER_BONUS_COINS, {
+        type: 'gambler_bonus',
+        refId: id,
+        meta: { tournamentId: id, amount: GAMBLER_BONUS_COINS },
+      });
+      if (next === null) throw new HTTPException(404, { message: 'utilisateur introuvable' });
+      return next;
+    });
+    emit([me], { type: 'panel:update', payload: {} });
+    return c.json({ ok: true, coins: balance, granted: GAMBLER_BONUS_COINS }, 201);
+  } catch (e) {
+    // P2002 = violation d'unicité (PK composite) → claim concurrent perdant.
+    if (e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'P2002') {
+      throw new HTTPException(409, { message: 'prime déjà réclamée pour ce tournoi' });
+    }
+    throw e;
+  }
 });
 
 // POST /admin/shop/grant — crédite (ou débite) des League Coins à un joueur.
