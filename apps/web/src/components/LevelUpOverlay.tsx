@@ -1,6 +1,7 @@
 import { autoCinematicsEnabled } from '../lib/cinematics';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   clearLevelUp,
@@ -22,7 +23,9 @@ import { haptic } from '../mobile/feedback/useHaptic';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GOLD = '#ffc94a';
-const TOTAL_MS = 2200;
+// Assez long pour laisser le temps de repérer et cliquer le bouton « passe de
+// combat » — l'overlay reste fermable au clic sur le fond ou par le bouton.
+const TOTAL_MS = 4600;
 
 export function LevelUpOverlay() {
   const { me } = useLeagueData();
@@ -51,12 +54,20 @@ export function LevelUpOverlay() {
 
 function LevelUpScene({ levelUp }: { levelUp: LevelUp }) {
   const t = useT();
+  const navigate = useNavigate();
   const dismissed = useRef(false);
 
   function done() {
     if (dismissed.current) return;
     dismissed.current = true;
     clearLevelUp();
+  }
+
+  // Ferme l'overlay puis emmène vers la page du passe de combat.
+  function goToPass() {
+    haptic('light');
+    done();
+    navigate('/passe');
   }
 
   useEffect(() => {
@@ -144,6 +155,29 @@ function LevelUpScene({ levelUp }: { levelUp: LevelUp }) {
             </div>
           </div>
         </div>
+
+        {/* Raccourci vers le passe de combat — apparaît après le badge. */}
+        <motion.button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            goToPass();
+          }}
+          className="mt-7 rounded-full px-6 py-2.5 font-display text-[11px] font-black uppercase tracking-[0.22em] md:text-xs"
+          style={{
+            color: '#120c02',
+            background: `linear-gradient(180deg, #ffe9a8 0%, ${GOLD} 100%)`,
+            boxShadow: `0 6px 22px ${GOLD}66, inset 0 1px 0 #fff8`,
+            cursor: 'pointer',
+          }}
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.7, type: 'spring', stiffness: 220, damping: 20 }}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+        >
+          {t('battlepass.viewPass')}
+        </motion.button>
       </motion.div>
     </motion.div>,
     document.body,
