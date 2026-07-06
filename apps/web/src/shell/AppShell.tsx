@@ -9,6 +9,7 @@ import { GameOnboarding } from '../components/GameOnboarding';
 import { SeasonPalms } from '../components/SeasonPalms';
 
 const NotifBanner        = lazy(() => import('../components/NotifBanner').then(m => ({ default: m.NotifBanner })));
+const NewsTicker         = lazy(() => import('../components/NewsTicker').then(m => ({ default: m.NewsTicker })));
 const OpsRevealOverlay   = lazy(() => import('../components/OpsRevealOverlay').then(m => ({ default: m.OpsRevealOverlay })));
 const AnnouncementPopup  = lazy(() => import('../components/AnnouncementPopup').then(m => ({ default: m.AnnouncementPopup })));
 const BetLivePopup       = lazy(() => import('../components/BetLivePopup').then(m => ({ default: m.BetLivePopup })));
@@ -50,6 +51,8 @@ export function AppShell({ children }: AppShellProps) {
       <SeasonPalms />
       <Suspense>
         <NotifBanner />
+        {/* Bandeau de news défilant, en bas de l'écran sur toutes les pages */}
+        <NewsTicker />
         <OpsRevealOverlay />
       </Suspense>
       <GameModeSwitch />
