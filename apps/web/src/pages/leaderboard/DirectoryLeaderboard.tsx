@@ -7,6 +7,8 @@ import {
   Flame,
   Trophy,
   Crown,
+  LayoutGrid,
+  Rows3,
 } from 'lucide-react';
 import {
   rankTierForRank,
@@ -47,8 +49,19 @@ interface Row {
 
 // ─── Regroupement par section ────────────────────────────────────────────────
 type GroupBy = 'none' | 'campus' | 'tier' | 'activity' | 'trophies' | 'alpha';
-type SortKey = 'elo' | 'winRate' | 'games' | 'trophies' | 'wins' | 'level' | 'alpha';
+type SortKey =
+  | 'elo'
+  | 'winRate'
+  | 'games'
+  | 'trophies'
+  | 'wins'
+  | 'losses'
+  | 'level'
+  | 'campus'
+  | 'name'
+  | 'alpha';
 type SortDir = 'asc' | 'desc';
+type Layout = 'grid' | 'list';
 
 // Ordre d'affichage des paliers (haut → bas) pour le regroupement par grade.
 const TIER_ORDER: RankTierKey[] = ['grandmaster', 'diamant', 'or', 'argent', 'bronze', 'etain'];
@@ -95,8 +108,28 @@ const EMPTY_FILTERS: Filters = {
  * trophées, initiale). Partagé par les vues desktop et mobile.
  */
 export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
-  const { leaderboard, matches: allMatches, activeSeasonId } = useLeagueData();
+  const { leaderboard: rankedBoard, matches: allMatches, activeSeasonId } = useLeagueData();
   const { game } = useGameMode();
+
+  // Roster COMPLET (tous les inscrits visibles, même à 0 partie / hors discipline) :
+  // le classement `rankedBoard` de useLeagueData est filtré au mode + parties jouées,
+  // donc il masque les simples inscrits. On charge donc ici l'annuaire dédié
+  // (/leaderboard?scope=all) — c'est LUI qui doit tout montrer. Repli sur le classement
+  // classé tant que l'annuaire n'est pas revenu (jamais vide au premier rendu).
+  const [roster, setRoster] = useState<LeaderboardEntry[]>([]);
+  useEffect(() => {
+    let alive = true;
+    api
+      .directory(game)
+      .then((rows) => {
+        if (alive) setRoster(rows);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [game]);
+  const leaderboard = roster.length > 0 ? roster : rankedBoard;
 
   // Stats du jeu courant, cloisonnées à la saison active (comme le classement).
   const gameMatches = useMemo(() => {
@@ -192,6 +225,7 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
   const [sortKey, setSortKey] = useState<SortKey>('elo');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [layout, setLayout] = useState<Layout>('grid');
 
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) =>
     setFilters((f) => ({ ...f, [k]: v }));
@@ -241,9 +275,21 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
         case 'winRate': c = a.winRate - b.winRate; break;
         case 'games': c = a.games - b.games; break;
         case 'wins': c = a.wins - b.wins; break;
+        case 'losses': c = a.losses - b.losses; break;
         case 'trophies': c = a.trophies - b.trophies; break;
         case 'level': c = (a.level ?? -1) - (b.level ?? -1); break;
-        case 'alpha': c = a.entry.login.localeCompare(b.entry.login); break;
+        // Campus / nom / login : tri texte croissant « naturel » — on inverse le
+        // signe pour que dir=desc (défaut) reste A→Z (l'utilisateur attend A→Z).
+        case 'campus':
+          c = -(a.entry.campus ?? '￿').localeCompare(b.entry.campus ?? '￿');
+          break;
+        case 'name': {
+          const an = `${a.entry.lastName ?? ''} ${a.entry.firstName ?? ''}`.trim() || a.entry.login;
+          const bn = `${b.entry.lastName ?? ''} ${b.entry.firstName ?? ''}`.trim() || b.entry.login;
+          c = -an.localeCompare(bn);
+          break;
+        }
+        case 'alpha': c = -a.entry.login.localeCompare(b.entry.login); break;
       }
       if (c === 0) c = a.entry.elo - b.entry.elo;
       return c * dir;
@@ -310,8 +356,9 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
   return (
     <div className="space-y-3">
       <p className="text-[11px] text-muted-2/90 leading-snug">
-        Tous les joueurs inscrits — filtre par campus, palier, trophées, activité…
-        et regroupe-les par section. Stats du jeu courant, saison en cours.
+        Tous les inscrits, tous campus et disciplines confondus — même ceux qui n'ont
+        jamais joué. Filtre, trie, regroupe par section, et bascule entre grille (côte
+        à côte) et liste. Stats du jeu courant, saison en cours.
       </p>
 
       {/* ── Barre : recherche + section + tri ─────────────────────────────── */}
@@ -350,9 +397,12 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
           <option value="winRate">Tri : win rate</option>
           <option value="games">Tri : parties</option>
           <option value="wins">Tri : victoires</option>
+          <option value="losses">Tri : défaites</option>
           <option value="trophies">Tri : trophées</option>
           <option value="level">Tri : niveau</option>
-          <option value="alpha">Tri : A–Z</option>
+          <option value="campus">Tri : campus</option>
+          <option value="name">Tri : nom</option>
+          <option value="alpha">Tri : login A–Z</option>
         </Select>
 
         <button
@@ -363,6 +413,18 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
         >
           <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={2.4} />
           {sortDir === 'asc' ? 'ASC' : 'DESC'}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setLayout((l) => (l === 'grid' ? 'list' : 'grid'))}
+          title={layout === 'grid' ? 'Vue grille — joueurs côte à côte' : 'Vue liste — une ligne par joueur'}
+          aria-label="Changer de disposition"
+          className="h-9 px-2.5 inline-flex items-center gap-1 rounded-lg border border-border bg-bg-1 text-xs font-bold text-muted-2 hover:text-gold hover:border-gold/40 transition-colors"
+        >
+          {layout === 'grid'
+            ? <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2.4} />
+            : <Rows3 className="w-3.5 h-3.5" strokeWidth={2.4} />}
         </button>
 
         <button
@@ -500,11 +562,21 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
                   </span>
                 </div>
               )}
-              <div className="space-y-1.5">
-                {section.rows.map((r) => (
-                  <DirectoryRow key={r.entry.login} row={r} isMe={r.entry.login === myLogin} />
-                ))}
-              </div>
+              {layout === 'grid' ? (
+                // Grille : joueurs côte à côte (2–3 par rangée sur desktop) pour en
+                // voir un maximum d'un coup d'œil. Carte compacte adaptée à la largeur.
+                <div className="grid gap-1.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                  {section.rows.map((r) => (
+                    <DirectoryCard key={r.entry.login} row={r} isMe={r.entry.login === myLogin} />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {section.rows.map((r) => (
+                    <DirectoryRow key={r.entry.login} row={r} isMe={r.entry.login === myLogin} />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -593,6 +665,89 @@ function DirectoryRow({ row, isMe }: { row: Row; isMe: boolean }) {
         <RankBadge elo={entry.elo} rank={entry.rank} size="xs" showLabel={false} />
         {entry.elo}
       </span>
+    </div>
+  );
+}
+
+// ─── Carte joueur compacte (vue grille, côte à côte) ──────────────────────────
+// Même info que la ligne, condensée sur ~1/3 de largeur : entête (avatar + login +
+// campus/titre) puis pied (ELO + parties/WR + trophées) et une fine barre V/D.
+function DirectoryCard({ row, isMe }: { row: Row; isMe: boolean }) {
+  const { entry } = row;
+  return (
+    <div
+      className={`flex flex-col gap-1.5 px-2.5 py-2 rounded-xl border transition-colors ${
+        isMe
+          ? 'border-gold/50 bg-gold/[0.08]'
+          : 'border-border/60 bg-bg-1/50 hover:bg-bg-2/60'
+      }`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="relative shrink-0">
+          <Avatar login={entry.login} imageUrl={entry.imageUrl} size="sm" />
+          {row.onFire && (
+            <Flame
+              className="absolute -top-1 -right-1 w-3.5 h-3.5 text-[#ff8c3a]"
+              strokeWidth={2.5}
+              fill="currentColor"
+            />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <PlayerLink login={entry.login} className={`text-sm font-bold truncate ${isMe ? 'text-gold' : 'text-text-strong'}`}>
+              {entry.login}
+            </PlayerLink>
+            {row.goat && <BadgeChip code="goat" size="xs" iconOnly />}
+            {row.champion && (
+              <span title="A remporté un tournoi" className="text-[#c084fc] shrink-0">
+                <Trophy className="w-3 h-3" strokeWidth={2.5} />
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            {entry.campus && (
+              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-2 truncate max-w-[80px]">
+                {entry.campus}
+              </span>
+            )}
+            {entry.title && (
+              <span
+                className={`text-[10px] italic truncate ${entry.titleColor === 'rainbow' ? 'title-rainbow' : ''}`}
+                style={entry.titleColor === 'rainbow' ? undefined : { color: entry.titleColor ?? '#ffc94a' }}
+              >
+                « {entry.title} »
+              </span>
+            )}
+          </div>
+        </div>
+
+        <span className="shrink-0 inline-flex items-center gap-1 font-display font-extrabold tabular-nums text-sm text-gold">
+          <RankBadge elo={entry.elo} rank={entry.rank} size="xs" showLabel={false} />
+          {entry.elo}
+        </span>
+      </div>
+
+      {/* Pied : parties · WR · trophées, puis fine barre V/D (si a joué) */}
+      <div className="flex items-center gap-2 text-[10px] text-muted-2 tabular-nums">
+        {row.games > 0 ? (
+          <>
+            <span title="Parties · win rate">{row.games} pt · {row.winRate}%</span>
+            <div className="flex-1 min-w-0" title={`${row.wins}V · ${row.losses}D`}>
+              <WinRateBar wins={row.wins} losses={row.losses} />
+            </div>
+          </>
+        ) : (
+          <span className="flex-1 uppercase tracking-wide text-muted/50">Non classé</span>
+        )}
+        {row.trophies > 0 && (
+          <span className="inline-flex items-center gap-0.5 shrink-0 font-bold text-gold" title={`${row.trophies} trophée(s)`}>
+            <Trophy className="w-3 h-3" strokeWidth={2.4} />
+            {row.trophies}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

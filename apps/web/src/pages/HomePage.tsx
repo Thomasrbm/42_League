@@ -19,6 +19,7 @@ import {
   ChevronsUp,
   Target,
   Coins,
+  Clock,
   type LucideIcon,
 } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
@@ -45,6 +46,13 @@ const UPSET_DELTA = 20;
 // Vitrine statique des dernières features (pas d'API) : à mettre à jour à la
 // main quand une nouveauté sort. App interne francophone → FR en dur assumé.
 const WHATS_NEW: { to: string; Icon: LucideIcon; color: string; title: string; desc: string }[] = [
+  {
+    to: '/challenges',
+    Icon: Clock,
+    color: '#2cc3ff',
+    title: 'Cooldown 48h',
+    desc: 'Tes défis en attente s’auto-valident passé 48h — fini les défis fantômes qui traînent.',
+  },
   {
     to: '/shop/propose',
     Icon: Sparkles,

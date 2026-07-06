@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Lock, Zap } from 'lucide-react';
-import { api } from '../lib/api';
+import { Lock, Zap, Ban, HelpCircle } from 'lucide-react';
+import { api, type TauntEmotesData } from '../lib/api';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { useFlash } from '../hooks/useFlash';
 import { useT } from '../lib/i18n';
@@ -20,16 +20,27 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
   const { me, refresh } = useLeagueData();
 
   const level = me?.level ?? 1;
+  // localEmote : null = pas encore touché ; '' = « aucune » choisie ; sinon l'émote.
   const [localEmote, setLocalEmote] = useState<string | null>(null);
   // Émote dont on joue l'aperçu animé (déclenché à la sélection).
   const [preview, setPreview] = useState<string | null>(null);
   const current = localEmote ?? me?.user?.tauntEmote ?? TAUNT_EMOTES[0];
+  const noneSelected = current === '';
+
+  // Émotes SECRÈTES (easter eggs) — état de déblocage calculé serveur. La condition
+  // reste cachée tant que verrouillée : tuile « ? », emoji non révélé.
+  const [eggs, setEggs] = useState<TauntEmotesData['eggs']>([]);
+  useEffect(() => {
+    let alive = true;
+    api.tauntEmotes().then((d) => { if (alive) setEggs(d.eggs); }).catch(() => {});
+    return () => { alive = false; };
+  }, [me?.user?.tauntEmote]);
 
   async function save(emote: string) {
     setLocalEmote(emote);
-    // Rejoue l'aperçu même si on re-sélectionne la même émote.
+    // Rejoue l'aperçu même si on re-sélectionne la même émote — sauf « aucune ».
     setPreview(null);
-    requestAnimationFrame(() => setPreview(emote));
+    if (emote) requestAnimationFrame(() => setPreview(emote));
     try {
       await api.setTauntEmote(emote);
       flash.show(t('settings.tauntEmote.saved'));
@@ -43,7 +54,23 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
   return (
     <div>
       <TauntEmotePreview emote={preview} onDone={() => setPreview(null)} />
-      <div className={`grid ${compact ? 'grid-cols-5' : 'grid-cols-5 sm:grid-cols-10'} gap-2`}>
+      {/* Liste scrollable : borne la hauteur pour rester compacte même avec beaucoup d'émotes. */}
+      <div className={`grid ${compact ? 'grid-cols-5' : 'grid-cols-5 sm:grid-cols-10'} gap-2 max-h-56 overflow-y-auto pr-1`}>
+        {/* « Aucune » — le joueur ne nargue pas quand il gagne. */}
+        <button
+          type="button"
+          onClick={() => save('')}
+          aria-pressed={noneSelected}
+          title="Ne rien montrer quand tu gagnes"
+          className={`relative aspect-square rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all ${
+            noneSelected
+              ? 'border-gold bg-gold/15 shadow-gold-glow scale-105'
+              : 'border-border bg-bg-1/70 hover:border-gold/50 hover:bg-bg-2'
+          }`}
+        >
+          <Ban className="w-5 h-5 text-muted-2" strokeWidth={2.2} />
+          <span className="text-[8px] font-extrabold uppercase tracking-wide text-muted-2">Aucune</span>
+        </button>
         {TAUNT_EMOTES.map((e) => {
           const required = tauntEmoteUnlockLevel(e);
           const unlocked = level >= required;
@@ -74,6 +101,34 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
             </button>
           );
         })}
+        {/* Émotes SECRÈTES : verrouillées = « ? » (ni emoji ni condition révélés) ;
+            débloquées = emoji sélectionnable, avec le haut-fait en info-bulle. */}
+        {eggs.map((egg) => {
+          const selected = egg.unlocked && current === egg.emote;
+          return (
+            <button
+              key={egg.id}
+              type="button"
+              disabled={!egg.unlocked}
+              onClick={() => egg.unlocked && egg.emote && save(egg.emote)}
+              title={egg.unlocked ? `Émote secrète débloquée — ${egg.hint ?? ''}` : 'Émote secrète — à toi de trouver comment la débloquer'}
+              aria-pressed={selected}
+              className={`relative aspect-square rounded-xl border text-2xl flex items-center justify-center transition-all ${
+                selected
+                  ? 'border-gold bg-gold/15 shadow-gold-glow scale-105'
+                  : egg.unlocked
+                    ? 'border-violet-400/60 bg-violet-500/10 hover:border-violet-300 hover:bg-violet-500/20'
+                    : 'border-border/50 bg-bg-0/60 cursor-not-allowed'
+              }`}
+            >
+              {egg.unlocked ? (
+                <span>{egg.emote}</span>
+              ) : (
+                <HelpCircle className="w-6 h-6 text-muted-2/70" strokeWidth={2.2} />
+              )}
+            </button>
+          );
+        })}
       </div>
       <p className="mt-2 text-[11px] text-muted-2 leading-snug flex items-center gap-1.5 flex-wrap">
         <Zap className="w-3 h-3 text-gold shrink-0" strokeWidth={2.4} />
@@ -85,6 +140,12 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
           (une tous les 7 niveaux). Tu es niveau <span className="font-bold text-text">{level}</span>.
         </span>
       </p>
+      {eggs.some((e) => !e.unlocked) && (
+        <p className="mt-1 text-[11px] text-violet-300/80 leading-snug flex items-center gap-1.5">
+          <HelpCircle className="w-3 h-3 shrink-0" strokeWidth={2.4} />
+          <span>Des émotes <span className="font-bold">secrètes</span> se débloquent en jouant… à toi de trouver comment.</span>
+        </p>
+      )}
     </div>
   );
 }

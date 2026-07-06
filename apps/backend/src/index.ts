@@ -20,6 +20,7 @@ import {
   cashPrizeForRounds,
   tournamentPlacements,
   tournamentEloForPlacement,
+  tournamentXpLevelsForPlacement,
   DEFAULT_BET_FINAL_MULT,
   BET_FINAL_MULT_MIN,
   BET_FINAL_MULT_MAX,
@@ -61,6 +62,7 @@ import {
   OPS_REFUSE_MULTIPLIER,
   seasonResetElo,
   rankTierForRank,
+  ELO_HARD_FLOOR,
   GRANDMASTER_MIN_ELO,
   ownedTitles,
   computeGoat,
@@ -1170,13 +1172,28 @@ interface EquippedCosmetics {
   equippedAvatarFrameAnimated: string | null;
   // Autocollant collé dans un coin vide de la carte profil (image transparente).
   equippedSticker: string | null;
+  // Émote de victoire équipée (narguage) : emoji + punchline montrés au perdant.
+  equippedWinEmote: { emoji: string; phrase: string } | null;
+}
+/** Lit l'émote de victoire ÉQUIPÉE d'un joueur (perso via userPayload prioritaire
+ *  sur le catalogue). Null si aucun win_emote équipé → repli sur users.taunt_emote. */
+function winEmoteFromRow(
+  itemPayload: unknown,
+  userPayload: unknown,
+): { emoji: string; phrase: string } | null {
+  const cat = itemPayload && typeof itemPayload === 'object' && !Array.isArray(itemPayload) ? (itemPayload as Record<string, unknown>) : {};
+  const up = userPayload && typeof userPayload === 'object' && !Array.isArray(userPayload) ? (userPayload as Record<string, unknown>) : {};
+  const emoji = (typeof up.emoji === 'string' && up.emoji.trim()) || (typeof cat.emoji === 'string' && cat.emoji.trim()) || '';
+  const phrase = (typeof up.phrase === 'string' && up.phrase.trim()) || (typeof cat.phrase === 'string' && cat.phrase.trim()) || '';
+  if (!emoji) return null;
+  return { emoji, phrase };
 }
 async function equippedCosmetics(login: string): Promise<EquippedCosmetics> {
   const rows = await prisma.shopInventory.findMany({
-    where: { userLogin: login, equipped: true, item: { category: { in: ['title', 'badge', 'banner', 'avatar_frame', 'sticker'] } } },
+    where: { userLogin: login, equipped: true, item: { category: { in: ['title', 'badge', 'banner', 'avatar_frame', 'sticker', 'win_emote'] } } },
     include: { item: true },
   });
-  const out: EquippedCosmetics = { titleColor: null, equippedBadge: null, equippedBanner: null, equippedAvatarFrame: null, equippedAvatarFrameAnimated: null, equippedSticker: null };
+  const out: EquippedCosmetics = { titleColor: null, equippedBadge: null, equippedBanner: null, equippedAvatarFrame: null, equippedAvatarFrameAnimated: null, equippedSticker: null, equippedWinEmote: null };
   for (const r of rows) {
     const it = r.item;
     const payload =
@@ -1217,6 +1234,10 @@ async function equippedCosmetics(login: string): Promise<EquippedCosmetics> {
     } else if (it.category === 'sticker') {
       // Autocollant profil : image du catalogue (pas de perso joueur, pas d'animée).
       out.equippedSticker = typeof payload.image === 'string' ? payload.image : null;
+    } else if (it.category === 'win_emote') {
+      // Émote de victoire : emoji + punchline du joueur (userPayload) prioritaires
+      // sur le catalogue pour l'objet « custom ».
+      out.equippedWinEmote = winEmoteFromRow(it.payload, r.userPayload);
     }
   }
   return out;
@@ -1263,6 +1284,7 @@ app.get('/me', async (c) => {
     equippedAvatarFrame: cosmetics.equippedAvatarFrame,
     equippedAvatarFrameAnimated: cosmetics.equippedAvatarFrameAnimated,
     equippedSticker: cosmetics.equippedSticker,
+    equippedWinEmote: cosmetics.equippedWinEmote,
     // Solde « League Coin » du joueur (porte-monnaie boutique).
     coins: user?.leagueCoins ?? 0,
     // XP & passe de combat : total à vie + niveau/progression dérivés (autorité serveur).
@@ -1737,6 +1759,7 @@ app.get('/users/:login', async (c) => {
     equippedAvatarFrame: cosmetics.equippedAvatarFrame,
     equippedAvatarFrameAnimated: cosmetics.equippedAvatarFrameAnimated,
     equippedSticker: cosmetics.equippedSticker,
+    equippedWinEmote: cosmetics.equippedWinEmote,
     followingList: followingRows,
     followersList: followersRows,
     following: !!follow,
@@ -1759,10 +1782,15 @@ app.get('/leaderboard', async (c) => {
   // Classement par jeu : trie sur l'Elo de la discipline et expose ses compteurs
   // sous les mêmes clés (elo / matchesPlayed / tournamentsWon) pour un front unifié.
   const game = parseGame(c.req.query('game'));
-  // N'apparaissent au classement d'un mode que les joueurs qui y adhèrent (games)
-  // et qui ont disputé au moins un match (évite le vide entre 1001 et 999 ELO).
+  // `scope=all` → ANNUAIRE complet : TOUS les inscrits visibles, même ceux qui n'ont
+  // jamais joué ni rejoint la discipline (onglet « Tous », qui doit voir les simples
+  // inscrits). Sinon → classement classé du mode : n'apparaissent que les joueurs qui
+  // y adhèrent (games) et qui ont disputé au moins un match (évite le vide 1001↔999).
+  const all = c.req.query('scope') === 'all';
   const users = await prisma.user.findMany({
-    where: { ...VISIBLE_USER_WHERE, games: { has: game }, ...playedFilter(game) },
+    where: all
+      ? { ...VISIBLE_USER_WHERE }
+      : { ...VISIBLE_USER_WHERE, games: { has: game }, ...playedFilter(game) },
     orderBy: eloOrderBy(game),
     take: MAX_PUBLIC_LIST,
   });
@@ -3074,7 +3102,7 @@ async function settle2v2PendingAsPlayed(tx: Prisma.TransactionClient, p: Pending
       p.declaredAt,
       { coinFactor: decayFactor, countForQuests: decayFactor >= 1 },
     );
-    // XP + paliers du passe (2v2 : pas d'écart pairwise, gagnants 100 / autres 50).
+    // XP + paliers du passe (2v2 : pas d'écart pairwise, gagnants 100 / autres 70).
     await awardMatchExperienceTx(
       tx,
       'babyfoot',
@@ -3689,7 +3717,7 @@ async function settleFfaAsPlayed(tx: Prisma.TransactionClient, p: PendingFfaForS
     ordered.map((pp) => ({ login: pp.login, won: pp.position === 1 })),
     p.declaredAt,
   );
-  // XP + paliers du passe — FFA : pas d'écart pairwise (1er = 100, autres 50).
+  // XP + paliers du passe — FFA : pas d'écart pairwise (1er = 100, autres 70).
   await awardMatchExperienceTx(
     tx,
     'smash',
@@ -4015,7 +4043,7 @@ async function settleDartsAsPlayed(tx: Prisma.TransactionClient, p: PendingDarts
     ordered.map((pp, i) => ({ login: pp.login, won: i === 0 })),
     p.declaredAt,
   );
-  // XP + paliers du passe — FFA fléchettes : pas d'écart pairwise (1er = 100, autres 50).
+  // XP + paliers du passe — FFA fléchettes : pas d'écart pairwise (1er = 100, autres 70).
   await awardMatchExperienceTx(
     tx,
     'flechettes',
@@ -5473,6 +5501,52 @@ async function awardTournamentElo(
   }
 }
 
+/**
+ * Gros buff d'XP de passe de combat par PLACEMENT final (mirroir de
+ * awardTournamentElo). Officiel → 1er +6 niveaux (dégressif jusqu'au 4e) ; amical
+ * → 1er +2 niveaux. L'XP réelle est calculée depuis le niveau COURANT de chaque
+ * joueur pour garantir le nombre de niveaux promis (cf. xpToAdvanceLevels), et les
+ * paliers franchis sont signalés (le joueur les réclamera lui-même).
+ */
+async function awardTournamentXp(
+  tx: Prisma.TransactionClient,
+  id: string,
+  official: boolean,
+): Promise<void> {
+  const bracket = await tx.tournamentMatch.findMany({
+    where: { tournamentId: id, stage: 'bracket' },
+    select: { round: true, playerALogin: true, playerBLogin: true, winnerLogin: true },
+  });
+  const placements = tournamentPlacements(bracket);
+  for (let i = 0; i < placements.length; i++) {
+    const captain = placements[i];
+    if (!captain) continue;
+    const levels = tournamentXpLevelsForPlacement(i + 1, official);
+    if (levels <= 0) continue;
+    const entry = await tx.tournamentEntry.findUnique({
+      where: { tournamentId_login: { tournamentId: id, login: captain } },
+      select: { partnerLogin: true },
+    });
+    const members = entry?.partnerLogin ? [captain, entry.partnerLogin] : [captain];
+    for (const login of members) {
+      const u = await tx.user.findUnique({ where: { login }, select: { xp: true } });
+      if (!u) continue;
+      const amount = xpToAdvanceLevels(levelFromXp(u.xp).level, levels);
+      if (amount <= 0) continue;
+      const next = await grantXpTx(tx, login, amount, {
+        type: 'tournament',
+        refId: id,
+        meta: { placement: i + 1, official, levels },
+      });
+      if (next != null) {
+        const prevLevel = levelFromXp(next - amount).level;
+        const newLevel = levelFromXp(next).level;
+        await notifyBattlePassTiersTx(tx, login, prevLevel, newLevel);
+      }
+    }
+  }
+}
+
 async function settleConfirmedTournamentMatch(
   tx: Prisma.TransactionClient,
   id: string,
@@ -5609,6 +5683,9 @@ async function settleConfirmedTournamentMatch(
     // Bonus d'Elo de fin de tournoi PAR PLACEMENT (1er +100, 2e +75, 3e +50,
     // 4e +25 — chaque membre en 2v2). Indépendant des coins/cosmétiques.
     await awardTournamentElo(tx, id, parseGameId(tour.game));
+    // Gros buff d'XP de passe par placement — beaucoup plus généreux en officiel
+    // (1er +6 niveaux) qu'en amical (1er +2 niveaux), dégressif jusqu'au 4e.
+    await awardTournamentXp(tx, id, tour.kind === 'official');
     // Membres de l'équipe gagnante : capitaine seul (1v1) ou + coéquipier (2v2).
     const winEntry = await tx.tournamentEntry.findUnique({
       where: { tournamentId_login: { tournamentId: id, login: winnerLogin } },
@@ -9794,7 +9871,7 @@ const CustomTitleChoiceSchema = z.object({
 async function submitCosmeticCustomization(
   login: string,
   itemId: string,
-  category: 'banner' | 'title',
+  category: 'banner' | 'title' | 'win_emote',
   payload: Record<string, unknown>,
 ) {
   const entry = await prisma.shopInventory.findUnique({
@@ -9802,8 +9879,9 @@ async function submitCosmeticCustomization(
     include: { item: true },
   });
   if (!entry) throw new HTTPException(404, { message: 'Item non trouvé dans ton inventaire' });
+  const CATEGORY_LABEL_FR = { banner: 'une bannière', title: 'un titre', win_emote: 'une émote de victoire' } as const;
   if (entry.item.category !== category)
-    throw new HTTPException(400, { message: `Cet item n'est pas ${category === 'banner' ? 'une bannière' : 'un titre'}` });
+    throw new HTTPException(400, { message: `Cet item n'est pas ${CATEGORY_LABEL_FR[category]}` });
   const itemPayload =
     entry.item.payload && typeof entry.item.payload === 'object' && !Array.isArray(entry.item.payload)
       ? (entry.item.payload as Record<string, unknown>)
@@ -9854,6 +9932,31 @@ app.post('/me/inventory/:id/title-choice', async (c) => {
     await submitCosmeticCustomization(login, itemId, 'title', {
       title: parsed.data.title,
       color: parsed.data.color ?? null,
+    }),
+  );
+});
+
+// POST /me/inventory/:id/win-emote — soumet l'emoji + la punchline d'une émote de
+// victoire personnalisée (objet win_emote « custom »). Validé par un admin.
+const CustomWinEmoteSchema = z.object({
+  emoji: z
+    .string()
+    .trim()
+    .min(1, 'emoji requis')
+    .refine((s) => [...s].length <= 4, 'un seul emoji'),
+  phrase: z.string().trim().min(1, 'punchline requise').max(80, 'punchline trop longue (max 80)'),
+});
+app.post('/me/inventory/:id/win-emote', async (c) => {
+  const login = await getCurrentLogin(c);
+  await getOrCreateUser(login);
+  const itemId = c.req.param('id');
+  const body = await c.req.json().catch(() => null);
+  const parsed = CustomWinEmoteSchema.safeParse(body);
+  if (!parsed.success) throw new HTTPException(400, { message: parsed.error.issues[0]?.message ?? 'émote invalide' });
+  return c.json(
+    await submitCosmeticCustomization(login, itemId, 'win_emote', {
+      emoji: parsed.data.emoji,
+      phrase: parsed.data.phrase,
     }),
   );
 });
@@ -10549,7 +10652,7 @@ const ShopItemUpdateSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
     description: z.string().nullish(),
-    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame', 'sticker']).optional(),
+    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame', 'sticker', 'win_emote']).optional(),
     color: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
@@ -10604,6 +10707,19 @@ const ShopItemUpdateSchema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'sticker : image (data-URL) requise' });
       } else if (img.length > MAX_BANNER_DATAURL_LEN) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'sticker trop lourd (max ~700 Ko)' });
+      }
+    }
+    if (d.category === 'win_emote') {
+      const allowUpload = d.payload.allowUpload === true;
+      if (!allowUpload) {
+        const emoji = typeof d.payload.emoji === 'string' ? d.payload.emoji.trim() : '';
+        const phrase = typeof d.payload.phrase === 'string' ? d.payload.phrase.trim() : '';
+        if (!emoji || [...emoji].length > 4) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'émote de victoire : un emoji requis' });
+        }
+        if (!phrase || phrase.length > 80) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'émote de victoire : une punchline (max 80) requise' });
+        }
       }
     }
   });
@@ -10731,7 +10847,7 @@ app.delete('/admin/shop/items/:id', async (c) => {
 const PROPOSAL_MAX_DATAURL_LEN = 800_000;
 const ShopProposalCreateSchema = z
   .object({
-    category: z.enum(['title', 'banner']),
+    category: z.enum(['title', 'banner', 'win_emote']),
     name: z.string().trim().min(1).max(80),
     color: z
       .string()
@@ -10756,6 +10872,16 @@ const ShopProposalCreateSchema = z
       const title = typeof d.payload.title === 'string' ? d.payload.title.trim() : '';
       if (!title) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'titre : texte requis' });
+      }
+    }
+    if (d.category === 'win_emote') {
+      const emoji = typeof d.payload.emoji === 'string' ? d.payload.emoji.trim() : '';
+      const phrase = typeof d.payload.phrase === 'string' ? d.payload.phrase.trim() : '';
+      if (!emoji || [...emoji].length > 4) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'émote de victoire : un emoji requis' });
+      }
+      if (!phrase || phrase.length > 80) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'émote de victoire : une punchline (max 80) requise' });
       }
     }
   });
@@ -11147,17 +11273,82 @@ function tauntEmoteUnlockLevel(emote: string): number {
   return (idx - FREE_TAUNT_EMOTES + 1) * TAUNT_EMOTE_LEVEL_STEP;
 }
 
+// ─── Émotes SECRÈTES (easter eggs) ────────────────────────────────────────────
+// Émotes de victoire cachées, débloquées par des HAUTS FAITS de jeu (jouer à tous
+// les modes, gagner des tournois, monter en grade, série d'assiduité…). Elles
+// n'apparaissent JAMAIS dans le passe et le front NE révèle NI l'emoji NI la
+// condition tant qu'elles sont verrouillées (tuile « ? »). Emojis distincts de
+// ceux du passe pour éviter les collisions.
+interface EggStats {
+  modesPlayed: number;      // nb de disciplines avec ≥1 match
+  totalMatches: number;     // matchs joués, tous modes
+  totalTournaments: number; // tournois gagnés, tous modes
+  maxElo: number;           // meilleur Elo toutes disciplines
+  level: number;            // niveau de passe
+  bestStreak: number;       // record de série d'assiduité
+}
+
+function computeEggStats(user: Parameters<typeof projectStats>[0] & { xp: number; rankedStreakBest: number }): EggStats {
+  let modesPlayed = 0;
+  let totalMatches = 0;
+  let totalTournaments = 0;
+  let maxElo = 0;
+  for (const g of GAME_IDS) {
+    const s = projectStats(user, g);
+    if (s.matchesPlayed > 0) modesPlayed++;
+    totalMatches += s.matchesPlayed;
+    totalTournaments += s.tournamentsWon;
+    if (s.elo > maxElo) maxElo = s.elo;
+  }
+  return {
+    modesPlayed,
+    totalMatches,
+    totalTournaments,
+    maxElo,
+    level: levelFromXp(user.xp).level,
+    bestStreak: user.rankedStreakBest ?? 0,
+  };
+}
+
+const EASTER_EGG_EMOTES: { id: string; emoji: string; hint: string; test: (s: EggStats) => boolean }[] = [
+  { id: 'egg_omnivore', emoji: '🌈', hint: 'Dispute au moins un match dans TOUTES les disciplines.', test: (s) => s.modesPlayed >= GAME_IDS.length },
+  { id: 'egg_tripler', emoji: '🎲', hint: 'Joue à au moins 3 disciplines différentes.', test: (s) => s.modesPlayed >= 3 },
+  { id: 'egg_cup3', emoji: '🥉', hint: 'Gagne 3 tournois.', test: (s) => s.totalTournaments >= 3 },
+  { id: 'egg_cup5', emoji: '🥈', hint: 'Gagne 5 tournois.', test: (s) => s.totalTournaments >= 5 },
+  { id: 'egg_cup10', emoji: '🥇', hint: 'Gagne 10 tournois.', test: (s) => s.totalTournaments >= 10 },
+  { id: 'egg_diamond', emoji: '💎', hint: 'Atteins le grade Diamant (Elo 1200) dans une discipline.', test: (s) => s.maxElo >= 1200 },
+  { id: 'egg_streak7', emoji: '🧨', hint: 'Enchaîne 7 jours d’assiduité ranked.', test: (s) => s.bestStreak >= 7 },
+  { id: 'egg_streak30', emoji: '🌪️', hint: 'Enchaîne 30 jours d’assiduité ranked.', test: (s) => s.bestStreak >= 30 },
+  { id: 'egg_grind50', emoji: '🎖️', hint: 'Joue 50 matchs.', test: (s) => s.totalMatches >= 50 },
+  { id: 'egg_grind200', emoji: '🦖', hint: 'Joue 200 matchs.', test: (s) => s.totalMatches >= 200 },
+  { id: 'egg_prestige', emoji: '🚀', hint: 'Atteins le niveau 50 du passe.', test: (s) => s.level >= 50 },
+];
+
+/** Un emoji easter egg débloqué pour ce joueur ? (validation d'équipement). */
+function eggUnlockedFor(user: Parameters<typeof computeEggStats>[0], emoji: string): boolean {
+  const egg = EASTER_EGG_EMOTES.find((e) => e.emoji === emoji);
+  if (!egg) return false;
+  return egg.test(computeEggStats(user));
+}
+
 // GET /me/taunt-emotes — catalogue des émotes avec leur état de déblocage.
 app.get('/me/taunt-emotes', async (c) => {
   const login = await getCurrentLogin(c);
   const user = await getOrCreateUser(login);
   const level = levelFromXp(user.xp).level;
+  const stats = computeEggStats(user);
   return c.json({
     current: user.tauntEmote ?? DEFAULT_TAUNT_EMOTE,
     level,
     emotes: TAUNT_EMOTES.map((emote) => {
       const unlockLevel = tauntEmoteUnlockLevel(emote);
       return { emote, unlockLevel, unlocked: level >= unlockLevel };
+    }),
+    // Émotes secrètes : on NE renvoie l'emoji que si elle est débloquée (sinon
+    // null → tuile « ? » côté front). Le `hint` n'accompagne que le déblocage.
+    eggs: EASTER_EGG_EMOTES.map((e) => {
+      const unlocked = e.test(stats);
+      return { id: e.id, emote: unlocked ? e.emoji : null, unlocked, hint: unlocked ? e.hint : null };
     }),
   });
 });
@@ -11168,19 +11359,34 @@ app.put('/me/taunt-emote', async (c) => {
   const login = await getCurrentLogin(c);
   const user = await getOrCreateUser(login);
   const body = await c.req.json().catch(() => null);
-  const parsed = z.object({ emote: z.enum(TAUNT_EMOTES) }).safeParse(body);
+  const parsed = z.object({ emote: z.string() }).safeParse(body);
   if (!parsed.success) {
     throw new HTTPException(400, { message: 'émote invalide' });
   }
-  const required = tauntEmoteUnlockLevel(parsed.data.emote);
+  const emote = parsed.data.emote;
   const level = levelFromXp(user.xp).level;
-  if (level < required) {
-    throw new HTTPException(403, {
-      message: `émote verrouillée — atteins le niveau ${required} du passe pour l'équiper`,
-    });
+
+  // '' = « aucune émote » (ne pas narguer). Sinon : émote du passe (check niveau),
+  // ou émote secrète (check haut-fait débloqué). Tout le reste est refusé.
+  if (emote === '') {
+    // ok — désactivation explicite
+  } else if ((TAUNT_EMOTES as readonly string[]).includes(emote)) {
+    const required = tauntEmoteUnlockLevel(emote);
+    if (level < required) {
+      throw new HTTPException(403, {
+        message: `émote verrouillée — atteins le niveau ${required} du passe pour l'équiper`,
+      });
+    }
+  } else if (EASTER_EGG_EMOTES.some((e) => e.emoji === emote)) {
+    if (!eggUnlockedFor(user, emote)) {
+      throw new HTTPException(403, { message: 'émote secrète encore verrouillée' });
+    }
+  } else {
+    throw new HTTPException(400, { message: 'émote invalide' });
   }
-  await prisma.user.update({ where: { login }, data: { tauntEmote: parsed.data.emote } });
-  return c.json({ ok: true, emote: parsed.data.emote });
+
+  await prisma.user.update({ where: { login }, data: { tauntEmote: emote } });
+  return c.json({ ok: true, emote });
 });
 
 // GET /me/taunts/pending — narguages pas encore vus (max 3, plus ancien d'abord).
@@ -11193,20 +11399,31 @@ app.get('/me/taunts/pending', async (c) => {
     orderBy: { createdAt: 'asc' },
     take: 3,
     include: {
-      winner: { select: { login: true, firstName: true, lastName: true, imageUrl: true } },
+      winner: { select: { login: true, firstName: true, lastName: true, imageUrl: true, title: true } },
     },
   });
+  // Couleur du titre ÉQUIPÉ du vainqueur (cosmétique), pour l'afficher sous son nom
+  // dans l'animation. Une requête par vainqueur distinct (≤3), dédupliquée.
+  const winnerLogins = [...new Set(taunts.map((tn) => tn.winner.login))];
+  const titleColors = new Map(
+    await Promise.all(
+      winnerLogins.map(async (l) => [l, (await equippedCosmetics(l)).titleColor] as const),
+    ),
+  );
   return c.json(
     taunts.map((tn) => ({
       id: tn.id,
       game: tn.game,
       emote: tn.emote,
+      phrase: tn.phrase ?? null,
       createdAt: tn.createdAt.toISOString(),
       winner: {
         login: tn.winner.login,
         firstName: tn.winner.firstName,
         lastName: tn.winner.lastName,
         imageUrl: tn.winner.imageUrl,
+        title: tn.winner.title ?? null,
+        titleColor: titleColors.get(tn.winner.login) ?? null,
       },
     })),
   );
@@ -11385,10 +11602,13 @@ async function grantCoinsTx(
   login: string,
   amount: number,
   entry?: CoinTxEntry,
+  opts: { allowNegative?: boolean } = {},
 ): Promise<number | null> {
   const target = await tx.user.findUnique({ where: { login }, select: { leagueCoins: true } });
   if (!target) return null;
-  const next = Math.max(0, target.leagueCoins + amount);
+  // Par défaut le solde est borné à 0 (aucun débit ne peut le rendre négatif).
+  // `allowNegative` lève ce garde-fou (ex. malus de défaite qui PEUT passer négatif).
+  const next = opts.allowNegative ? target.leagueCoins + amount : Math.max(0, target.leagueCoins + amount);
   const delta = next - target.leagueCoins;
   await tx.user.update({ where: { login }, data: { leagueCoins: next } });
   if (entry) await logCoinTx(tx, login, delta, next, entry);
@@ -11464,10 +11684,11 @@ async function cleanupOrphanPrizeTx(
 // créditées/débitées via grantCoinsTx DANS une transaction (jamais de solde
 // négatif : grantCoinsTx borne à 0, et les débits vérifient le solde en amont).
 
-/** Prime de participation versée à chaque joueur d'un match classé. */
-const COINS_PER_MATCH_PLAYED = 20;
 /** Prime totale du vainqueur d'un match classé (remplace la participation). */
 const COINS_PER_MATCH_WON = 50;
+/** Malus de coins infligé au perdant d'un match classé (le solde PEUT devenir
+ *  négatif). Léger — mais chaque défaite coûte, contrairement à l'XP toujours créditée. */
+const COINS_PER_MATCH_LOST = 100;
 /** Cote fixe des paris : un pari gagnant rapporte 2× la mise (gain net = mise). */
 const BET_PAYOUT_MULTIPLIER = 2;
 /**
@@ -11632,13 +11853,23 @@ async function awardMatchEconomyTx(
   const countForQuests = opts.countForQuests ?? true;
   const weekKey = isoWeekKey(playedAt);
   for (const p of participants) {
-    const base = p.won ? COINS_PER_MATCH_WON : COINS_PER_MATCH_PLAYED;
-    const coins = Math.max(0, Math.round(base * coinFactor));
-    if (coins > 0)
-      await grantCoinsTx(tx, p.login, coins, {
-        type: 'match',
-        meta: { game, won: p.won },
-      });
+    if (p.won) {
+      // Victoire : prime (atténuée par la dégressivité anti-farm).
+      const coins = Math.max(0, Math.round(COINS_PER_MATCH_WON * coinFactor));
+      if (coins > 0)
+        await grantCoinsTx(tx, p.login, coins, { type: 'match', meta: { game, won: true } });
+    } else {
+      // Défaite : MALUS fixe de coins — le solde PEUT passer négatif (allowNegative).
+      // Non atténué par la dégressivité (une défaite reste une défaite ; on ne
+      // récompense plus la simple participation).
+      await grantCoinsTx(
+        tx,
+        p.login,
+        -COINS_PER_MATCH_LOST,
+        { type: 'match', meta: { game, won: false } },
+        { allowNegative: true },
+      );
+    }
     // Série d'assiduité ranked : avance le compteur (1×/jour) et verse le palier
     // atteint, le cas échéant. Indépendant des quêtes : on le fait même sur un
     // rematch dégressé (jouer compte pour l'assiduité), mais c'est idempotent dans
@@ -11740,7 +11971,27 @@ function cumulativeXpForTier(T: number): number {
   return sum;
 }
 
-type XpTxType = 'match' | 'admin_grant' | 'tier_bonus' | 'quest';
+/**
+ * XP nécessaire pour faire progresser un joueur de `levels` niveaux À PARTIR de
+ * son niveau courant (le coût d'un niveau croît, donc « 6 niveaux » ne vaut pas
+ * la même XP pour tout le monde). Supporte un nombre fractionnaire de niveaux :
+ * la partie entière additionne le coût de chaque niveau franchi, la fraction
+ * restante paie ce prorata du niveau suivant. Sert au buff XP de fin de tournoi.
+ */
+function xpToAdvanceLevels(currentLevel: number, levels: number): number {
+  let xp = 0;
+  let L = currentLevel;
+  let remaining = levels;
+  while (remaining >= 1) {
+    xp += xpForLevel(L);
+    L++;
+    remaining -= 1;
+  }
+  if (remaining > 0) xp += Math.round(xpForLevel(L) * remaining);
+  return xp;
+}
+
+type XpTxType = 'match' | 'admin_grant' | 'tier_bonus' | 'quest' | 'tournament';
 
 interface XpTxEntry {
   type: XpTxType;
@@ -11797,10 +12048,10 @@ async function grantXpTx(
  * Octroie l'XP de match à chaque participant (DANS la transaction de
  * settlement). À n'appeler que lorsque le match compte pour l'Elo, juste après
  * awardMatchEconomyTx. Barème (spec §2) :
- *  - base « a joué » : 50 ; bonus victoire : +50 (gagnant = 100 avant écart).
+ *  - victoire : 100 ; défaite : 70 (soit 70 % — on gagne TOUJOURS de l'XP, jamais rien).
  *  - 1v1 (scoreGap connu) : gagnant + min(max(gap,0),10)*5 ; perdant + (gap<=1?25:gap<=3?10:0).
- *  - match nul (échecs) : chacun 50 + 25, pas de bonus victoire.
- *  - FFA / 2v2 : pas de bonus d'écart (gagnant(s) 100, autres 50).
+ *  - match nul (échecs) : 85 chacun (entre défaite 70 et victoire 100).
+ *  - FFA / 2v2 : pas de bonus d'écart (gagnant(s) 100, autres 70).
  *  - Tout est ×decayFactor puis arrondi (Math.round). Mirroir de awardMatchEconomyTx.
  */
 async function awardMatchExperienceTx(
@@ -11815,10 +12066,12 @@ async function awardMatchExperienceTx(
   for (const p of participants) {
     let xp: number;
     if (isDraw) {
-      // Nulle : pas de bonus victoire, mais une prime « match serré » fixe.
-      xp = 50 + 25;
+      // Nulle : récompensée entre la défaite (70) et la victoire (100).
+      xp = 85;
     } else {
-      xp = 50 + (p.won ? 50 : 0);
+      // Victoire = 100 % · défaite = 70 %. Jamais rien : chaque match joué fait
+      // progresser le passe, même perdu.
+      xp = p.won ? 100 : 70;
       // Bonus d'écart 1v1 uniquement (scoreGap fourni seulement en 1v1).
       if (p.scoreGap != null) {
         const gap = p.scoreGap;
@@ -11851,18 +12104,34 @@ async function awardMatchExperienceTx(
     const winner = participants.find((p) => p.won);
     const loser = participants.find((p) => !p.won);
     if (winner && loser && winner.login !== loser.login) {
-      const w = await tx.user.findUnique({
-        where: { login: winner.login },
-        select: { tauntEmote: true },
+      // Émote de victoire ÉQUIPÉE (cosmétique win_emote) prioritaire sur l'émote
+      // de passe (users.taunt_emote). L'emoji + la punchline sont figés au match.
+      const wonRow = await tx.shopInventory.findFirst({
+        where: { userLogin: winner.login, equipped: true, item: { category: 'win_emote' } },
+        include: { item: true },
       });
-      await tx.emoteTaunt.create({
-        data: {
-          loserLogin: loser.login,
-          winnerLogin: winner.login,
-          game,
-          emote: w?.tauntEmote ?? DEFAULT_TAUNT_EMOTE,
-        },
-      });
+      const winEmote = wonRow ? winEmoteFromRow(wonRow.item.payload, wonRow.userPayload) : null;
+      let emote = winEmote?.emoji ?? null;
+      const phrase = winEmote?.phrase ?? null;
+      if (!emote) {
+        const w = await tx.user.findUnique({
+          where: { login: winner.login },
+          select: { tauntEmote: true },
+        });
+        // null = jamais choisi → émote par défaut ; '' = « aucune » explicite → pas de narguage.
+        emote = w?.tauntEmote === '' ? null : w?.tauntEmote ?? DEFAULT_TAUNT_EMOTE;
+      }
+      if (emote) {
+        await tx.emoteTaunt.create({
+          data: {
+            loserLogin: loser.login,
+            winnerLogin: winner.login,
+            game,
+            emote,
+            phrase: phrase && phrase.trim() ? phrase.trim() : null,
+          },
+        });
+      }
     }
   }
 }
@@ -13498,6 +13767,80 @@ if (process.env.NODE_ENV !== 'test') {
         }
       } catch (err) {
         console.error('failed to upsert v1.2 announcement', err);
+      }
+    })();
+    // Annonce PASSE DE COMBAT — idempotente (repérée par titre exact stable).
+    // Met en avant la refonte du passe + le nouveau barème d'XP (100 % en victoire,
+    // 70 % en défaite : on gagne toujours de l'XP). Fire-and-forget + try/catch.
+    void (async () => {
+      try {
+        const BP_TITLE = '⚔️ Passe de Combat — nouvelle saison';
+        const existing = await prisma.announcement.findFirst({ where: { title: BP_TITLE } });
+        if (!existing) {
+          await prisma.announcement.create({
+            data: {
+              title: BP_TITLE,
+              body:
+                '⚔️ Le Passe de Combat fait peau neuve ! Des récompenses réparties du palier 1 au 100 : ' +
+                'bannières (foot en tête), stickers de profil, émotes de victoire, consommables et League Coins ' +
+                '— du concret à décrocher régulièrement, tout du long.\n\n' +
+                '🔥 Et surtout : tu gagnes de l’XP à CHAQUE match. Victoire ou défaite, tu progresses toujours — ' +
+                '100 % d’XP en gagnant, 70 % en perdant. Fini les matchs pour rien : même battu, tu avances vers ' +
+                'le prochain palier. Alors joue, encore et encore… et récupère tes récompenses ! 🎁',
+              kind: 'event',
+              active: true,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('failed to upsert battle pass announcement', err);
+      }
+    })();
+    // Remontée au plancher ELO (975) : tout joueur sous 975 dans une discipline
+    // est ramené à 975 (nouveau minimum absolu). Idempotent (aucune ligne < 975
+    // après passage). Fire-and-forget + try/catch — ne bloque pas le boot.
+    void (async () => {
+      try {
+        const floor = ELO_HARD_FLOOR;
+        const results = await Promise.all([
+          prisma.user.updateMany({ where: { elo: { lt: floor } }, data: { elo: floor } }),
+          prisma.user.updateMany({ where: { eloBabyfoot2v2: { lt: floor } }, data: { eloBabyfoot2v2: floor } }),
+          prisma.user.updateMany({ where: { eloSmash: { lt: floor } }, data: { eloSmash: floor } }),
+          prisma.user.updateMany({ where: { eloChess: { lt: floor } }, data: { eloChess: floor } }),
+          prisma.user.updateMany({ where: { eloSf: { lt: floor } }, data: { eloSf: floor } }),
+          prisma.user.updateMany({ where: { eloFlechettes: { lt: floor } }, data: { eloFlechettes: floor } }),
+          prisma.user.updateMany({ where: { eloCoding: { lt: floor } }, data: { eloCoding: floor } }),
+          prisma.user.updateMany({ where: { eloPokemon: { lt: floor } }, data: { eloPokemon: floor } }),
+        ]);
+        const raised = results.reduce((s, r) => s + r.count, 0);
+        if (raised > 0) console.log(`ELO floor: ${raised} valeur(s) sous ${floor} remontée(s) à ${floor}`);
+      } catch (err) {
+        console.error('failed to raise sub-floor ELO', err);
+      }
+    })();
+    // Annonce PLANCHER ELO — idempotente (titre exact stable). Informe du nouveau
+    // minimum (975) + du malus de coins à la défaite. Fire-and-forget + try/catch.
+    void (async () => {
+      try {
+        const FLOOR_TITLE = '🛡️ Nouveau plancher : 975 ELO';
+        const existing = await prisma.announcement.findFirst({ where: { title: FLOOR_TITLE } });
+        if (!existing) {
+          await prisma.announcement.create({
+            data: {
+              title: FLOOR_TITLE,
+              body:
+                '🛡️ L’ELO ne descend plus JAMAIS sous 975 (grade Étain) : c’est le nouveau plancher absolu. ' +
+                'Tous les joueurs qui étaient en dessous ont été remontés à 975 — repartez du bon pied !\n\n' +
+                '⚠️ En contrepartie, chaque défaite classée coûte désormais 100 League Coins (ton solde peut ' +
+                'passer dans le rouge). L’XP, elle, reste toujours créditée — mais les coins, il faut les mériter. ' +
+                'Joue pour gagner ! 💰',
+              kind: 'event',
+              active: true,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('failed to upsert ELO floor announcement', err);
       }
     })();
     // Seed de données de test — staging uniquement, jamais en prod.

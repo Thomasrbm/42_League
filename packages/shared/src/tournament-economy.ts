@@ -126,6 +126,26 @@ export function tournamentEloForPlacement(rank: number): number {
   return TOURNAMENT_ELO_PLACEMENTS[rank - 1] ?? 0;
 }
 
+// ─── Gains d'XP (passe de combat) par PLACEMENT final ────────────────────────
+// Gros buff de fin de tournoi, exprimé en NIVEAUX du passe gagnés d'un coup (l'XP
+// réelle est dérivée serveur selon le niveau courant du joueur, cf. index.ts).
+// Seuls les QUATRE premiers touchent de l'XP ; au-delà → rien. Même dégressivité
+// que l'Elo ([1, ¾, ½, ¼] du montant du 1er) :
+//   • Officiel  → 1er 6 niveaux · 2e 4,5 · 3e 3 · 4e 1,5
+//   • Amical    → 1er 2 niveaux · 2e 1,5 · 3e 1 · 4e 0,5
+// En 2v2, CHAQUE membre de l'équipe touche le montant plein.
+export const TOURNAMENT_XP_LEVELS_OFFICIAL = [6, 4.5, 3, 1.5] as const;
+export const TOURNAMENT_XP_LEVELS_CASUAL = [2, 1.5, 1, 0.5] as const;
+
+/**
+ * Nombre de niveaux du passe offerts pour un placement (1-indexé) selon que le
+ * tournoi est officiel ou amical. Au-delà du 4e → 0.
+ */
+export function tournamentXpLevelsForPlacement(rank: number, official: boolean): number {
+  const scale = official ? TOURNAMENT_XP_LEVELS_OFFICIAL : TOURNAMENT_XP_LEVELS_CASUAL;
+  return scale[rank - 1] ?? 0;
+}
+
 /** Sous-ensemble d'un match de bracket nécessaire au calcul des placements. */
 export interface PlacementMatch {
   round: number;
