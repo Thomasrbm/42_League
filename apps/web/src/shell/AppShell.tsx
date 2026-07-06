@@ -11,6 +11,7 @@ import { SeasonPalms } from '../components/SeasonPalms';
 const NotifBanner        = lazy(() => import('../components/NotifBanner').then(m => ({ default: m.NotifBanner })));
 const OpsRevealOverlay   = lazy(() => import('../components/OpsRevealOverlay').then(m => ({ default: m.OpsRevealOverlay })));
 const AnnouncementPopup  = lazy(() => import('../components/AnnouncementPopup').then(m => ({ default: m.AnnouncementPopup })));
+const BetLivePopup       = lazy(() => import('../components/BetLivePopup').then(m => ({ default: m.BetLivePopup })));
 const MatchmakingOverlay = lazy(() => import('../components/MatchmakingOverlay').then(m => ({ default: m.MatchmakingOverlay })));
 const DuelStrikeOverlay  = lazy(() => import('../components/DuelStrikeOverlay').then(m => ({ default: m.DuelStrikeOverlay })));
 const ContestRageOverlay = lazy(() => import('../components/ContestRageOverlay').then(m => ({ default: m.ContestRageOverlay })));
@@ -58,6 +59,9 @@ export function AppShell({ children }: AppShellProps) {
       <Suspense>
         {/* Annonces générales (admin) — popup « une seule fois » à la connexion */}
         <AnnouncementPopup />
+        {/* Popup « paris en cours » — dès qu'un duel d'ops ou un tournoi est ouvert
+            aux paris (data via GET /bets + events SSE ops/tournament) */}
+        <BetLivePopup />
         {/* Une SEULE cinématique de changement d'univers : le ballet de tuiles
             (UniverseTransition dans les shells). L'ancien GameTransitionOverlay
             doublait l'animation à chaque switch — retiré. */}

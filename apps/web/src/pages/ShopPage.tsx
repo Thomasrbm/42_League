@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Sparkles,
@@ -441,7 +441,13 @@ export function ShopPage() {
   const { me, refresh } = useLeagueData();
   // Onglets du shop : boutique (cosmétiques) · quêtes hebdo · paris. Les quêtes et
   // paris vivent désormais ici (hub des League Coins), plus sur le profil.
-  const [tab, setTab] = useState<'shop' | 'inventory' | 'quests' | 'bets'>('shop');
+  // Onglet initial déductible de l'URL (?tab=bets) — deep-link depuis le popup
+  // « paris en cours » vers l'onglet Paris.
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<'shop' | 'inventory' | 'quests' | 'bets'>(() => {
+    const q = searchParams.get('tab');
+    return q === 'bets' || q === 'quests' || q === 'inventory' ? q : 'shop';
+  });
   // Tri de la vitrine : catégorie « épinglée » remontée en tête du rangement.
   // null = ordre par défaut (CATEGORY_ORDER). Re-cliquer la puce active la remet à null.
   const [firstCat, setFirstCat] = useState<ShopCategory | null>(null);
