@@ -4314,8 +4314,13 @@ function AnimationsTab({ myLogin }: { myLogin: string }) {
 
   type Anim = null | 'versus' | 'tversus' | 'ceremony' | 'victory' | 'taunt';
   const [anim, setAnim] = useState<Anim>(null);
-  // Narguage : émote suivante à chaque clic pour passer en revue les 10 choix.
-  const TAUNT_DEMO_EMOTES = ['😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭'];
+  // Narguage : émote suivante à chaque clic pour passer en revue tous les choix —
+  // les 10 du passe PUIS les émotes SECRÈTES (easter eggs), pour tester leur
+  // animation + punchline (liste miroir de EASTER_EGG_EMOTES côté backend).
+  const TAUNT_DEMO_EMOTES = [
+    '😂', '💀', '🤡', '😎', '🥱', '🐐', '🔥', '🕺', '🧂', '😭',
+    '🌈', '🎲', '🥉', '🥈', '🥇', '💎', '🧨', '🌪️', '🎖️', '🦖', '🚀',
+  ];
   const tauntIdx = useRef(0);
   const [tauntEmote, setTauntEmote] = useState('😂');
   const playTaunt = () => {
@@ -4362,7 +4367,7 @@ function AnimationsTab({ myLogin }: { myLogin: string }) {
     { key: 'rage', label: 'Contestation (rage)', desc: 'Flash rouge + onde de choc + emojis de rage.', onClick: () => fireContestRage('sender') },
     { key: 'duel', label: 'Éclair de duel', desc: 'Foudre diagonale + VS au lancement/à l\'acceptation d\'un duel.', onClick: () => triggerDuelStrike({ meLogin, opponentLogin: opp.login, game, kind: 'challenge' }) },
     { key: 'victory', label: 'Champion (victoire)', desc: 'Confettis + portrait du vainqueur (duo affiché en 2v2).', onClick: () => setAnim('victory') },
-    { key: 'taunt', label: 'Narguage (émote)', desc: 'Versus puis émote du vainqueur — ce que voit le perdant d\'un 1v1 à sa reconnexion (émote suivante à chaque clic).', onClick: playTaunt },
+    { key: 'taunt', label: 'Narguage (émote)', desc: 'Versus puis émote du vainqueur — ce que voit le perdant d\'un 1v1 (émote suivante à chaque clic : les 10 du passe puis les secrètes).', onClick: playTaunt },
     { key: 'reaction', label: 'Réaction (meme)', desc: 'Pop-up moqueur/élogieux selon la série (ici série chaude).', onClick: () => setReactionStreak((s) => (s >= 6 ? s + 1 : 6)) },
     { key: 'mystery-win', label: 'Boîte mystère (gain)', desc: 'Révélation animée du titre arc-en-ciel « Mysterious ».', onClick: () => setMystery('win') },
     { key: 'mystery-loss', label: 'Boîte mystère (perte)', desc: 'La boîte n\'offre rien : malus de −10 ELO (9 chances sur 10).', onClick: () => setMystery('loss') },

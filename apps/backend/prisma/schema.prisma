@@ -551,6 +551,10 @@ model TournamentEntry {
   // Check-in « je suis là » avant le lancement — null = pas (encore) pointé.
   // Remis à null si le joueur re-clique ; sans effet une fois le tournoi lancé.
   checkedInAt  DateTime? @map("checked_in_at")
+  // Ligue : équipe « déclarée absente » par l'officiant. Retrait NEUTRE (aucun
+  // forfait), révocable (retour à null). Ses affiches non jouées sont ignorées
+  // de la proposition « prochain match ». Sans effet hors phase de ligue.
+  absentAt     DateTime? @map("absent_at")
 
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [login], references: [login])
@@ -583,6 +587,10 @@ model TournamentMatch {
   tossSide        String?   @map("toss_side") // 'heads' | 'tails' (face affichée par l'anim)
   advantagePick   String?   @map("advantage_pick") // clé d'option choisie par le gagnant du toss
   tossAt          DateTime? @map("toss_at")
+  // Ligue : affiche « remise à plus tard » par l'officiant. Révocable (null).
+  // Retirée de la proposition « prochain match » mais reste jouable ; resurgit
+  // une fois toutes les autres affiches jouées.
+  postponedAt     DateTime? @map("postponed_at")
 
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   playerA    User?      @relation("tournPlayerA", fields: [playerALogin], references: [login])

@@ -1013,6 +1013,8 @@ export interface TournamentMatch {
   tossSide?: 'heads' | 'tails' | null;
   advantagePick?: string | null;
   tossAt?: string | null;
+  /** Ligue : affiche « remise à plus tard » par l'officiant (révocable). Null = active. */
+  postponedAt?: string | null;
 }
 
 export interface TournamentEntry {
@@ -1025,6 +1027,8 @@ export interface TournamentEntry {
   joinedAt: string;
   /** Check-in « je suis là » avant lancement — null = pas pointé. */
   checkedInAt?: string | null;
+  /** Ligue : équipe « déclarée absente » par l'officiant (retrait neutre, révocable). */
+  absentAt?: string | null;
   user?: { login: string; imageUrl: string | null; elo: number };
   /** 2v2 : utilisateur coéquipier résolu (avatar/elo) pour l'affichage des paires. */
   partner?: { login: string; imageUrl: string | null; elo: number } | null;
@@ -1911,6 +1915,18 @@ export const api = {
     request<{ id: string; deleted: true }>(
       `/tournaments/${encodeURIComponent(tournamentId)}/league/matches/${encodeURIComponent(matchId)}`,
       { method: 'DELETE' },
+    ),
+  // « Remettre à plus tard » une affiche de ligue non jouée (ou annuler le report).
+  postponeLeagueMatch: (tournamentId: string, matchId: string, postponed: boolean) =>
+    request<{ id: string; postponed: boolean }>(
+      `/tournaments/${encodeURIComponent(tournamentId)}/league/matches/${encodeURIComponent(matchId)}/postpone`,
+      { method: 'POST', body: JSON.stringify({ postponed }) },
+    ),
+  // « Déclarer une équipe absente » d'une phase de ligue (retrait neutre) ou la réintégrer.
+  setLeagueEntryAbsent: (tournamentId: string, login: string, absent: boolean) =>
+    request<{ login: string; absent: boolean }>(
+      `/tournaments/${encodeURIComponent(tournamentId)}/league/entries/${encodeURIComponent(login)}/absent`,
+      { method: 'POST', body: JSON.stringify({ absent }) },
     ),
   // Bascule la ligue en élimination directe : les `qualifyCount` premiers au goal
   // average (nombre LIBRE ≥ 2 — le bracket gère les byes). Autorisée même si tous les
