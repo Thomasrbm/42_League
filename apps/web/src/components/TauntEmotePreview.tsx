@@ -13,6 +13,16 @@ const SPARKS = Array.from({ length: 10 }, (_, i) => {
   return { x: Math.cos(angle) * 130, y: Math.sin(angle) * 130, d: 0.04 * i };
 });
 
+// Émotes SATELLITES : des exemplaires plus petits de la même émote, en grappe
+// autour de celle du centre → l'aperçu montre une volée d'émotes, pas une seule.
+const SATELLITES = [
+  { x: -118, y: -18, size: 'clamp(40px, 9vw, 66px)', d: 0.05, dur: 1.5 },
+  { x: 118, y: -18, size: 'clamp(40px, 9vw, 66px)', d: 0.12, dur: 1.7 },
+  { x: -92, y: 84, size: 'clamp(32px, 7vw, 52px)', d: 0.18, dur: 1.6 },
+  { x: 92, y: 84, size: 'clamp(32px, 7vw, 52px)', d: 0.24, dur: 1.8 },
+  { x: 4, y: -120, size: 'clamp(28px, 6vw, 44px)', d: 0.3, dur: 1.55 },
+];
+
 export function TauntEmotePreview({ emote, onDone }: { emote: string | null; onDone: () => void }) {
   useEffect(() => {
     if (!emote) return;
@@ -55,6 +65,22 @@ export function TauntEmotePreview({ emote, onDone }: { emote: string | null; onD
             />
           ))}
 
+          {/* Émotes satellites : la même émote, plus petite, tout autour du centre */}
+          {SATELLITES.map((s, i) => (
+            <motion.span
+              key={`sat-${i}`}
+              className="absolute leading-none"
+              style={{ top: '50%', left: '50%', translate: '-50% -50%', fontSize: s.size, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.45))' }}
+              initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+              animate={{ x: s.x, y: s.y, scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 15, delay: 0.12 + s.d }}
+            >
+              <span className="inline-block" style={{ animation: `tauntFloat ${s.dur}s ease-in-out infinite alternate`, animationDelay: `${s.d}s` }}>
+                {emote}
+              </span>
+            </motion.span>
+          ))}
+
           {/* L'émote : rebond spring puis wiggle en boucle */}
           <motion.div
             className="relative leading-none"
@@ -72,6 +98,10 @@ export function TauntEmotePreview({ emote, onDone }: { emote: string | null; onD
             @keyframes tauntWiggle {
               from { transform: rotate(-7deg) scale(1); }
               to   { transform: rotate(7deg) scale(1.08); }
+            }
+            @keyframes tauntFloat {
+              from { transform: translateY(3px) rotate(-10deg); }
+              to   { transform: translateY(-7px) rotate(10deg); }
             }
           `}</style>
         </motion.div>

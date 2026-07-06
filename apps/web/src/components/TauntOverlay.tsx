@@ -24,6 +24,17 @@ const GOLD = '#ffc94a';
 const VS_MS = 2300;
 const EMOTE_MS = 3200;
 
+// Émotes satellites : des exemplaires plus petits de la même émote agglutinés
+// autour de celle du centre → le narguage projette une grappe d'émotes, pas une
+// seule. Offsets en px (framer x/y), taille responsive, léger flottement en boucle.
+const EMOTE_SATELLITES = [
+  { x: -150, y: -20, size: 'clamp(46px, 11vw, 82px)', d: 0.05, dur: 1.5 },
+  { x: 150, y: -20, size: 'clamp(46px, 11vw, 82px)', d: 0.12, dur: 1.7 },
+  { x: -118, y: 104, size: 'clamp(38px, 9vw, 64px)', d: 0.18, dur: 1.6 },
+  { x: 118, y: 104, size: 'clamp(38px, 9vw, 64px)', d: 0.24, dur: 1.8 },
+  { x: 6, y: -150, size: 'clamp(32px, 8vw, 56px)', d: 0.3, dur: 1.55 },
+];
+
 export function TauntOverlay() {
   const [queue, setQueue] = useState<TauntData[]>([]);
 
@@ -112,8 +123,11 @@ export function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => 
     };
   });
 
-  // Réplique de narguage, figée pour ce narguage (seed = son id).
-  const phrase = tauntPhrase(taunt.emote, winnerName, taunt.id);
+  // Réplique de narguage, figée pour ce narguage (seed = son id). Une émote de
+  // victoire PERSO fournit sa propre punchline ; sinon on en génère une déterministe.
+  const phrase = taunt.phrase?.trim()
+    ? taunt.phrase.replace(/\{winner\}/g, winnerName)
+    : tauntPhrase(taunt.emote, winnerName, taunt.id);
 
   return createPortal(
     <motion.div
@@ -145,6 +159,11 @@ export function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => 
               <div className="font-gaming font-black italic uppercase text-lg text-white leading-tight" style={{ transform: 'skewX(-6deg)' }}>
                 {winnerName}
               </div>
+              {taunt.winner.title && (
+                <div className="text-[11px] font-gaming font-bold italic leading-tight" style={{ color: taunt.winner.titleColor ?? gm?.color ?? GOLD }}>
+                  {taunt.winner.title}
+                </div>
+              )}
               <div className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: gm?.color ?? GOLD }}>
                 {t('taunt.beatYou')}
               </div>
@@ -241,32 +260,61 @@ export function TauntScene({ taunt, onDone }: { taunt: TauntData; onDone: () => 
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
             <Avatar login={taunt.winner.login} imageUrl={taunt.winner.imageUrl} size="md" />
-            <div className="font-gaming font-black italic uppercase text-lg text-white" style={{ transform: 'skewX(-6deg)' }}>
-              {winnerName}{' '}
-              <span className="text-white/50 text-sm not-italic normal-case font-bold">{t('taunt.mocksYou')}</span>
+            <div>
+              <div className="font-gaming font-black italic uppercase text-lg text-white leading-tight" style={{ transform: 'skewX(-6deg)' }}>
+                {winnerName}{' '}
+                <span className="text-white/50 text-sm not-italic normal-case font-bold">{t('taunt.mocksYou')}</span>
+              </div>
+              {taunt.winner.title && (
+                <div className="font-gaming font-bold italic text-[11px] leading-tight" style={{ color: taunt.winner.titleColor ?? gm?.color ?? GOLD }}>
+                  {taunt.winner.title}
+                </div>
+              )}
             </div>
           </motion.div>
 
-          {/* L'ÉMOTE — énorme, rebond puis danse en boucle fluide (alternate) */}
-          <motion.div
-            className="relative leading-none"
-            style={{ fontSize: 'clamp(110px, 24vw, 190px)' }}
-            initial={{ scale: 0.1, rotate: -18, opacity: 0 }}
-            animate={{ scale: 1, rotate: 0, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 12 }}
-          >
-            <span
-              className="inline-block"
-              style={{ animation: 'tauntWiggle 0.9s ease-in-out infinite alternate' }}
+          {/* L'ÉMOTE — énorme, rebond puis danse en boucle fluide (alternate),
+              entourée d'une grappe de satellites de la même émote. */}
+          <div className="relative flex items-center justify-center leading-none">
+            {EMOTE_SATELLITES.map((s, i) => (
+              <motion.span
+                key={`sat-${i}`}
+                className="absolute leading-none"
+                style={{ top: '50%', left: '50%', translate: '-50% -50%', fontSize: s.size, filter: 'drop-shadow(0 3px 10px rgba(0,0,0,0.5))' }}
+                initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                animate={{ x: s.x, y: s.y, scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 220, damping: 15, delay: 0.14 + s.d }}
+              >
+                <span className="inline-block" style={{ animation: `tauntFloat ${s.dur}s ease-in-out infinite alternate`, animationDelay: `${s.d}s` }}>
+                  {taunt.emote}
+                </span>
+              </motion.span>
+            ))}
+
+            <motion.div
+              className="relative leading-none"
+              style={{ fontSize: 'clamp(110px, 24vw, 190px)' }}
+              initial={{ scale: 0.1, rotate: -18, opacity: 0 }}
+              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 12 }}
             >
-              {taunt.emote}
-            </span>
-          </motion.div>
+              <span
+                className="inline-block"
+                style={{ animation: 'tauntWiggle 0.9s ease-in-out infinite alternate' }}
+              >
+                {taunt.emote}
+              </span>
+            </motion.div>
+          </div>
 
           <style>{`
             @keyframes tauntWiggle {
               from { transform: rotate(-7deg) scale(1); }
               to   { transform: rotate(7deg) scale(1.08); }
+            }
+            @keyframes tauntFloat {
+              from { transform: translateY(4px) rotate(-10deg); }
+              to   { transform: translateY(-8px) rotate(10deg); }
             }
           `}</style>
 

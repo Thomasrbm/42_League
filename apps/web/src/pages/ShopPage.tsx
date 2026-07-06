@@ -19,6 +19,7 @@ import {
   Lightbulb,
   ChevronRight,
   Sticker as StickerIcon,
+  Laugh,
   Type,
   Clock,
   BadgeCheck,
@@ -46,15 +47,15 @@ import {
   type ShopCategory,
   type ShopItemData,
 } from '../lib/api';
-import { CustomBannerUploaderModal, CustomTitleChooserModal } from '../components/shop/CustomBannerUploader';
+import { CustomBannerUploaderModal, CustomTitleChooserModal, CustomWinEmoteChooserModal } from '../components/shop/CustomBannerUploader';
 import { trackEvent } from '../lib/analytics';
 import { RARITY, RARITY_ORDER, resolveRarity, type Rarity } from '../lib/rarity';
 
 /** Catégories pour lesquelles « équiper » a du sens (titre / bannière actifs). */
-const EQUIPPABLE: ShopCategory[] = ['title', 'banner', 'avatar_frame', 'sticker'];
+const EQUIPPABLE: ShopCategory[] = ['title', 'banner', 'avatar_frame', 'sticker', 'win_emote'];
 
 /** Ordre d'affichage stable des catégories dans la barre de filtres. */
-const CATEGORY_ORDER: ShopCategory[] = ['title', 'banner', 'avatar_frame', 'sticker', 'consumable', 'mystery_box'];
+const CATEGORY_ORDER: ShopCategory[] = ['title', 'banner', 'avatar_frame', 'sticker', 'win_emote', 'consumable', 'mystery_box'];
 
 /** Catégories masquées de la boutique (achat impossible). */
 const HIDDEN_CATS: ShopCategory[] = ['badge'];
@@ -67,6 +68,7 @@ const CAT_META: Record<ShopCategory, { Icon: LucideIcon; label: string }> = {
   banner:       { Icon: ImageIcon,   label: 'Bannières' },
   avatar_frame: { Icon: Sparkles,    label: 'Ornements' },
   sticker:      { Icon: StickerIcon, label: 'Stickers' },
+  win_emote:    { Icon: Laugh,       label: 'Émotes de victoire' },
   consumable:   { Icon: Zap,         label: 'Consommables' },
   mystery_box:  { Icon: PackageOpen, label: 'Boîtes Mystère' },
   badge:        { Icon: Gem,         label: 'Badges' },
@@ -240,6 +242,8 @@ function ShopItemVisual({ item, rarityHex }: { item: ShopItemData; rarityHex: st
   const color = item.color || '#ffc94a';
   const image = typeof p.image === 'string' ? p.image : null;
   const titleText = typeof p.title === 'string' ? p.title : item.name;
+  const winEmoji = typeof p.emoji === 'string' ? p.emoji : null;
+  const winPhrase = typeof p.phrase === 'string' ? p.phrase : null;
   const badgeLabel = typeof p.label === 'string' ? p.label : item.name;
   const Icon = badgeIcon(typeof p.icon === 'string' ? p.icon : null);
 
@@ -319,6 +323,23 @@ function ShopItemVisual({ item, rarityHex }: { item: ShopItemData; rarityHex: st
           {badgeLabel}
         </span>
       )}
+
+      {item.category === 'win_emote' &&
+        (p.allowUpload === true ? (
+          <div className="relative flex flex-col items-center gap-1.5 px-3 text-center">
+            <Laugh className="w-7 h-7 text-gold/70" strokeWidth={1.8} />
+            <span className="text-[10px] text-gold/60 font-bold uppercase tracking-wide">Émote personnalisée</span>
+          </div>
+        ) : (
+          <div className="relative flex flex-col items-center gap-1 px-2 text-center">
+            <span className="text-3xl leading-none drop-shadow">{winEmoji ?? '🏆'}</span>
+            {winPhrase && (
+              <span style={{ color }} className="italic text-[11px] font-bold leading-tight line-clamp-2">
+                {winPhrase.replace(/\{winner\}/g, 'toi')}
+              </span>
+            )}
+          </div>
+        ))}
 
       {item.category === 'mystery_box' && (
         <div className="relative flex flex-col items-center gap-2">
@@ -448,6 +469,8 @@ export function ShopPage() {
   const [uploadingBannerId, setUploadingBannerId] = useState<string | null>(null);
   // Titre custom en cours de choix (itemId → ouvre le modal de titre).
   const [choosingTitleId, setChoosingTitleId] = useState<string | null>(null);
+  // Émote de victoire custom en cours de choix (itemId → ouvre le modal d'émote).
+  const [choosingWinEmoteId, setChoosingWinEmoteId] = useState<string | null>(null);
   // Items « Choisissez… » dont MA création est en attente de validation admin.
   const [pendingCustom, setPendingCustom] = useState<Set<string>>(new Set());
   // Révélation de Boîte Mystère : { reward } pendant l'animation, null = fermé.
@@ -696,9 +719,11 @@ export function ShopPage() {
                     const showEquip = isOwned && EQUIPPABLE.includes(item.category);
                     const isCustomBanner = isOwned && item.category === 'banner' && payloadOf(item).allowUpload === true;
                     const isCustomTitle = isOwned && item.category === 'title' && payloadOf(item).allowUpload === true;
-                    const invEntry = (isCustomBanner || isCustomTitle) ? inventoryEntries.find((e) => e.itemId === item.id) : undefined;
+                    const isCustomWinEmote = isOwned && item.category === 'win_emote' && payloadOf(item).allowUpload === true;
+                    const invEntry = (isCustomBanner || isCustomTitle || isCustomWinEmote) ? inventoryEntries.find((e) => e.itemId === item.id) : undefined;
                     const userBannerImg = typeof invEntry?.userPayload?.image === 'string' ? invEntry.userPayload.image : null;
                     const userTitleText = typeof invEntry?.userPayload?.title === 'string' ? invEntry.userPayload.title : null;
+                    const userWinEmoji = typeof invEntry?.userPayload?.emoji === 'string' ? invEntry.userPayload.emoji : null;
                     // Création envoyée en validation admin (encore en attente).
                     const isPendingCustom = pendingCustom.has(item.id);
                     const itemBusy = busy === item.id;
@@ -780,7 +805,7 @@ export function ShopPage() {
                             {!isOwned && payloadOf(item).allowUpload === true && (
                               <span className="inline-flex items-start gap-1 text-[10px] text-sky-300/80 leading-snug">
                                 <ShieldBan className="w-3 h-3 mt-0.5 shrink-0" strokeWidth={2.5} />
-                                Après achat : tu crées {item.category === 'title' ? 'ton titre' : 'ta bannière'}, validé(e) par un admin.
+                                Après achat : tu crées {item.category === 'title' ? 'ton titre' : item.category === 'win_emote' ? 'ton émote de victoire' : 'ta bannière'}, validé(e) par un admin.
                               </span>
                             )}
 
@@ -794,8 +819,8 @@ export function ShopPage() {
                               </div>
                             )}
 
-                            {/* En attente de validation admin (bannière ou titre perso). */}
-                            {(isCustomBanner || isCustomTitle) && isPendingCustom && (
+                            {/* En attente de validation admin (bannière, titre ou émote perso). */}
+                            {(isCustomBanner || isCustomTitle || isCustomWinEmote) && isPendingCustom && (
                               <div className="w-full rounded-lg border border-sky-400/30 bg-sky-400/5 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-300 flex items-center justify-center gap-1.5">
                                 <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
                                 En attente de validation
@@ -826,6 +851,18 @@ export function ShopPage() {
                               </button>
                             )}
 
+                            {/* Émote de victoire custom : choix emoji + punchline (validation admin) */}
+                            {isCustomWinEmote && !isPendingCustom && (
+                              <button
+                                type="button"
+                                onClick={() => setChoosingWinEmoteId(item.id)}
+                                className="w-full rounded-lg border border-dashed border-gold/30 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-gold/70 hover:border-gold/60 hover:text-gold transition-colors flex items-center justify-center gap-1.5"
+                              >
+                                <Laugh className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                {userWinEmoji ? 'Changer mon émote' : 'Choisir mon émote'}
+                              </button>
+                            )}
+
                             {/* Pied : prix + actions */}
                             <div className="mt-auto pt-2 flex items-center justify-between gap-2 border-t border-white/5">
                               {item.price === 0 ? (
@@ -838,7 +875,7 @@ export function ShopPage() {
                               )}
 
                               <div className="flex items-center gap-1.5">
-                                {EQUIPPABLE.includes(item.category) && (
+                                {EQUIPPABLE.includes(item.category) && item.category !== 'win_emote' && (
                                   <button
                                     type="button"
                                     onClick={() => setPreview(item)}
@@ -1065,6 +1102,25 @@ export function ShopPage() {
             onSaved={(pending) => {
               if (pending) setPendingCustom((prev) => new Set(prev).add(choosingTitleId));
               setChoosingTitleId(null);
+              void refresh();
+            }}
+          />
+        ) : null;
+      })()}
+
+      {choosingWinEmoteId && (() => {
+        const entry = inventoryEntries.find((e) => e.itemId === choosingWinEmoteId);
+        const item = items.find((it) => it.id === choosingWinEmoteId);
+        return item ? (
+          <CustomWinEmoteChooserModal
+            itemId={choosingWinEmoteId}
+            itemName={item.name}
+            currentEmoji={typeof entry?.userPayload?.emoji === 'string' ? entry.userPayload.emoji : null}
+            currentPhrase={typeof entry?.userPayload?.phrase === 'string' ? entry.userPayload.phrase : null}
+            onClose={() => setChoosingWinEmoteId(null)}
+            onSaved={(pending) => {
+              if (pending) setPendingCustom((prev) => new Set(prev).add(choosingWinEmoteId));
+              setChoosingWinEmoteId(null);
               void refresh();
             }}
           />

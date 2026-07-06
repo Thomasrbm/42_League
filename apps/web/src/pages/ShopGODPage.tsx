@@ -80,6 +80,7 @@ const CATEGORY_BADGE: Record<ShopCategory, string> = {
   banner: 'bg-violet-400/15 text-violet-400',
   avatar_frame: 'bg-sky-400/15 text-sky-400',
   sticker: 'bg-pink-400/15 text-pink-400',
+  win_emote: 'bg-orange-400/15 text-orange-400',
   mystery_box: 'bg-purple-400/15 text-purple-400',
   consumable: 'bg-teal-400/15 text-teal-400',
 };
@@ -879,6 +880,8 @@ function formFromProposal(p: ShopProposal): FormState {
     color: p.color ?? '#ffc94a',
     titleText: typeof payload.title === 'string' ? payload.title : '',
     bannerImage: typeof payload.image === 'string' ? payload.image : '',
+    winEmoteGlyph: typeof payload.emoji === 'string' ? payload.emoji : '',
+    winEmotePhrase: typeof payload.phrase === 'string' ? payload.phrase : '',
   };
 }
 
@@ -1097,6 +1100,8 @@ function CosmeticRequestsSection() {
       color: typeof payload.color === 'string' ? payload.color : '#ffc94a',
       titleText: typeof payload.title === 'string' ? payload.title : '',
       bannerImage: typeof payload.image === 'string' ? payload.image : '',
+      winEmoteGlyph: typeof payload.emoji === 'string' ? payload.emoji : '',
+      winEmotePhrase: typeof payload.phrase === 'string' ? payload.phrase : '',
     };
   }
 

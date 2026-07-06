@@ -201,6 +201,9 @@ model EmoteTaunt {
   winnerLogin String    @map("winner_login")
   game        String
   emote       String
+  // Punchline de narguage figée au match (émote de victoire custom). Null = le
+  // front génère une punchline déterministe à partir de l'emoji.
+  phrase      String?
   createdAt   DateTime  @default(now()) @map("created_at")
   seenAt      DateTime? @map("seen_at")
 
@@ -252,7 +255,7 @@ model AnnouncementSeen {
 model ShopProposal {
   id            String    @id @default(uuid())
   proposerLogin String    @map("proposer_login")
-  category      String // 'title' | 'banner'
+  category      String // 'title' | 'banner' | 'win_emote'
   name          String
   color         String?
   payload       Json? // title: { title }, banner: { image } (data-URL)
@@ -281,8 +284,8 @@ model CosmeticRequest {
   id         String    @id @default(uuid())
   userLogin  String    @map("user_login")
   itemId     String    @map("item_id")
-  category   String // 'banner' | 'title'
-  payload    Json // banner: { image } ; title: { title, color }
+  category   String // 'banner' | 'title' | 'win_emote'
+  payload    Json // banner: { image } ; title: { title, color } ; win_emote: { emoji, phrase }
   status     String    @default("pending") // 'pending' | 'accepted' | 'rejected'
   reviewedBy String?   @map("reviewed_by")
   reviewedAt DateTime? @map("reviewed_at")

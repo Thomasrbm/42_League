@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
+  Eye,
   Flame,
   Gem,
   Gift,
@@ -20,6 +21,7 @@ import {
   Star,
   Swords,
   Wand2,
+  X,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -273,7 +275,8 @@ interface TileView {
 // disciplines, puis le reste. Basé sur des mots-clés du NOM de la bannière
 // (les bannières boutique sont nommées par thème). Rang bas = tôt sur le passe.
 const BANNER_GAME_KW: Array<[RegExp, number]> = [
-  [/baby|foot/i, 0],
+  // Foot (« Supporter assidu » & co) : rang 0 → TOUJOURS en tête du passe.
+  [/baby|foot|supporter|assidu/i, 0],
   [/smash/i, 1],
   [/chess|[ée]chec/i, 2],
   [/street|fighter|\bsf\b/i, 3],
@@ -285,6 +288,14 @@ function bannerGameRank(name: string): number {
   for (const [re, rank] of BANNER_GAME_KW) if (re.test(name)) return rank;
   return 50;
 }
+/** Une bannière foot (rang 0) ? Toutes passent sur le passe, en premier. */
+function isFootBanner(name: string): boolean {
+  return bannerGameRank(name) === 0;
+}
+/** Combien de bannières NON-foot au maximum sur le passe (vers la fin). Les
+ *  slots de bannière restants retombent en consommable. → « toutes les foot,
+ *  mais pas toutes les autres ». Ajuste ce nombre pour en montrer plus/moins. */
+const MAX_OTHER_BANNERS = 3;
 
 function buildTiles(
   data: BattlePassResponse,
@@ -296,9 +307,19 @@ function buildTiles(
   // Le reste (titres / badges) alimente les autres slots d'objet, rangé par
   // rareté. Ainsi les bannières ne se retrouvent JAMAIS piochées au hasard sur un
   // slot générique, et inversement.
-  const realBanners = realPool
-    .filter((it) => it.category === 'banner')
-    .sort((a, b) => bannerGameRank(a.name) - bannerGameRank(b.name) || a.price - b.price);
+  // Bannières : TOUTES les foot (en premier), puis seulement les MAX_OTHER_BANNERS
+  // premières bannières des autres disciplines (par prix). Les foot occupent donc
+  // les premiers slots de bannière du passe, les autres arrivent vers la fin, et
+  // le surplus d'« autres » n'apparaît pas (repli consommable).
+  const allBanners = realPool.filter((it) => it.category === 'banner');
+  const footBanners = allBanners
+    .filter((it) => isFootBanner(it.name))
+    .sort((a, b) => a.price - b.price);
+  const otherBanners = allBanners
+    .filter((it) => !isFootBanner(it.name))
+    .sort((a, b) => bannerGameRank(a.name) - bannerGameRank(b.name) || a.price - b.price)
+    .slice(0, MAX_OTHER_BANNERS);
+  const realBanners = [...footBanners, ...otherBanners];
   const realOther = realPool.filter((it) => it.category !== 'banner');
   const byRarity: Record<Rarity, ShopItemData[]> = { common: [], rare: [], epic: [], legendary: [] };
   for (const it of realOther) byRarity[resolveRarity(it)].push(it);
@@ -688,18 +709,27 @@ function ClaimFx({
 
 // ─── Tuile de récompense (XXL, teintée rareté) ──────────────────────────────
 
+/** Une tuile porte-t-elle un cosmétique réel qui vaut le coup d'être prévisualisé
+ *  en grand ? (émote, bannière, titre) — pas les coins / consommables. */
+function isPreviewable(tile: TileView): boolean {
+  return !!tile.emote || (!!tile.item && tile.item.category !== 'badge');
+}
+
 function TierTile({
   tile,
   lite,
   onClaim,
+  onPreview,
   t,
 }: {
   tile: TileView;
   lite: boolean;
   onClaim: (tile: TileView) => void;
+  onPreview: (tile: TileView) => void;
   t: (k: string) => string;
 }) {
   const { unlocked, claimed, claimable, hex } = tile;
+  const previewable = isPreviewable(tile);
 
   return (
     <motion.button
@@ -751,22 +781,51 @@ function TierTile({
         {tile.tier}
       </span>
 
-      {/* Verrou (palier non atteint) */}
-      {!unlocked && (
-        <span className="absolute top-2 right-2 w-7 h-7 rounded-md bg-[#16234a] border border-[#2a3d6e] flex items-center justify-center">
-          <Lock className="w-3.5 h-3.5 text-[#7d8db4]" strokeWidth={2.4} />
-        </span>
-      )}
+      {/* Cluster haut-droite : bouton « prévisualiser » (cosmétiques), verrou, coche. */}
+      <span className="absolute top-2 right-2 z-20 flex items-center gap-1.5">
+        {previewable && (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={t('battlepass.preview')}
+            title={t('battlepass.preview')}
+            // stopPropagation partout : ne PAS déclencher le claim de la tuile ni
+            // le drag-scroll de la piste. Ouvre juste l'aperçu plein écran.
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreview(tile);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onPreview(tile);
+              }
+            }}
+            className="w-7 h-7 rounded-md bg-[#0a1228]/80 border border-white/25 flex items-center justify-center cursor-pointer hover:bg-[#0a1228] hover:border-white/50 transition-colors"
+          >
+            <Eye className="w-4 h-4 text-white" strokeWidth={2.2} />
+          </span>
+        )}
 
-      {/* Coche (récupéré) */}
-      {claimed && (
-        <span
-          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
-          style={{ background: YELLOW, boxShadow: `0 0 14px ${YELLOW}88` }}
-        >
-          <Check className="w-4 h-4 text-[#0a1228]" strokeWidth={3.4} />
-        </span>
-      )}
+        {/* Verrou (palier non atteint) */}
+        {!unlocked && (
+          <span className="w-7 h-7 rounded-md bg-[#16234a] border border-[#2a3d6e] flex items-center justify-center">
+            <Lock className="w-3.5 h-3.5 text-[#7d8db4]" strokeWidth={2.4} />
+          </span>
+        )}
+
+        {/* Coche (récupéré) */}
+        {claimed && (
+          <span
+            className="w-7 h-7 rounded-full flex items-center justify-center"
+            style={{ background: YELLOW, boxShadow: `0 0 14px ${YELLOW}88` }}
+          >
+            <Check className="w-4 h-4 text-[#0a1228]" strokeWidth={3.4} />
+          </span>
+        )}
+      </span>
 
       {/* Icône de récompense, flottement doux (alternate → sans à-coup) */}
       <span
@@ -819,6 +878,73 @@ function TierTile({
   );
 }
 
+// ─── Aperçu plein écran d'une récompense ─────────────────────────────────────
+// Ouvert par le bouton « œil » d'une tuile : montre le cosmétique en GRAND
+// (visuel réel via RewardVisual size=lg), son nom, sa rareté et le n° de palier.
+// Fermeture au clic sur le fond, sur la croix, ou avec Échap.
+function TilePreviewModal({
+  tile,
+  onClose,
+  t,
+}: {
+  tile: TileView;
+  onClose: () => void;
+  t: (k: string) => string;
+}) {
+  useEscapeKey(true, onClose);
+  return createPortal(
+    <motion.div
+      className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-[#060b1c]/85 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      <motion.div
+        className="relative w-full max-w-sm rounded-2xl px-6 py-8 flex flex-col items-center text-center"
+        initial={{ scale: 0.9, y: 12 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.92, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: `radial-gradient(140% 120% at 50% 0%, ${tile.hex} 0%, ${tile.hex} 55%, ${darkenHex(tile.hex, 0.28)} 100%)`,
+          border: `2px solid ${tile.hex}`,
+          boxShadow: `0 0 40px ${tile.hex}66, 0 24px 60px -24px ${tile.hex}`,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('battlepass.close') || 'Fermer'}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#0a1228]/70 border border-white/25 flex items-center justify-center text-white hover:bg-[#0a1228] transition-colors"
+        >
+          <X className="w-4 h-4" strokeWidth={2.6} />
+        </button>
+
+        <span className="font-gaming font-black italic text-xs uppercase tracking-[0.16em] text-white/90">
+          {t('battlepass.tier')} {tile.tier}
+        </span>
+
+        <span className="my-6 flex items-center justify-center min-h-[9rem]">
+          <RewardVisual tile={tile} unlocked size="lg" />
+        </span>
+
+        <span
+          className="font-gaming font-black italic text-[10px] uppercase tracking-[0.18em]"
+          style={{ color: 'rgba(255,255,255,0.95)', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}
+        >
+          {tile.tag}
+        </span>
+        <span className="mt-1 text-lg font-bold leading-tight text-white">
+          {tile.Icon === 'coin' ? `${tile.name} Coins` : tile.name}
+        </span>
+      </motion.div>
+    </motion.div>,
+    document.body,
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export function PassePage() {
@@ -835,6 +961,8 @@ export function PassePage() {
 
   // File de la cinématique de claim (claim unitaire = 1 élément).
   const [fxQueue, setFxQueue] = useState<TileView[]>([]);
+  // Tuile en cours d'aperçu plein écran (bouton « œil »), sinon null.
+  const [previewTile, setPreviewTile] = useState<TileView | null>(null);
   // Verrou pendant l'appel API de claim (évite le double-clic).
   const claiming = useRef(false);
 
@@ -1232,7 +1360,7 @@ export function PassePage() {
                 className="snap-start"
                 style={{ width: TILE_W }}
               >
-                <TierTile tile={tile} lite={lite} onClaim={claimOne} t={t} />
+                <TierTile tile={tile} lite={lite} onClaim={claimOne} onPreview={setPreviewTile} t={t} />
               </div>
             ))}
           </div>
@@ -1270,6 +1398,56 @@ export function PassePage() {
           />
         )}
       </AnimatePresence>
+
+      {/* ── Aperçu plein écran d'une récompense (bouton « œil ») ────────────── */}
+      <AnimatePresence>
+        {previewTile && (
+          <TilePreviewModal
+            key={previewTile.tier}
+            tile={previewTile}
+            onClose={() => setPreviewTile(null)}
+            t={t}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Carte « source d'XP » (encart pédagogique sous la barre de progression) ──
+function XpSource({
+  icon: Icon,
+  color,
+  title,
+  desc,
+  highlight = false,
+}: {
+  icon: LucideIcon;
+  color: string;
+  title: string;
+  desc: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className="flex items-start gap-3 rounded-xl p-3"
+      style={{
+        background: highlight ? `${color}14` : '#0a1430',
+        border: `1px solid ${highlight ? `${color}66` : '#20315c'}`,
+      }}
+    >
+      <span
+        className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+        style={{ background: `${color}1f`, border: `1px solid ${color}55`, color }}
+      >
+        <Icon className="w-4 h-4" strokeWidth={2.4} />
+      </span>
+      <div className="min-w-0">
+        <div className="font-gaming font-bold uppercase tracking-wide text-[12px]" style={{ color }}>
+          {title}
+        </div>
+        <p className="mt-0.5 text-[11px] leading-snug text-[#9db8f5]">{desc}</p>
+      </div>
     </div>
   );
 }

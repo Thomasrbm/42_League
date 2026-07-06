@@ -4433,7 +4433,7 @@ function AnimationsTab({ myLogin }: { myLogin: string }) {
             game,
             emote: tauntEmote,
             createdAt: new Date().toISOString(),
-            winner: { login: opp.login, firstName: null, lastName: null, imageUrl: opp.imageUrl },
+            winner: { login: opp.login, firstName: null, lastName: null, imageUrl: opp.imageUrl, title: 'Champion démo', titleColor: accent },
           }}
           onDone={() => setAnim(null)}
         />

@@ -50,6 +50,18 @@ const TAUNT_PHRASES: Record<string, readonly string[]> = {
   '🕺': ['{winner} danse sur ta défaite.', 'La victoire se fête — sans toi.', 'Petite danse pour {winner}.'],
   '🧂': ['Salé, le petit ? {winner} en rajoute.', 'Passe-moi le sel de tes larmes.', '{winner} t’assaisonne.'],
   '😭': ['Pleure pas, ça arrive… souvent.', '{winner} t’a fait chialer.', 'Les larmes, c’est gratuit au moins.'],
+  // ── Émotes secrètes (easter eggs) ──
+  '🌈': ['{winner} maîtrise TOUS les modes.', 'Aucune discipline ne résiste à {winner}.', 'Touche-à-tout, {winner} t’a touché.'],
+  '🎲': ['{winner} joue sur tous les tableaux.', 'Le hasard n’y est pour rien, {winner}.', '{winner} varie les plaisirs — à tes dépens.'],
+  '🥉': ['{winner} a du métal dans la vitrine.', 'Déjà 3 trophées pour {winner}.', 'Le podium connaît {winner}.'],
+  '🥈': ['{winner} collectionne l’argenterie.', '5 titres et ça continue, {winner}.', 'Range tes excuses, {winner} range ses coupes.'],
+  '🥇': ['{winner} vit sur la plus haute marche.', 'Dix tournois. DIX. {winner} ne rigole pas.', 'L’or, c’est la couleur de {winner}.'],
+  '💎': ['Grade Diamant : bienvenue chez {winner}.', '{winner} brille, toi tu ternis.', 'Inaccessible — comme {winner}.'],
+  '🧨': ['{winner} enchaîne sans jamais lâcher.', 'La mèche est courte, {winner} explose.', 'Série en cours : {winner} carbure.'],
+  '🌪️': ['{winner} est une tempête ininterrompue.', '30 jours d’affilée — {winner} ne dort jamais.', 'Tu es passé dans l’œil du cyclone {winner}.'],
+  '🎖️': ['{winner} a le grade et les états de service.', 'Vétéran confirmé : {winner}.', 'Respecte les galons de {winner}.'],
+  '🦖': ['{winner} est un prédateur préhistorique.', '200 matchs au compteur pour {winner}.', 'Espèce en voie de te dominer : {winner}.'],
+  '🚀': ['{winner} a décollé, toi non.', 'Niveau maximum : destination {winner}.', 'Hors d’atteinte — {winner} est en orbite.'],
 };
 
 /** Petit hash déterministe d'une chaîne (stable au re-render). */

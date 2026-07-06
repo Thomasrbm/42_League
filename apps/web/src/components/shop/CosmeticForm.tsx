@@ -19,7 +19,7 @@ export const BANNER_H = 512;
 // Cap d'octets côté client (le serveur revérifie) — évite les data-URL énormes.
 export const BANNER_MAX_BYTES = 700_000;
 
-export const CATEGORIES: ShopCategory[] = ['title', 'banner', 'badge', 'avatar_frame', 'sticker'];
+export const CATEGORIES: ShopCategory[] = ['title', 'banner', 'badge', 'avatar_frame', 'sticker', 'win_emote'];
 
 export const CATEGORY_LABEL: Record<ShopCategory, string> = {
   title: 'TITRE',
@@ -27,6 +27,7 @@ export const CATEGORY_LABEL: Record<ShopCategory, string> = {
   banner: 'BANNIÈRE',
   avatar_frame: 'ORNEMENT',
   sticker: 'STICKER',
+  win_emote: 'ÉMOTE VICTOIRE',
   mystery_box: 'BOÎTE MYSTÈRE',
   consumable: 'CONSOMMABLE',
 };
@@ -94,6 +95,9 @@ export interface FormState {
   frameAnimated: string; // catégorie avatar_frame — variante animée optionnelle (data-URL)
   stickerImage: string; // catégorie sticker — autocollant (data-URL image transparente)
   consumableKind: string; // catégorie consumable ('anti_ops' | 'elo_mult')
+  winEmoteGlyph: string; // catégorie win_emote — emoji du narguage
+  winEmotePhrase: string; // catégorie win_emote — punchline ({winner} interpolé)
+  winEmoteAllowUpload: boolean; // win_emote « custom » : rempli par l'acheteur
 }
 
 export function emptyForm(): FormState {
@@ -116,6 +120,9 @@ export function emptyForm(): FormState {
     frameAnimated: '',
     stickerImage: '',
     consumableKind: '',
+    winEmoteGlyph: '',
+    winEmotePhrase: '',
+    winEmoteAllowUpload: false,
   };
 }
 
@@ -144,6 +151,9 @@ export function formFromItem(it: ShopItemData): FormState {
     frameAnimated: typeof p.animated === 'string' ? p.animated : '',
     stickerImage: typeof p.image === 'string' ? p.image : '',
     consumableKind: typeof p.kind === 'string' ? p.kind : '',
+    winEmoteGlyph: typeof p.emoji === 'string' ? p.emoji : '',
+    winEmotePhrase: typeof p.phrase === 'string' ? p.phrase : '',
+    winEmoteAllowUpload: p.allowUpload === true,
   };
 }
 
@@ -192,6 +202,21 @@ export function buildInput(f: FormState): ShopItemInput {
     case 'sticker': {
       if (!f.stickerImage) throw new Error('Dépose une image transparente pour le sticker.');
       payload = { image: f.stickerImage };
+      break;
+    }
+    case 'win_emote': {
+      if (f.winEmoteAllowUpload) {
+        payload = { allowUpload: true };
+      } else {
+        const emoji = f.winEmoteGlyph.trim();
+        const phrase = f.winEmotePhrase.trim();
+        if (!emoji) throw new Error("Choisis l'emoji de l'émote de victoire.");
+        if ([...emoji].length > 4) throw new Error('Un seul emoji pour l’émote de victoire.');
+        if (!phrase) throw new Error('Écris la punchline de narguage.');
+        if (phrase.length > 80) throw new Error('Punchline trop longue (max 80).');
+        payload = { emoji, phrase };
+      }
+      color = f.color || null;
       break;
     }
     case 'consumable': {
@@ -687,13 +712,27 @@ export function ItemPreview({ form }: { form: FormState }) {
         ) : (
           <span className="text-xs text-zinc-600 font-mono">Dépose une image pour l'aperçu.</span>
         ))}
+      {form.category === 'win_emote' && (
+        <div className="flex flex-col items-center gap-1.5 py-2">
+          {form.winEmoteAllowUpload ? (
+            <span className="text-[11px] text-violet-400 font-mono text-center px-2">L'acheteur choisira son emoji + sa punchline.</span>
+          ) : (
+            <>
+              <span className="text-4xl leading-none drop-shadow">{form.winEmoteGlyph || '🏆'}</span>
+              <span style={{ color }} className="italic text-sm font-bold tracking-wide text-center">
+                {(form.winEmotePhrase || 'Ta punchline…').replace(/\{winner\}/g, 'Le vainqueur')}
+              </span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // Champs partagés du formulaire (création & édition) — guidés par catégorie.
 export function ItemFormFields({ form, set }: { form: FormState; set: <K extends keyof FormState>(k: K, v: FormState[K]) => void }) {
-  const showColor = form.category === 'title' || form.category === 'badge';
+  const showColor = form.category === 'title' || form.category === 'badge' || form.category === 'win_emote';
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -811,6 +850,34 @@ export function ItemFormFields({ form, set }: { form: FormState; set: <K extends
                 accept="image/png,image/webp"
               />
             </label>
+          </div>
+        )}
+        {form.category === 'win_emote' && (
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Émote de victoire (narguage)</span>
+              <Toggle
+                on={form.winEmoteAllowUpload}
+                onToggle={() => set('winEmoteAllowUpload', !form.winEmoteAllowUpload)}
+                label="Custom (rempli par l'acheteur)"
+              />
+            </div>
+            {form.winEmoteAllowUpload ? (
+              <div className="rounded-lg border border-dashed border-violet-500/40 bg-violet-500/5 px-4 py-3 text-[11px] text-violet-300 font-mono">
+                L'acheteur choisira SON emoji et SA punchline depuis son inventaire (validés par un admin).
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-3 items-end">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Emoji *</span>
+                  <Input value={form.winEmoteGlyph} onChange={(v) => set('winEmoteGlyph', v)} placeholder="🔥" className="w-20 text-center text-lg" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest">Punchline * ({'{winner}'} = le vainqueur)</span>
+                  <Input value={form.winEmotePhrase} onChange={(v) => set('winEmotePhrase', v)} placeholder="ex. {winner} t'a réduit en cendres" />
+                </label>
+              </div>
+            )}
           </div>
         )}
 

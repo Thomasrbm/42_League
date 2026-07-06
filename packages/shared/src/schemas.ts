@@ -164,7 +164,7 @@ export const ShopItemCreateSchema = z
   .object({
     name: z.string().trim().min(1),
     description: z.string().nullish(),
-    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame', 'sticker']),
+    category: z.enum(['title', 'banner', 'badge', 'consumable', 'avatar_frame', 'sticker', 'win_emote']),
     color: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/, 'couleur invalide (format #rrggbb)')
@@ -216,6 +216,21 @@ export const ShopItemCreateSchema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'sticker : image (data-URL) requise' });
       } else if (img.length > MAX_BANNER_DATAURL_LEN) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'sticker trop lourd (max ~700 Ko)' });
+      }
+    }
+    if (d.category === 'win_emote') {
+      // Émote de victoire (narguage) : emoji + punchline. allowUpload = true →
+      // objet « custom » que l'ACHETEUR remplira lui-même (rien requis à la création).
+      const allowUpload = d.payload?.allowUpload === true;
+      if (!allowUpload) {
+        const emoji = d.payload && typeof d.payload.emoji === 'string' ? d.payload.emoji.trim() : '';
+        const phrase = d.payload && typeof d.payload.phrase === 'string' ? d.payload.phrase.trim() : '';
+        if (!emoji || [...emoji].length > 4) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'émote de victoire : un emoji requis' });
+        }
+        if (!phrase || phrase.length > 80) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'émote de victoire : une punchline (max 80) requise' });
+        }
       }
     }
   });
