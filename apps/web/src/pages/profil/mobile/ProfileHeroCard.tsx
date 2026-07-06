@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Crown, Flame, MapPin, Pencil, TrendingDown, TrendingUp } from 'lucide-react';
+import { Crown, Flame, MapPin, TrendingDown, TrendingUp } from 'lucide-react';
 import { StickerQuickPicker } from '../StickerQuickPicker';
 import { EloBoostBadge } from '../../../components/EloBoost';
 import { HeroCardFrame } from '../../../components/HeroCardFrame';
@@ -481,18 +481,18 @@ export function ProfileHeroCard({
         />
       )}
 
-      {/* Bouton d'édition rapide du sticker — profil perso seulement. Petit crayon
-          en coin, discret au repos et pleinement visible au survol, qui ouvre le
-          sélecteur rapide (équiper / déséquiper) sans passer par l'inventaire. */}
+      {/* Bouton d'édition rapide du sticker — profil perso seulement. Pastille
+          en coin bien visible (emoji sticker), qui ouvre le sélecteur rapide
+          (équiper / déséquiper) sans passer par l'inventaire. */}
       {isMe && (
         <button
           type="button"
           onClick={() => setStickerPicker(true)}
           title={equippedSticker ? 'Changer de sticker' : 'Choisir un sticker'}
           aria-label={equippedSticker ? 'Changer de sticker' : 'Choisir un sticker'}
-          className="absolute top-1.5 right-1.5 z-30 w-6 h-6 rounded-full bg-black/55 border border-white/15 backdrop-blur-sm flex items-center justify-center text-white/70 hover:text-white hover:border-pink-400/60 transition-all opacity-50 group-hover:opacity-100"
+          className="absolute top-1.5 right-1.5 z-30 w-7 h-7 rounded-full bg-black/70 border border-pink-400/50 backdrop-blur-sm flex items-center justify-center transition-all opacity-95 group-hover:opacity-100 hover:border-pink-400 hover:scale-110 shadow-[0_2px_10px_rgba(0,0,0,0.55)]"
         >
-          <Pencil className="w-3 h-3" strokeWidth={2.5} />
+          <span className="text-[15px] leading-none" aria-hidden>🎨</span>
         </button>
       )}
     </HeroCardFrame>
