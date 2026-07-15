@@ -199,8 +199,13 @@ export function StakeMatchDefisSection({ variant = 'desktop' }: { variant?: 'des
         </h3>
         <Link
           to="/enjeu"
-          className="text-[11px] font-bold text-gold hover:brightness-110 border border-gold/40 rounded-lg px-2.5 py-1"
+          className={
+            data.canDeclareToday
+              ? 'inline-flex items-center gap-1.5 rounded-lg bg-gold text-bg-0 font-extrabold text-[12px] px-3 py-1.5 shadow-[0_2px_12px_rgba(255,191,32,0.4)] hover:brightness-110 active:scale-[0.98] transition'
+              : 'inline-flex items-center gap-1.5 rounded-lg border border-gold/50 text-gold font-bold text-[12px] px-3 py-1.5 hover:bg-gold/10 hover:brightness-110 transition'
+          }
         >
+          <Zap className="w-3.5 h-3.5" />
           {data.canDeclareToday ? 'Lancer un défi à enjeu' : 'Voir les matchs à enjeu'}
         </Link>
       </div>
@@ -217,9 +222,18 @@ export function StakeMatchDefisSection({ variant = 'desktop' }: { variant?: 'des
         </Link>
       )}
       {!hasAny && (
-        <p className="text-[11px] text-muted-2">
-          Aucun match à enjeu en cours. Défie un joueur et fais parier toute la ligue.
-        </p>
+        <Link
+          to="/enjeu"
+          className="flex items-center justify-between gap-3 rounded-xl border border-gold/40 bg-gold/[0.06] px-3 py-3 hover:bg-gold/10 hover:brightness-110 transition"
+        >
+          <span className="text-[12px] text-muted-2 leading-snug">
+            Aucun match à enjeu en cours. Défie un joueur et fais parier toute la ligue.
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-gold text-bg-0 font-extrabold text-[12px] px-3 py-1.5 shadow-[0_2px_12px_rgba(255,191,32,0.4)]">
+            <Zap className="w-3.5 h-3.5" />
+            {data.canDeclareToday ? 'Lancer' : 'Voir'}
+          </span>
+        </Link>
       )}
     </div>
   );
