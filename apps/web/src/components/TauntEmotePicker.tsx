@@ -55,7 +55,7 @@ export function TauntEmotePicker({ compact = false }: { compact?: boolean }) {
     <div>
       <TauntEmotePreview emote={preview} onDone={() => setPreview(null)} />
       {/* Liste scrollable : borne la hauteur pour rester compacte même avec beaucoup d'émotes. */}
-      <div className={`grid ${compact ? 'grid-cols-5' : 'grid-cols-5 sm:grid-cols-10'} gap-2 max-h-56 overflow-y-auto pr-1`}>
+      <div className={`grid ${compact ? 'grid-cols-5' : 'grid-cols-5 sm:grid-cols-10'} gap-2 max-h-56 overflow-y-auto pe-1`}>
         {/* « Aucune » — le joueur ne nargue pas quand il gagne. */}
         <button
           type="button"

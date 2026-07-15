@@ -739,7 +739,7 @@ function ModeratorPermissionsButton({ user, onSaved }: { user: AdminUser; onSave
       >
         🔑 {activeCount}/{MODERATOR_PERMISSION_KEYS.length}
         {managedGames.length > 0 && (
-          <span className="ml-1.5 text-[10px] opacity-70">
+          <span className="ms-1.5 text-[10px] opacity-70">
             {managedGames.map((g) => GAME_ABBREV[g] ?? g).join('+')}
           </span>
         )}
@@ -1237,14 +1237,14 @@ function UsersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
                 </th>
                 <SortableTh<UsersSortKey> label={t('god.users.col.login')} k="login" sort={sort} onSort={toggleSort} align="left" className="py-2 px-3" />
                 <SortableTh<UsersSortKey> label={t('god.users.col.role')} k="role" sort={sort} onSort={toggleSort} align="left" defaultDir="desc" className="py-2 px-3" />
-                <th className="text-left py-2 px-3">{t('god.users.col.modes')}</th>
+                <th className="text-start py-2 px-3">{t('god.users.col.modes')}</th>
                 <SortableTh<UsersSortKey> label={t('god.users.col.elo')} k="elo" sort={sort} onSort={toggleSort} align="right" defaultDir="desc" className="py-2 px-3" />
                 <SortableTh<UsersSortKey> label={t('god.users.col.matches')} k="matches" sort={sort} onSort={toggleSort} align="right" defaultDir="desc" className="py-2 px-3" />
                 <SortableTh<UsersSortKey> label={t('god.users.col.dodges')} k="dodges" sort={sort} onSort={toggleSort} align="right" defaultDir="desc" className="py-2 px-3" />
                 <SortableTh<UsersSortKey> label="🏆" k="trophies" sort={sort} onSort={toggleSort} align="right" defaultDir="desc" className="py-2 px-3" />
                 <SortableTh<UsersSortKey> label={t('god.users.col.status')} k="status" sort={sort} onSort={toggleSort} align="left" defaultDir="desc" className="py-2 px-3" />
                 <SortableTh<UsersSortKey> label={t('god.users.col.campus')} k="campus" sort={sort} onSort={toggleSort} align="left" className="py-2 px-3" />
-                <th className="text-right py-2 px-3">{t('god.users.col.actions')}</th>
+                <th className="text-end py-2 px-3">{t('god.users.col.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1281,13 +1281,13 @@ function UsersTab({ myRole, myLogin }: { myRole: Role; myLogin: string }) {
                         </div>
                       </td>
                       <td className="py-2 px-3"><GameModeBadges user={u} /></td>
-                      <td className="py-2 px-3 text-right tabular-nums text-zinc-100">{USER_GAME_STATS[statGame].elo(u)}</td>
-                      <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{USER_GAME_STATS[statGame].matches(u)}</td>
-                      <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{u.dodgeCount}</td>
-                      <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{USER_GAME_STATS[statGame].trophies(u)}</td>
+                      <td className="py-2 px-3 text-end tabular-nums text-zinc-100">{USER_GAME_STATS[statGame].elo(u)}</td>
+                      <td className="py-2 px-3 text-end tabular-nums text-zinc-400">{USER_GAME_STATS[statGame].matches(u)}</td>
+                      <td className="py-2 px-3 text-end tabular-nums text-zinc-400">{u.dodgeCount}</td>
+                      <td className="py-2 px-3 text-end tabular-nums text-zinc-400">{USER_GAME_STATS[statGame].trophies(u)}</td>
                       <td className="py-2 px-3"><StatusBadge banned={!!u.bannedAt} /></td>
                       <td className="py-2 px-3 text-zinc-500 text-xs">{u.campus ?? '—'}</td>
-                      <td className="py-2 px-3 text-right">
+                      <td className="py-2 px-3 text-end">
                         <span className={`text-zinc-500 transition-transform inline-block ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
                       </td>
                     </tr>
@@ -1479,12 +1479,12 @@ function ModerationTab() {
               <table className="w-full text-xs font-mono border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-wider">
-                    <th className="text-left py-1.5 px-2">{t('god.match.col.date')}</th>
-                    <th className="text-left py-1.5 px-2">{t('god.match.col.playerA')}</th>
+                    <th className="text-start py-1.5 px-2">{t('god.match.col.date')}</th>
+                    <th className="text-start py-1.5 px-2">{t('god.match.col.playerA')}</th>
                     <th className="text-center py-1.5 px-2">{t('god.match.col.score')}</th>
-                    <th className="text-left py-1.5 px-2">{t('god.match.col.playerB')}</th>
-                    <th className="text-right py-1.5 px-2">ΔA</th>
-                    <th className="text-right py-1.5 px-2">ΔB</th>
+                    <th className="text-start py-1.5 px-2">{t('god.match.col.playerB')}</th>
+                    <th className="text-end py-1.5 px-2">ΔA</th>
+                    <th className="text-end py-1.5 px-2">ΔB</th>
                     <th className="text-center py-1.5 px-2">ELO</th>
                   </tr>
                 </thead>
@@ -1497,8 +1497,8 @@ function ModerationTab() {
                         <td className={`py-1.5 px-2 ${m.winner === 'A' ? 'text-emerald-400' : 'text-zinc-300'}`}>{m.playerALogin}</td>
                         <td className="py-1.5 px-2 text-center tabular-nums text-zinc-100">{m.scoreA}–{m.scoreB}</td>
                         <td className={`py-1.5 px-2 ${m.winner === 'B' ? 'text-emerald-400' : 'text-zinc-300'}`}>{m.playerBLogin}</td>
-                        <td className={`py-1.5 px-2 text-right tabular-nums ${m.deltaA >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.deltaA > 0 ? '+' : ''}{m.deltaA}</td>
-                        <td className={`py-1.5 px-2 text-right tabular-nums ${m.deltaB >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.deltaB > 0 ? '+' : ''}{m.deltaB}</td>
+                        <td className={`py-1.5 px-2 text-end tabular-nums ${m.deltaA >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.deltaA > 0 ? '+' : ''}{m.deltaA}</td>
+                        <td className={`py-1.5 px-2 text-end tabular-nums ${m.deltaB >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.deltaB > 0 ? '+' : ''}{m.deltaB}</td>
                         <td className="py-1.5 px-2 text-center">{m.countedForElo ? <span className="text-emerald-400">✓</span> : <span className="text-zinc-600">—</span>}</td>
                       </tr>
                     );
@@ -1533,12 +1533,12 @@ function RejectionTable({ rows }: { rows: RejectedMatch[]; perspective?: 'emitte
     <table className="w-full text-xs font-mono border-collapse">
       <thead>
         <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-wider">
-          <th className="text-left py-1.5 px-2">{t('god.rej.col.date')}</th>
-          <th className="text-left py-1.5 px-2">{t('god.rej.col.declarer')}</th>
-          <th className="text-left py-1.5 px-2">{t('god.rej.col.opponent')}</th>
+          <th className="text-start py-1.5 px-2">{t('god.rej.col.date')}</th>
+          <th className="text-start py-1.5 px-2">{t('god.rej.col.declarer')}</th>
+          <th className="text-start py-1.5 px-2">{t('god.rej.col.opponent')}</th>
           <th className="text-center py-1.5 px-2">{t('god.rej.col.score')}</th>
-          <th className="text-left py-1.5 px-2">{t('god.rej.col.reason')}</th>
-          <th className="text-left py-1.5 px-2">{t('god.rej.col.message')}</th>
+          <th className="text-start py-1.5 px-2">{t('god.rej.col.reason')}</th>
+          <th className="text-start py-1.5 px-2">{t('god.rej.col.message')}</th>
         </tr>
       </thead>
       <tbody>
@@ -1883,7 +1883,7 @@ function MatchesTab() {
                 <SortableTh<MatchesSortKey> label="ΔA" k="deltaA" sort={sort} onSort={toggleSort} align="right" defaultDir="desc" />
                 <SortableTh<MatchesSortKey> label="ΔB" k="deltaB" sort={sort} onSort={toggleSort} align="right" defaultDir="desc" />
                 <SortableTh<MatchesSortKey> label="ELO" k="elo" sort={sort} onSort={toggleSort} align="center" defaultDir="desc" />
-                <th className="text-right py-2 px-2">{t('god.match.col.actions')}</th>
+                <th className="text-end py-2 px-2">{t('god.match.col.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1920,8 +1920,8 @@ function MatchesTab() {
                   <td className={`py-1.5 px-2 ${m.winner === 'B' ? 'text-emerald-400' : 'text-zinc-300'}`}>
                     {editId === m.id ? <Input value={editPlayerB} onChange={setEditPlayerB} className="w-28" /> : m.playerBLogin}
                   </td>
-                  <td className={`py-1.5 px-2 text-right tabular-nums ${m.deltaA >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.deltaA > 0 ? '+' : ''}{m.deltaA}</td>
-                  <td className={`py-1.5 px-2 text-right tabular-nums ${m.deltaB >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.deltaB > 0 ? '+' : ''}{m.deltaB}</td>
+                  <td className={`py-1.5 px-2 text-end tabular-nums ${m.deltaA >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.deltaA > 0 ? '+' : ''}{m.deltaA}</td>
+                  <td className={`py-1.5 px-2 text-end tabular-nums ${m.deltaB >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{m.deltaB > 0 ? '+' : ''}{m.deltaB}</td>
                   <td className="py-1.5 px-2 text-center">{m.countedForElo ? <span className="text-emerald-400">✓</span> : <span className="text-zinc-600">—</span>}</td>
                   <td className="py-1.5 px-2">
                     <div className="flex items-center gap-1.5 justify-end">
@@ -2415,7 +2415,7 @@ function AuditTab() {
           <option value="all">{t('god.audit.allActions')}</option>
           {AUDIT_ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
         </select>
-        <span className="text-zinc-500 text-xs font-mono ml-auto">{entries.length} {t('god.audit.entries')}</span>
+        <span className="text-zinc-500 text-xs font-mono ms-auto">{entries.length} {t('god.audit.entries')}</span>
       </div>
       {error && <div className="mb-3 text-xs text-red-400 font-mono">{error}</div>}
       {loading ? (
@@ -2431,7 +2431,7 @@ function AuditTab() {
               <SortableTh<AuditSortKey> label={t('god.audit.col.role')} k="role" sort={sort} onSort={toggleSort} align="left" defaultDir="desc" className="py-1.5 px-2" />
               <SortableTh<AuditSortKey> label={t('god.audit.col.action')} k="action" sort={sort} onSort={toggleSort} align="left" className="py-1.5 px-2" />
               <SortableTh<AuditSortKey> label={t('god.audit.col.target')} k="target" sort={sort} onSort={toggleSort} align="left" className="py-1.5 px-2" />
-              <th className="text-left py-1.5 px-2">{t('god.audit.col.details')}</th>
+              <th className="text-start py-1.5 px-2">{t('god.audit.col.details')}</th>
               <SortableTh<AuditSortKey> label={t('god.audit.col.ip')} k="ip" sort={sort} onSort={toggleSort} align="left" className="py-1.5 px-2" />
             </tr>
           </thead>
@@ -2817,7 +2817,7 @@ function AllHistoryTab() {
           ))}
         </div>
         <Btn onClick={load} variant="default">{t('god.refreshAction')}</Btn>
-        <span className="text-zinc-500 text-xs font-mono ml-auto">{events.length} {t('god.hist.events')}</span>
+        <span className="text-zinc-500 text-xs font-mono ms-auto">{events.length} {t('god.hist.events')}</span>
       </div>
 
       {/* Type pills */}
@@ -2872,8 +2872,8 @@ function AllHistoryTab() {
                 <SortableTh<AllHistorySortKey> label={t('god.hist.col.type')} k="type" sort={sort} onSort={toggleSort} align="left" className="py-1.5 px-2" />
                 <SortableTh<AllHistorySortKey> label={t('god.match.col.playerA')} k="playerA" sort={sort} onSort={toggleSort} align="left" className="py-1.5 px-2" />
                 <SortableTh<AllHistorySortKey> label={t('god.match.col.playerB')} k="playerB" sort={sort} onSort={toggleSort} align="left" className="py-1.5 px-2" />
-                <th className="text-left py-1.5 px-2">{t('god.hist.col.detail')}</th>
-                <th className="text-right py-1.5 px-2">{t('god.match.col.actions')}</th>
+                <th className="text-start py-1.5 px-2">{t('god.hist.col.detail')}</th>
+                <th className="text-end py-1.5 px-2">{t('god.match.col.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -3012,11 +3012,11 @@ function PendingTab() {
           <table className="w-full text-xs font-mono border-collapse">
             <thead>
               <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-wider">
-                <th className="text-left py-2 px-2">{t('god.pending.col.declaredAt')}</th>
-                <th className="text-left py-2 px-2">{t('god.pending.col.declarer')}</th>
+                <th className="text-start py-2 px-2">{t('god.pending.col.declaredAt')}</th>
+                <th className="text-start py-2 px-2">{t('god.pending.col.declarer')}</th>
                 <th className="text-center py-2 px-2">{t('god.match.col.score')}</th>
-                <th className="text-left py-2 px-2">{t('god.pending.col.opponent')}</th>
-                <th className="text-right py-2 px-2">{t('god.match.col.actions')}</th>
+                <th className="text-start py-2 px-2">{t('god.pending.col.opponent')}</th>
+                <th className="text-end py-2 px-2">{t('god.match.col.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -3165,7 +3165,7 @@ function DeleteSeasonModal({
       <div className="bg-zinc-900 border border-red-500/40 rounded-lg w-full max-w-md p-5 font-mono" onClick={(e) => e.stopPropagation()}>
         <div className="text-sm font-bold text-red-400 uppercase tracking-widest mb-2">{t('god.season.deleteTitle').replace('{name}', season.name)}</div>
         <p className="text-xs text-zinc-400 leading-relaxed mb-2">{t('god.season.deleteDesc.a')}</p>
-        <ul className="text-[11px] text-zinc-400 leading-relaxed mb-3 list-disc pl-4 space-y-0.5">
+        <ul className="text-[11px] text-zinc-400 leading-relaxed mb-3 list-disc ps-4 space-y-0.5">
           <li>{t('god.season.deleteDesc.li1')}</li>
           <li>{t('god.season.deleteDesc.li2')}</li>
           <li>{t('god.season.deleteDesc.li3')}</li>
@@ -3224,10 +3224,10 @@ function SeasonStandingsBlock({ seasonId }: { seasonId: string }) {
         <table className="w-full text-xs">
           <thead>
             <tr className="text-zinc-500 font-mono uppercase tracking-wider">
-              <th className="text-left py-1 px-2">#</th>
-              <th className="text-left py-1 px-2">{t('god.season.col.player')}</th>
-              <th className="text-right py-1 px-2">{t('god.season.col.elo')}</th>
-              <th className="text-right py-1 px-2">{t('god.season.col.wl')}</th>
+              <th className="text-start py-1 px-2">#</th>
+              <th className="text-start py-1 px-2">{t('god.season.col.player')}</th>
+              <th className="text-end py-1 px-2">{t('god.season.col.elo')}</th>
+              <th className="text-end py-1 px-2">{t('god.season.col.wl')}</th>
             </tr>
           </thead>
           <tbody>
@@ -3235,8 +3235,8 @@ function SeasonStandingsBlock({ seasonId }: { seasonId: string }) {
               <tr key={r.login} className="border-t border-zinc-800/50">
                 <td className="py-1 px-2 tabular-nums text-zinc-400">{r.rank}</td>
                 <td className="py-1 px-2 text-zinc-200">{r.login}</td>
-                <td className="py-1 px-2 text-right tabular-nums text-zinc-100">{r.elo}</td>
-                <td className="py-1 px-2 text-right tabular-nums text-zinc-500">{r.wins}-{r.losses}</td>
+                <td className="py-1 px-2 text-end tabular-nums text-zinc-100">{r.elo}</td>
+                <td className="py-1 px-2 text-end tabular-nums text-zinc-500">{r.wins}-{r.losses}</td>
               </tr>
             ))}
           </tbody>
@@ -3409,7 +3409,7 @@ function SeasonsTab() {
         {active ? (
           <div className="bg-zinc-800/50 border border-zinc-700 rounded p-3 text-sm text-zinc-200">
             <span className="text-emerald-400 font-bold">{active.name}</span>
-            <span className="text-zinc-500 text-xs ml-2">{t('god.season.since')} {fmtDate(active.startedAt)}</span>
+            <span className="text-zinc-500 text-xs ms-2">{t('god.season.since')} {fmtDate(active.startedAt)}</span>
           </div>
         ) : (
           <div className="text-sm text-zinc-500">{t('god.season.noneActive')}</div>
@@ -3477,7 +3477,7 @@ function SeasonsTab() {
                 <button
                   type="button"
                   onClick={() => setOpenSeason(openSeason === s.id ? null : s.id)}
-                  className="flex-1 flex items-center justify-between gap-2 cursor-pointer text-left hover:opacity-80"
+                  className="flex-1 flex items-center justify-between gap-2 cursor-pointer text-start hover:opacity-80"
                 >
                   <span className="text-zinc-200 font-bold">{s.name}</span>
                   <span className="flex items-center gap-2 text-zinc-500">
@@ -3675,7 +3675,7 @@ function ManagePanel({
               <button type="button" onClick={() => setFormat('league')} className={segBtn(format === 'league')}>
                 {tr('god.tourn.league')}
               </button>
-              <span className="text-zinc-500 font-mono text-xs ml-2">{tr('god.tourn.capacity')}</span>
+              <span className="text-zinc-500 font-mono text-xs ms-2">{tr('god.tourn.capacity')}</span>
               <Input type="number" value={capacity} onChange={setCapacity} className="w-20" />
             </div>
           )}
@@ -4017,7 +4017,7 @@ function TournamentsTab() {
                 <SortableTh<TournSortKey> label={tr('god.tourn.col.organizer')} k="organizer" sort={sort} onSort={toggleSort} align="left" className="py-2 px-3" />
                 <SortableTh<TournSortKey> label={tr('god.tourn.col.winner')} k="winner" sort={sort} onSort={toggleSort} align="left" className="py-2 px-3" />
                 <SortableTh<TournSortKey> label={tr('god.tourn.col.created')} k="created" sort={sort} onSort={toggleSort} align="left" defaultDir="desc" className="py-2 px-3" />
-                <th className="text-right py-2 px-3">{tr('god.tourn.col.action')}</th>
+                <th className="text-end py-2 px-3">{tr('god.tourn.col.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -4030,7 +4030,7 @@ function TournamentsTab() {
                   <td className="py-2 px-3 text-zinc-100 font-medium max-w-[200px] truncate">
                     <button
                       onClick={() => window.open(`/tournaments/${encodeURIComponent(t.id)}`, '_blank')}
-                      className="hover:text-amber-400 cursor-pointer text-left truncate w-full"
+                      className="hover:text-amber-400 cursor-pointer text-start truncate w-full"
                     >
                       {t.name}
                     </button>
@@ -4060,9 +4060,9 @@ function TournamentsTab() {
                     {t.winner?.login ? `🏆 ${t.winner.login}` : '—'}
                   </td>
                   <td className="py-2 px-3 text-zinc-500 font-mono text-xs whitespace-nowrap">{fmtDate(t.createdAt)}</td>
-                  <td className="py-2 px-3 text-right whitespace-nowrap">
+                  <td className="py-2 px-3 text-end whitespace-nowrap">
                     {manageable && (
-                      <Btn onClick={() => toggleManage(t)} variant={isOpen ? 'warn' : 'default'} className="mr-1.5">
+                      <Btn onClick={() => toggleManage(t)} variant={isOpen ? 'warn' : 'default'} className="me-1.5">
                         {isOpen ? tr('god.tourn.close') : tr('god.tourn.manage')}
                       </Btn>
                     )}
@@ -4132,7 +4132,7 @@ function StatBarList({ rows, empty }: { rows: StatCount[]; empty: string }) {
       {rows.map((r) => (
         <div key={r.name} className="relative flex items-center justify-between px-2 py-1 rounded overflow-hidden">
           <div className="absolute inset-y-0 left-0 bg-zinc-700/30 rounded" style={{ width: `${(r.count / max) * 100}%` }} />
-          <span className="relative z-10 text-zinc-300 text-xs font-mono truncate pr-2">{r.name}</span>
+          <span className="relative z-10 text-zinc-300 text-xs font-mono truncate pe-2">{r.name}</span>
           <span className="relative z-10 text-zinc-400 text-xs font-mono tabular-nums">{r.count}</span>
         </div>
       ))}
@@ -4220,7 +4220,7 @@ function StatsTab() {
           <option value="all">{t('god.stats.allGames')}</option>
           {STAT_GAMES.map((g) => <option key={g} value={g}>{t(`game.${g}`)}</option>)}
         </select>
-        <span className="text-zinc-500 text-xs font-mono ml-auto">{t('god.stats.window').replace('{n}', String(days))}</span>
+        <span className="text-zinc-500 text-xs font-mono ms-auto">{t('god.stats.window').replace('{n}', String(days))}</span>
       </div>
 
       {error && <div className="mb-3 text-xs text-red-400 font-mono">{error}</div>}
@@ -4254,19 +4254,19 @@ function StatsTab() {
             <table className="w-full text-xs font-mono border-collapse">
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-wider">
-                  <th className="text-left py-1.5 px-2">{t('god.stats.col.game')}</th>
-                  <th className="text-right py-1.5 px-2">{t('god.stats.col.registered')}</th>
-                  <th className="text-right py-1.5 px-2">{t('god.stats.col.activePlayers')}</th>
-                  <th className="text-right py-1.5 px-2">{t('god.stats.col.matches')}</th>
+                  <th className="text-start py-1.5 px-2">{t('god.stats.col.game')}</th>
+                  <th className="text-end py-1.5 px-2">{t('god.stats.col.registered')}</th>
+                  <th className="text-end py-1.5 px-2">{t('god.stats.col.activePlayers')}</th>
+                  <th className="text-end py-1.5 px-2">{t('god.stats.col.matches')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.perGame.map((g) => (
                   <tr key={g.game} className="border-b border-zinc-900 hover:bg-zinc-900/30">
                     <td className="py-2 px-2 text-zinc-200 font-medium">{t(`game.${g.game}`)}</td>
-                    <td className="py-2 px-2 text-right text-zinc-300 tabular-nums">{g.registered}</td>
-                    <td className="py-2 px-2 text-right text-zinc-300 tabular-nums">{g.activePlayers}</td>
-                    <td className="py-2 px-2 text-right text-zinc-300 tabular-nums">{g.matches}</td>
+                    <td className="py-2 px-2 text-end text-zinc-300 tabular-nums">{g.registered}</td>
+                    <td className="py-2 px-2 text-end text-zinc-300 tabular-nums">{g.activePlayers}</td>
+                    <td className="py-2 px-2 text-end text-zinc-300 tabular-nums">{g.matches}</td>
                   </tr>
                 ))}
               </tbody>
@@ -4390,7 +4390,7 @@ function AnimationsTab({ myLogin }: { myLogin: string }) {
           <button
             key={it.key}
             onClick={it.onClick}
-            className="text-left p-4 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:border-zinc-600 hover:bg-zinc-800/60 transition-colors cursor-pointer"
+            className="text-start p-4 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:border-zinc-600 hover:bg-zinc-800/60 transition-colors cursor-pointer"
           >
             <div className="text-zinc-100 text-sm font-bold tracking-wide">{it.label}</div>
             <div className="text-zinc-500 text-[11px] mt-1 leading-snug">{it.desc}</div>
@@ -4744,7 +4744,7 @@ function ItemsAdminTab() {
                   >
                     <Icon className="w-3.5 h-3.5" strokeWidth={2.5} />
                     {b.label}
-                    <button onClick={() => removeBadge(b.code)} className="ml-1 text-red-400 hover:text-red-300 cursor-pointer" aria-label="retirer">✕</button>
+                    <button onClick={() => removeBadge(b.code)} className="ms-1 text-red-400 hover:text-red-300 cursor-pointer" aria-label="retirer">✕</button>
                   </span>
                 );
               })}
@@ -4905,7 +4905,7 @@ function BattlePassTierRow({
         </select>
       )}
 
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex items-center gap-2 ms-auto">
         {err && <span className="text-xs text-red-400 font-mono">{err}</span>}
         {saved && <span className="text-xs text-emerald-400 font-mono">{t('battlepass.admin.saved')}</span>}
         <Btn variant="success" onClick={save} disabled={busy}>
@@ -5577,7 +5577,7 @@ export function GODPage({ moodo = false }: { moodo?: boolean }) {
             <button
               onClick={() => navigate('/challenges')}
               aria-label={t('god.backApp.aria')}
-              className="flex items-center justify-center w-8 h-8 -ml-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/70 transition-colors cursor-pointer"
+              className="flex items-center justify-center w-8 h-8 -ms-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/70 transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>

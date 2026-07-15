@@ -157,7 +157,7 @@ function HistoColumn({ Icon, title, count, header, children }: HistoColumnProps)
         <h3 className="font-gaming text-xs font-extrabold uppercase tracking-[0.16em] text-text-strong">
           {title}
         </h3>
-        <span className="ml-auto text-[10px] font-mono tabular-nums text-muted-2 bg-bg-2/60 px-2 py-0.5 rounded-md border border-border">
+        <span className="ms-auto text-[10px] font-mono tabular-nums text-muted-2 bg-bg-2/60 px-2 py-0.5 rounded-md border border-border">
           {count}
         </span>
       </div>

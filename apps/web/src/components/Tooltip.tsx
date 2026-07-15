@@ -25,7 +25,7 @@ export function Tooltip({ label, children, className = '', side = 'top', wide = 
       ? 'bottom-full mb-1.5'
       : 'top-full mt-1.5';
   const shape = wide
-    ? 'w-64 max-w-[80vw] whitespace-normal text-left leading-snug py-1.5'
+    ? 'w-64 max-w-[80vw] whitespace-normal text-start leading-snug py-1.5'
     : 'whitespace-nowrap leading-none';
   return (
     <span className={`relative inline-flex items-center group/tt ${className}`}>

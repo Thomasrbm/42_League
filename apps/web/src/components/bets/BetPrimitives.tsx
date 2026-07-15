@@ -137,7 +137,7 @@ export function BetForm({
                   key={login}
                   type="button"
                   onClick={() => setChoice(login)}
-                  className={`flex items-center gap-2 ${hasAvatar ? 'pl-1.5 pr-3' : 'px-3'} h-8 rounded-lg text-xs font-bold tap-transparent transition-colors ${
+                  className={`flex items-center gap-2 ${hasAvatar ? 'ps-1.5 pe-3' : 'px-3'} h-8 rounded-lg text-xs font-bold tap-transparent transition-colors ${
                     active
                       ? 'border border-gold/50 bg-gold/20 text-gold'
                       : 'border border-white/8 bg-white/[0.02] text-muted hover:text-text'

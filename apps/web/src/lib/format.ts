@@ -17,6 +17,23 @@ export function fmtRelative(iso: string, lang: Lang): { text: string; late: bool
       if (absMin < 60) return { text: `en ${absMin} min`, late: false };
       return { text: h === 1 ? 'en 1 hora' : `en ${h} h`, late: false };
     }
+    if (lang === 'ja') {
+      if (absMin < 1) return { text: '今', late: false };
+      if (absMin < 60) return { text: `${absMin}分後`, late: false };
+      return { text: `${h}時間後`, late: false };
+    }
+    if (lang === 'ar') {
+      if (absMin < 1) return { text: 'الآن', late: false };
+      if (absMin === 1) return { text: 'خلال دقيقة', late: false };
+      if (absMin < 60) return { text: `خلال ${absMin} دقيقة`, late: false };
+      return { text: h === 1 ? 'خلال ساعة' : `خلال ${h} ساعة`, late: false };
+    }
+    if (lang === 'pt') {
+      if (absMin < 1) return { text: 'agora', late: false };
+      if (absMin === 1) return { text: 'em 1 minuto', late: false };
+      if (absMin < 60) return { text: `em ${absMin} min`, late: false };
+      return { text: h === 1 ? 'em 1 hora' : `em ${h} h`, late: false };
+    }
     if (absMin < 1) return { text: 'now', late: false };
     if (absMin === 1) return { text: 'in 1 minute', late: false };
     if (absMin < 60) return { text: `in ${absMin} min`, late: false };
@@ -33,6 +50,23 @@ export function fmtRelative(iso: string, lang: Lang): { text: string; late: bool
     if (absMin === 1) return { text: 'hace 1 minuto', late: true };
     if (absMin < 60) return { text: `hace ${absMin} min`, late: true };
     return { text: h === 1 ? 'hace 1 hora' : `hace ${h} h`, late: true };
+  }
+  if (lang === 'ja') {
+    if (absMin < 1) return { text: 'たった今', late: false };
+    if (absMin < 60) return { text: `${absMin}分前`, late: true };
+    return { text: `${h}時間前`, late: true };
+  }
+  if (lang === 'ar') {
+    if (absMin < 1) return { text: 'الآن', late: false };
+    if (absMin === 1) return { text: 'قبل دقيقة', late: true };
+    if (absMin < 60) return { text: `قبل ${absMin} دقيقة`, late: true };
+    return { text: h === 1 ? 'قبل ساعة' : `قبل ${h} ساعة`, late: true };
+  }
+  if (lang === 'pt') {
+    if (absMin < 1) return { text: 'agora mesmo', late: false };
+    if (absMin === 1) return { text: 'há 1 minuto', late: true };
+    if (absMin < 60) return { text: `há ${absMin} min`, late: true };
+    return { text: h === 1 ? 'há 1 hora' : `há ${h} h`, late: true };
   }
   if (absMin < 1) return { text: 'just now', late: false };
   if (absMin === 1) return { text: '1 minute ago', late: true };
@@ -106,12 +140,15 @@ function startOfDay(d: Date): number {
  */
 export function fmtDayLabel(iso: string, lang: Lang): string {
   const d = new Date(iso);
-  const locale = lang === 'fr' ? 'fr-FR' : lang === 'es' ? 'es-ES' : 'en-GB';
+  const locale = localeFor(lang);
   const dayDiff = Math.round((startOfDay(new Date()) - startOfDay(d)) / 86_400_000);
   const labels: Record<Lang, [string, string, string]> = {
     fr: ["Aujourd'hui", 'Hier', 'Demain'],
     en: ['Today', 'Yesterday', 'Tomorrow'],
     es: ['Hoy', 'Ayer', 'Mañana'],
+    ja: ['今日', '昨日', '明日'],
+    ar: ['اليوم', 'أمس', 'غدًا'],
+    pt: ['Hoje', 'Ontem', 'Amanhã'],
   };
   if (dayDiff === 0) return labels[lang][0];
   if (dayDiff === 1) return labels[lang][1];
@@ -121,7 +158,10 @@ export function fmtDayLabel(iso: string, lang: Lang): string {
 
 /** Locale BCP-47 depuis la langue de l'app. */
 function localeFor(lang: Lang): string {
-  return lang === 'fr' ? 'fr-FR' : lang === 'es' ? 'es-ES' : 'en-GB';
+  const map: Record<Lang, string> = {
+    fr: 'fr-FR', en: 'en-GB', es: 'es-ES', ja: 'ja-JP', ar: 'ar', pt: 'pt-BR',
+  };
+  return map[lang];
 }
 
 /**

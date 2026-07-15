@@ -52,7 +52,7 @@ export function CharMultiGrid({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('favorites.search')}
-          className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg bg-bg-1/60 border border-border/60 focus:border-[#c97bff] outline-none transition-colors"
+          className="w-full ps-8 pe-7 py-1.5 text-xs rounded-lg bg-bg-1/60 border border-border/60 focus:border-[#c97bff] outline-none transition-colors"
         />
         {query && (
           <button type="button" onClick={() => setQuery('')} aria-label="×"

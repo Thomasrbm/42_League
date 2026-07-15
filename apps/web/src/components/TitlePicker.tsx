@@ -143,7 +143,7 @@ function TitleOption({
       <button
         type="button"
         onClick={onClick}
-        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition hover:bg-gold/10 ${
+        className={`flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs transition hover:bg-gold/10 ${
           muted ? 'text-muted-2 italic' : 'text-gold italic font-semibold'
         }`}
       >

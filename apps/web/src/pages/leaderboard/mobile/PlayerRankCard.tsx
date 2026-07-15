@@ -61,7 +61,7 @@ export const PlayerRankCard = memo(function PlayerRankCard({
         navigate(`/player/${entry.login}`);
       }}
       whileTap={{ scale: 0.98 }}
-      className={`relative w-full flex items-center gap-3 p-3.5 rounded-2xl border tap-transparent text-left transition-all hover-glow overflow-hidden ${
+      className={`relative w-full flex items-center gap-3 p-3.5 rounded-2xl border tap-transparent text-start transition-all hover-glow overflow-hidden ${
         isSheldon
           ? ''
           : isMe
@@ -144,7 +144,7 @@ export const PlayerRankCard = memo(function PlayerRankCard({
       </div>
 
       {/* ELO */}
-      <div className="text-right flex-shrink-0">
+      <div className="text-end flex-shrink-0">
         <div className="font-display text-base font-black tabular-nums text-gold leading-none" style={{ textShadow: '0 0 12px rgba(255,201,74,0.35)' }}>
           {entry.elo}
         </div>

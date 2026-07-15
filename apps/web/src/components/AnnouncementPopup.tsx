@@ -161,7 +161,7 @@ export function AnnouncementPopup() {
                   <button
                     type="button"
                     onClick={next}
-                    className="ml-auto inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display text-sm font-black uppercase tracking-wider text-bg-1 transition-all active:scale-[0.98] hover:brightness-110"
+                    className="ms-auto inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display text-sm font-black uppercase tracking-wider text-bg-1 transition-all active:scale-[0.98] hover:brightness-110"
                     style={{ background: `linear-gradient(90deg, ${meta.accent}, ${meta.accent}cc)` }}
                   >
                     {t('announce.popup.next')}

@@ -171,4 +171,160 @@ export const dict: Record<Lang, Dict> = {
     'settings.currentUniverse': 'Universo actual',
     'settings.changeGame': 'Cambiar de juego.',
   },
+  ja: {
+    'game.babyfoot': 'テーブルサッカー',
+    'game.smash': 'スマブラ',
+    'game.chess': 'チェス',
+    'game.streetfighter': 'Street Fighter',
+    'game.flechettes': 'ダーツ',
+    'game.coding': 'Coding',
+    'game.pokemon': 'ポケモン',
+
+    'settings.gameModes.title': 'ゲームモード',
+    'settings.gameModes.hint': '有効にしたモードのランキングと統計に表示されます。',
+    'settings.gameModes.minOne': '少なくとも1つのモードを有効にしておく必要があります',
+
+    'settings.quality': 'グラフィック品質',
+    'settings.quality.hint':
+      '「自動」はデバイスが重いときだけ効果を減らし、高性能なマシンでは何も変更しません。',
+    'settings.quality.auto': '自動',
+    'settings.quality.high': '高',
+    'settings.quality.perf': 'パフォーマンス',
+
+    'settings.push': 'プッシュ通知',
+    'settings.push.enable': 'このデバイスで有効にする',
+    'settings.push.disable': 'このデバイスで無効にする',
+    'settings.push.enabled': '通知が有効です — アプリを閉じていても通知が届きます。',
+    'settings.push.disabled': 'このデバイスで通知が無効です。',
+    'settings.push.denied':
+      '通知はブラウザによってブロックされています。有効にするにはサイトの設定で許可してください。',
+    'settings.push.error': '通知を有効にできませんでした。',
+    'settings.push.hint':
+      '受け取ったチャレンジ、承認待ちのスコア、トーナメントの試合：アプリを閉じていても通知されます。',
+
+    'settings.cinematics': '自動シネマティック',
+    'settings.cinematics.on': '有効',
+    'settings.cinematics.off': '無効',
+    'settings.cinematics.hint':
+      'レベルアップ、報酬解放、レイジ、リアクションなど。自分の直接の操作に関連するアニメーション（と挑発）は残ります。',
+
+    'settings.tauntEmote': '勝利エモート',
+    'settings.tauntEmote.hint':
+      '1v1で倒した相手に、次回のログイン時に表示されます（versus画面のあと）。',
+    'settings.tauntEmote.saved': 'エモートを保存しました！',
+    'settings.tauntEmote.error': 'エモートを保存できませんでした。',
+
+    'settings.connectedAs': 'ログイン中：',
+    'settings.exportError': 'エクスポート中にエラーが発生しました。',
+    'settings.deleteError': '削除中にエラーが発生しました。',
+
+    'settings.universe': 'ユニバース',
+    'settings.close': '閉じる',
+    'settings.currentUniverse': '現在のユニバース',
+    'settings.changeGame': 'ゲームを変更。',
+  },
+  ar: {
+    'game.babyfoot': 'بيبي فوت',
+    'game.smash': 'سماش',
+    'game.chess': 'الشطرنج',
+    'game.streetfighter': 'Street Fighter',
+    'game.flechettes': 'الدارتس',
+    'game.coding': 'Coding',
+    'game.pokemon': 'بوكيمون',
+
+    'settings.gameModes.title': 'أنماط اللعب',
+    'settings.gameModes.hint': 'تظهر في تصنيفات وإحصائيات الأنماط التي تفعّلها.',
+    'settings.gameModes.minOne': 'يجب أن يبقى نمط واحد على الأقل مفعّلًا',
+
+    'settings.quality': 'جودة الرسومات',
+    'settings.quality.hint':
+      'يقلّل «تلقائي» التأثيرات فقط عندما يتعثّر الجهاز، دون تغيير أي شيء على الأجهزة القوية.',
+    'settings.quality.auto': 'تلقائي',
+    'settings.quality.high': 'عالية',
+    'settings.quality.perf': 'الأداء',
+
+    'settings.push': 'الإشعارات الفورية',
+    'settings.push.enable': 'تفعيل على هذا الجهاز',
+    'settings.push.disable': 'تعطيل على هذا الجهاز',
+    'settings.push.enabled': 'الإشعارات مفعّلة — سيتم تنبيهك حتى مع إغلاق التطبيق.',
+    'settings.push.disabled': 'الإشعارات معطّلة على هذا الجهاز.',
+    'settings.push.denied':
+      'المتصفّح يحظر الإشعارات. اسمح بها في إعدادات الموقع لتفعيلها.',
+    'settings.push.error': 'تعذّر تفعيل الإشعارات.',
+    'settings.push.hint':
+      'التحديات المستلمة، النتائج بانتظار التأكيد، مباريات البطولة: يتم تنبيهك حتى عند إغلاق التطبيق.',
+
+    'settings.cinematics': 'المشاهد السينمائية التلقائية',
+    'settings.cinematics.on': 'مفعّلة',
+    'settings.cinematics.off': 'معطّلة',
+    'settings.cinematics.hint':
+      'ارتقاء المستوى، مكافأة مفتوحة، غضب، ردود أفعال… تبقى الرسوم المتحركة المرتبطة بأفعالك المباشرة (والاستفزاز).',
+
+    'settings.tauntEmote': 'إيموت النصر',
+    'settings.tauntEmote.hint':
+      'يُعرض للاعب الذي تهزمه في 1v1 عند تسجيل دخوله التالي (بعد شاشة المواجهة).',
+    'settings.tauntEmote.saved': 'تم حفظ الإيموت!',
+    'settings.tauntEmote.error': 'تعذّر حفظ الإيموت.',
+
+    'settings.connectedAs': 'مُسجَّل الدخول باسم',
+    'settings.exportError': 'خطأ أثناء التصدير.',
+    'settings.deleteError': 'خطأ أثناء الحذف.',
+
+    'settings.universe': 'العالم',
+    'settings.close': 'إغلاق',
+    'settings.currentUniverse': 'العالم الحالي',
+    'settings.changeGame': 'تغيير اللعبة.',
+  },
+  pt: {
+    'game.babyfoot': 'Pebolim',
+    'game.smash': 'Smash',
+    'game.chess': 'Xadrez',
+    'game.streetfighter': 'Street Fighter',
+    'game.flechettes': 'Dardos',
+    'game.coding': 'Coding',
+    'game.pokemon': 'Pokémon',
+
+    'settings.gameModes.title': 'Modos de jogo',
+    'settings.gameModes.hint': 'Você aparece nas classificações e estatísticas dos modos que ativar.',
+    'settings.gameModes.minOne': 'Pelo menos um modo deve permanecer ativo',
+
+    'settings.quality': 'Qualidade gráfica',
+    'settings.quality.hint':
+      'O modo Auto reduz os efeitos apenas quando o dispositivo trava, sem mudar nada em máquinas potentes.',
+    'settings.quality.auto': 'Auto',
+    'settings.quality.high': 'Alta',
+    'settings.quality.perf': 'Desempenho',
+
+    'settings.push': 'Notificações push',
+    'settings.push.enable': 'Ativar neste dispositivo',
+    'settings.push.disable': 'Desativar neste dispositivo',
+    'settings.push.enabled': 'Notificações ativadas — você será avisado mesmo com o app fechado.',
+    'settings.push.disabled': 'Notificações desativadas neste dispositivo.',
+    'settings.push.denied':
+      'As notificações estão bloqueadas pelo navegador. Permita-as nas configurações do site para ativá-las.',
+    'settings.push.error': 'Não foi possível ativar as notificações.',
+    'settings.push.hint':
+      'Desafios recebidos, placares a confirmar, partidas de torneio: avisado mesmo com o app fechado.',
+
+    'settings.cinematics': 'Cinemáticas automáticas',
+    'settings.cinematics.on': 'Ativadas',
+    'settings.cinematics.off': 'Desativadas',
+    'settings.cinematics.hint':
+      'Subida de nível, recompensa desbloqueada, raiva, reações… As animações ligadas às suas ações diretas (e as provocações) permanecem.',
+
+    'settings.tauntEmote': 'Emote de vitória',
+    'settings.tauntEmote.hint':
+      'Mostrado ao jogador que você vence no 1v1, no próximo acesso dele (após a tela de versus).',
+    'settings.tauntEmote.saved': 'Emote salvo!',
+    'settings.tauntEmote.error': 'Não foi possível salvar o emote.',
+
+    'settings.connectedAs': 'Conectado como',
+    'settings.exportError': 'Erro ao exportar.',
+    'settings.deleteError': 'Erro ao excluir.',
+
+    'settings.universe': 'Universo',
+    'settings.close': 'Fechar',
+    'settings.currentUniverse': 'Universo atual',
+    'settings.changeGame': 'Trocar de jogo.',
+  },
 };

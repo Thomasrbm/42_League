@@ -258,7 +258,7 @@ function DuoGroupHeader({ holder, rank }: { holder: DuoHolder; rank: number }) {
   const navigate = useNavigate();
   return (
     <div className="flex items-center gap-2.5 mb-3">
-      <span className="font-mono text-xs text-muted-2 font-bold w-6 text-right">#{rank}</span>
+      <span className="font-mono text-xs text-muted-2 font-bold w-6 text-end">#{rank}</span>
       <button
         type="button"
         onClick={() => navigate(`/team/${holder.team.id}`)}
@@ -450,7 +450,7 @@ function TeamPodiumColumn({ entry, delay }: { entry: TeamPodiumEntry; delay: num
           </div>
           <div className={`font-display font-black tabular-nums leading-tight ${T_TXT[tier]}`}>
             {entry.trophyCount}
-            <span className="ml-1 text-sm align-middle">🏆</span>
+            <span className="ms-1 text-sm align-middle">🏆</span>
           </div>
           {isFirst && (
             <div className="mt-0.5 inline-block text-[8px] font-extrabold uppercase tracking-[0.18em] text-[#ffd76a]/90">
@@ -461,7 +461,7 @@ function TeamPodiumColumn({ entry, delay }: { entry: TeamPodiumEntry; delay: num
       </div>
 
       <div
-        className={`relative w-full ${T_STEP_H[rank]} rounded-t-xl border-t border-l border-r bg-gradient-to-b ${T_STEP[tier]} flex items-start justify-center pt-2 overflow-hidden transition-all duration-300 group-hover:brightness-110`}
+        className={`relative w-full ${T_STEP_H[rank]} rounded-t-xl border-t border-s border-e bg-gradient-to-b ${T_STEP[tier]} flex items-start justify-center pt-2 overflow-hidden transition-all duration-300 group-hover:brightness-110`}
         style={{ transform: 'rotateX(8deg)', transformOrigin: 'bottom' }}
       >
         <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />

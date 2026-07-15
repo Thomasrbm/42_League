@@ -357,7 +357,7 @@ export function NotificationBell({ placement = 'down' }: { placement?: 'up' | 'd
                     type="button"
                     onClick={() => onClickItem(n)}
                     style={{ backgroundColor: bg, color: fg, borderLeft: `3px solid ${base}` }}
-                    className={`w-full flex items-start gap-2.5 px-3 py-2.5 text-left rounded-lg transition-transform hover:scale-[1.01] ${
+                    className={`w-full flex items-start gap-2.5 px-3 py-2.5 text-start rounded-lg transition-transform hover:scale-[1.01] ${
                       n.type === 'announcement' && !n.read ? 'soft-blink' : ''
                     }`}
                   >
@@ -366,7 +366,7 @@ export function NotificationBell({ placement = 'down' }: { placement?: 'up' | 'd
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs font-bold truncate">
-                        {emoji && <span className="mr-1">{emoji}</span>}
+                        {emoji && <span className="me-1">{emoji}</span>}
                         {n.title}
                       </span>
                       {n.body && (

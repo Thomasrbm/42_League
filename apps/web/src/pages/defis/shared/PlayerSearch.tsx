@@ -131,7 +131,7 @@ export function PlayerSearch({
             onClear();
             requestAnimationFrame(() => inputRef.current?.focus());
           }}
-          className="ml-1 text-muted hover:text-red transition-colors w-7 h-7 flex items-center justify-center rounded-full hover:bg-red/10 tap-transparent"
+          className="ms-1 text-muted hover:text-red transition-colors w-7 h-7 flex items-center justify-center rounded-full hover:bg-red/10 tap-transparent"
         >
           <X className="w-4 h-4" strokeWidth={2.5} />
         </button>
@@ -164,7 +164,7 @@ export function PlayerSearch({
           onKeyDown={handleKeyDown}
           placeholder={t('defis.searchPlaceholder')}
           aria-label={t('defis.searchAria')}
-          className="w-full pl-11 pr-4 py-3.5 bg-bg-1 border-2 border-border rounded-xl text-base font-medium focus:border-gold outline-none text-text-strong placeholder:text-muted transition-all shadow-sm focus:shadow-[0_0_16px_rgba(255,201,74,0.18)] tap-transparent allow-select"
+          className="w-full ps-11 pe-4 py-3.5 bg-bg-1 border-2 border-border rounded-xl text-base font-medium focus:border-gold outline-none text-text-strong placeholder:text-muted transition-all shadow-sm focus:shadow-[0_0_16px_rgba(255,201,74,0.18)] tap-transparent allow-select"
         />
       </div>
 
@@ -192,10 +192,10 @@ export function PlayerSearch({
                   type="button"
                   onMouseDown={(e) => { e.preventDefault(); commit(p); }}
                   onMouseEnter={() => setActiveIdx(i)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors tap-transparent ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-start transition-colors tap-transparent ${
                     i === activeIdx
-                      ? 'bg-gold/10 text-text-strong border-l-2 border-gold'
-                      : 'hover:bg-bg-2 text-muted-2 border-l-2 border-transparent'
+                      ? 'bg-gold/10 text-text-strong border-s-2 border-gold'
+                      : 'hover:bg-bg-2 text-muted-2 border-s-2 border-transparent'
                   }`}
                 >
                   <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-gold/30 shadow-sm">

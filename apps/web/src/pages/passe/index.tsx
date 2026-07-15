@@ -736,7 +736,7 @@ function TierTile({
       type="button"
       disabled={!claimable}
       onClick={() => claimable && onClaim(tile)}
-      className="relative w-full aspect-[4/5] rounded-xl overflow-hidden text-left disabled:cursor-default"
+      className="relative w-full aspect-[4/5] rounded-xl overflow-hidden text-start disabled:cursor-default"
       animate={claimable ? { scale: 1.03 } : { scale: 1 }}
       whileHover={lite || !claimable ? undefined : { scale: 1.08, zIndex: 10 }}
       whileTap={claimable ? { scale: 0.97 } : undefined}

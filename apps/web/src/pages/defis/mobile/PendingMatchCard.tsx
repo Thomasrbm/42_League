@@ -303,7 +303,7 @@ export function PendingMatchCard({ match, myLogin, onDone }: PendingMatchCardPro
                   onClick={handleConfirm2v2}
                   className="w-full py-3 text-sm"
                 >
-                  <Check className="w-4 h-4 mr-1.5" strokeWidth={3} />
+                  <Check className="w-4 h-4 me-1.5" strokeWidth={3} />
                   Je confirme ce match
                 </Button>
               );
@@ -317,7 +317,7 @@ export function PendingMatchCard({ match, myLogin, onDone }: PendingMatchCardPro
                 onClick={handleConfirm}
                 className="py-3 text-sm"
               >
-                <Check className="w-4 h-4 mr-1.5" strokeWidth={3} />
+                <Check className="w-4 h-4 me-1.5" strokeWidth={3} />
                 {t('defis.confirm')}
               </Button>
               <Button
@@ -330,7 +330,7 @@ export function PendingMatchCard({ match, myLogin, onDone }: PendingMatchCardPro
                 }}
                 className="py-3 text-sm text-red border-red/30 hover:border-red hover:bg-red/5 hover:text-red"
               >
-                <X className="w-4 h-4 mr-1.5" strokeWidth={3} />
+                <X className="w-4 h-4 me-1.5" strokeWidth={3} />
                 {t('defis.contest')}
               </Button>
             </div>

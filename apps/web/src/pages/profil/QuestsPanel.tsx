@@ -49,7 +49,7 @@ function StreakCard({ streak }: { streak: StreakView }) {
             </div>
           </div>
         </div>
-        <div className="text-right shrink-0">
+        <div className="text-end shrink-0">
           <div className="text-2xl font-extrabold tabular-nums text-orange-400 leading-none">{current}</div>
           <div className="text-[10px] text-muted-2 mt-1">record {best}</div>
         </div>

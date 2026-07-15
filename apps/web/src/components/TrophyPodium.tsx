@@ -200,7 +200,7 @@ function TrophyPodiumColumn({
             style={{ textShadow: COUNT_SHADOW[tier] }}
           >
             {entry.trophyCount}
-            <span className="ml-1 text-sm align-middle">🏆</span>
+            <span className="ms-1 text-sm align-middle">🏆</span>
           </div>
           {isFirst && (
             <div className="mt-0.5 inline-block text-[8px] font-extrabold uppercase tracking-[0.18em] text-[#ffd76a]/90">
@@ -212,7 +212,7 @@ function TrophyPodiumColumn({
 
       {/* Marche */}
       <div
-        className={`relative w-full ${STEP_H[rank]} rounded-t-xl border-t border-l border-r bg-gradient-to-b ${STEP[tier]} flex items-start justify-center pt-2 overflow-hidden transition-all duration-300 group-hover:brightness-110`}
+        className={`relative w-full ${STEP_H[rank]} rounded-t-xl border-t border-s border-e bg-gradient-to-b ${STEP[tier]} flex items-start justify-center pt-2 overflow-hidden transition-all duration-300 group-hover:brightness-110`}
         style={{ transform: 'rotateX(8deg)', transformOrigin: 'bottom' }}
       >
         {/* Reflet brossé */}

@@ -310,7 +310,7 @@ export function ShopGODUserPage() {
           <button
             onClick={() => navigate('/shop-god')}
             aria-label="Retour à Shop GOD"
-            className="flex items-center justify-center w-8 h-8 -ml-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/70 transition-colors cursor-pointer"
+            className="flex items-center justify-center w-8 h-8 -ms-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/70 transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
           </button>
@@ -460,11 +460,11 @@ export function ShopGODUserPage() {
                     <table className="w-full text-sm font-mono border-collapse">
                       <thead>
                         <tr className="border-b border-zinc-800 text-zinc-500 text-xs uppercase tracking-wider">
-                          <th className="text-left py-2 px-3">Date</th>
-                          <th className="text-left py-2 px-3">Type</th>
-                          <th className="text-left py-2 px-3">Détail</th>
-                          <th className="text-right py-2 px-3">Montant</th>
-                          <th className="text-right py-2 px-3">Solde après</th>
+                          <th className="text-start py-2 px-3">Date</th>
+                          <th className="text-start py-2 px-3">Type</th>
+                          <th className="text-start py-2 px-3">Détail</th>
+                          <th className="text-end py-2 px-3">Montant</th>
+                          <th className="text-end py-2 px-3">Solde après</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -484,10 +484,10 @@ export function ShopGODUserPage() {
                             <td className="py-2 px-3 text-zinc-400 text-xs max-w-md truncate" title={describe(t)}>
                               {describe(t)}
                             </td>
-                            <td className={`py-2 px-3 text-right tabular-nums font-bold ${t.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            <td className={`py-2 px-3 text-end tabular-nums font-bold ${t.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                               {t.amount >= 0 ? '+' : ''}{t.amount}
                             </td>
-                            <td className="py-2 px-3 text-right tabular-nums text-amber-400/80">{t.balanceAfter}</td>
+                            <td className="py-2 px-3 text-end tabular-nums text-amber-400/80">{t.balanceAfter}</td>
                           </tr>
                         ))}
                       </tbody>

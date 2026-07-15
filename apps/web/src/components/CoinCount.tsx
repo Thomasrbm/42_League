@@ -60,7 +60,7 @@ function useCoinGains(value: number): CoinGain[] {
 
 function CoinGains({ gains }: { gains: CoinGain[] }) {
   return (
-    <span className="absolute left-full top-1/2 ml-1.5 -translate-y-1/2 pointer-events-none select-none">
+    <span className="absolute left-full top-1/2 ms-1.5 -translate-y-1/2 pointer-events-none select-none">
       <AnimatePresence>
         {gains.map((g) => (
           <motion.span

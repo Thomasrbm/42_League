@@ -289,13 +289,13 @@ function ItemsSection({ onItemsChanged }: { onItemsChanged?: (items: ShopItemDat
             <table className="w-full text-sm font-mono border-collapse">
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-500 text-xs uppercase tracking-wider">
-                  <th className="text-left py-2 px-3">Nom</th>
-                  <th className="text-left py-2 px-3">Catégorie</th>
-                  <th className="text-left py-2 px-3">Rareté</th>
-                  <th className="text-right py-2 px-3">Prix</th>
-                  <th className="text-right py-2 px-3">Ordre</th>
+                  <th className="text-start py-2 px-3">Nom</th>
+                  <th className="text-start py-2 px-3">Catégorie</th>
+                  <th className="text-start py-2 px-3">Rareté</th>
+                  <th className="text-end py-2 px-3">Prix</th>
+                  <th className="text-end py-2 px-3">Ordre</th>
                   <th className="text-center py-2 px-3">Actif</th>
-                  <th className="text-right py-2 px-3">Actions</th>
+                  <th className="text-end py-2 px-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -332,12 +332,12 @@ function ItemsSection({ onItemsChanged }: { onItemsChanged?: (items: ShopItemDat
                         );
                       })()}
                     </td>
-                    <td className="py-2 px-3 text-right tabular-nums text-amber-400">
+                    <td className="py-2 px-3 text-end tabular-nums text-amber-400">
                       <span className="inline-flex items-center gap-1 justify-end">
                         {it.price} <CoinIcon />
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{it.sortOrder}</td>
+                    <td className="py-2 px-3 text-end tabular-nums text-zinc-400">{it.sortOrder}</td>
                     <td className="py-2 px-3">
                       <div className="flex justify-center">
                         <Toggle on={it.active} onToggle={() => toggleActive(it)} />
@@ -629,7 +629,7 @@ function BattlePassSection({ items }: { items: ShopItemData[] }) {
             <span className="text-[10px] text-zinc-600 font-mono">
               « Aucune » = palier laissé à la piste factice (auto-générée).
             </span>
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ms-auto flex items-center gap-3">
               <Toggle on={onlyConfigured} onToggle={() => setOnlyConfigured(!onlyConfigured)} label="Configurés seulement" />
               <Btn onClick={() => void load()} variant="ghost">
                 Recharger
@@ -640,7 +640,7 @@ function BattlePassSection({ items }: { items: ShopItemData[] }) {
           {loading ? (
             <div className="text-xs text-zinc-500 font-mono py-6 text-center">Chargement…</div>
           ) : (
-            <div className="max-h-[560px] overflow-y-auto pr-1 divide-y divide-zinc-800/60">
+            <div className="max-h-[560px] overflow-y-auto pe-1 divide-y divide-zinc-800/60">
               {rows.map((tier) => {
                 const d = drafts[tier]!;
                 const dirty = !bpSameDraft(d, saved[tier] ?? bpEmptyDraft());
@@ -739,7 +739,7 @@ function SortTh({
 }) {
   const active = sort.key === k;
   return (
-    <th className={`py-2 px-3 ${align === 'left' ? 'text-left' : 'text-right'}`}>
+    <th className={`py-2 px-3 ${align === 'left' ? 'text-start' : 'text-end'}`}>
       <button
         type="button"
         onClick={() => onSort(k)}
@@ -805,7 +805,7 @@ function PlayersSection() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher un joueur…"
-              className="bg-zinc-800 border border-zinc-700 rounded pl-8 pr-3 py-1.5 text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-500 w-64"
+              className="bg-zinc-800 border border-zinc-700 rounded ps-8 pe-3 py-1.5 text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-500 w-64"
             />
           </div>
           <span className="text-zinc-600 text-xs font-mono">
@@ -845,14 +845,14 @@ function PlayersSection() {
                         </span>
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-right tabular-nums text-amber-400">
+                    <td className="py-2 px-3 text-end tabular-nums text-amber-400">
                       <span className="inline-flex items-center gap-1 justify-end">
                         {u.coins} <CoinIcon />
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{u.itemsOwned}</td>
-                    <td className="py-2 px-3 text-right tabular-nums text-zinc-400">{u.txCount}</td>
-                    <td className="py-2 px-3 text-right">
+                    <td className="py-2 px-3 text-end tabular-nums text-zinc-400">{u.itemsOwned}</td>
+                    <td className="py-2 px-3 text-end tabular-nums text-zinc-400">{u.txCount}</td>
+                    <td className="py-2 px-3 text-end">
                       <ChevronRight className="w-4 h-4 text-zinc-600 inline-block" />
                     </td>
                   </tr>
@@ -1126,7 +1126,7 @@ function CosmeticRequestsSection() {
                       {CATEGORY_LABEL[r.category]}
                     </span>
                     <span className="text-sm text-zinc-100 font-bold truncate">
-                      <Palette className="w-3.5 h-3.5 inline -mt-0.5 mr-1 text-pink-400" />
+                      <Palette className="w-3.5 h-3.5 inline -mt-0.5 me-1 text-pink-400" />
                       {r.itemName ?? 'Cosmétique'}
                     </span>
                   </div>
@@ -1203,7 +1203,7 @@ function GodChrome({ children }: { children: ReactNode }) {
             <button
               onClick={() => navigate('/')}
               aria-label="Retour à l'application"
-              className="flex items-center justify-center w-8 h-8 -ml-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/70 transition-colors cursor-pointer"
+              className="flex items-center justify-center w-8 h-8 -ms-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/70 transition-colors cursor-pointer"
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>
@@ -1244,7 +1244,7 @@ export function ShopGODPage() {
       <div className="p-4 pb-0">
         <button
           onClick={() => navigate('/shop-god/players')}
-          className="w-full flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-900 hover:border-zinc-700 transition-colors px-4 py-3 cursor-pointer text-left"
+          className="w-full flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-900 hover:border-zinc-700 transition-colors px-4 py-3 cursor-pointer text-start"
         >
           <span className="flex items-center gap-2 text-zinc-200 text-sm font-bold">
             <Search className="w-4 h-4 text-amber-400" /> Suivi des joueurs — solde &amp; historique

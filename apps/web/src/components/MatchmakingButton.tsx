@@ -194,7 +194,7 @@ export function MatchmakingCTACard({ className = '' }: { className?: string }) {
         className={`shine group relative overflow-hidden rounded-2xl border-2
           bg-gradient-to-br from-bg-2/80 to-bg-1/90
           flex items-center gap-5 px-7 py-6
-          transition-colors duration-300 text-left ${className}`}
+          transition-colors duration-300 text-start ${className}`}
         style={{ borderColor: gm.borderColor, boxShadow: `0 0 36px ${gm.glowColor}` }}
       >
         {/* Gradient d'accent */}

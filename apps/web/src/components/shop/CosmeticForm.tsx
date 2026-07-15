@@ -758,7 +758,7 @@ export function ItemFormFields({ form, set }: { form: FormState; set: <K extends
             <div className="bg-zinc-800/60 border border-zinc-700 rounded px-3 py-1.5 text-sm font-mono text-zinc-400">
               {CATEGORY_LABEL[form.category]}
               {form.category === 'consumable' && form.consumableKind && (
-                <span className="ml-2 text-teal-400">· {form.consumableKind === 'anti_ops' ? 'Anti-OPS' : form.consumableKind === 'force_duel' ? 'Main du Destin' : form.consumableKind === 'mini_ops' ? 'Mini-OPS' : 'x2 ELO'}</span>
+                <span className="ms-2 text-teal-400">· {form.consumableKind === 'anti_ops' ? 'Anti-OPS' : form.consumableKind === 'force_duel' ? 'Main du Destin' : form.consumableKind === 'mini_ops' ? 'Mini-OPS' : 'x2 ELO'}</span>
               )}
             </div>
           )}

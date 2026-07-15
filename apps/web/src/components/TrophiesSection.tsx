@@ -152,7 +152,7 @@ function renderRivalryOrValue(value: string, leaderboard: LeaderboardEntry[]) {
             <Avatar login={u2.login} imageUrl={u2.imageUrl} size="sm" />
             <span className="font-semibold text-sm text-text-strong">{u2.login}</span>
           </PlayerLink>
-          <span className="text-muted-2 text-xs ml-1">{rest}</span>
+          <span className="text-muted-2 text-xs ms-1">{rest}</span>
         </div>
       );
     }
@@ -327,7 +327,7 @@ export function TrophiesSection({ title = 'Trophées' }: TrophiesSectionProps) {
         <span className="text-[10px] text-muted font-semibold normal-case tracking-[0.12em]">
           · récompenses légendaires
         </span>
-        <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-gold/10 to-transparent ml-2" />
+        <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-gold/10 to-transparent ms-2" />
       </div>
 
       {/* Bascule mode actuel / mix inter-jeux / équipes 2v2 */}
@@ -579,7 +579,7 @@ function PlayerGroupHeader({
 }) {
   return (
     <div className="flex items-center gap-2.5 mb-3">
-      <span className="font-mono text-xs text-muted-2 font-bold w-6 text-right">#{rank}</span>
+      <span className="font-mono text-xs text-muted-2 font-bold w-6 text-end">#{rank}</span>
       <PlayerLink login={holder.login} className="!gap-2">
         <Avatar login={holder.login} imageUrl={holder.imageUrl} size="sm" />
         <span className="font-extrabold text-text-strong text-sm">{holder.login}</span>
@@ -678,7 +678,7 @@ function MostTitled({
             <ul className="mt-3 space-y-1 border-t border-border/30 pt-3">
               {rest.map((h, i) => (
                 <li key={h.login} className="flex items-center gap-2.5 py-1">
-                  <span className="font-mono text-xs text-muted-2 w-7 text-right">#{i + 4}</span>
+                  <span className="font-mono text-xs text-muted-2 w-7 text-end">#{i + 4}</span>
                   <PlayerLink login={h.login} className="!gap-2 min-w-0 flex-1">
                     <Avatar login={h.login} imageUrl={h.imageUrl} size="xs" />
                     <span className="text-sm font-semibold text-text truncate">{h.login}</span>

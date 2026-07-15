@@ -227,7 +227,7 @@ export function TeamEloChart({ points, height = 160, uid }: TeamEloChartProps) {
               </span>
               <span className="text-[9px] text-muted uppercase tracking-wider">ELO</span>
               <span
-                className={`ml-auto text-[11px] font-mono font-extrabold tabular-nums ${
+                className={`ms-auto text-[11px] font-mono font-extrabold tabular-nums ${
                   hoveredPt.delta >= 0 ? 'text-[#7fd66e]' : 'text-red'
                 }`}
               >

@@ -198,7 +198,7 @@ export function ChallengeFlow({
                 onClick={triggerSend}
                 className="w-full py-3.5 text-sm font-bold shadow-lg"
               >
-                <Swords className="w-4 h-4 mr-1.5" strokeWidth={2.5} />
+                <Swords className="w-4 h-4 me-1.5" strokeWidth={2.5} />
                 {t('defis.sendChallenge')}
               </Button>
             </div>

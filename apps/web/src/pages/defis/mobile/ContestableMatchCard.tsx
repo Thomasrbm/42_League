@@ -77,7 +77,7 @@ export function ContestableMatchCard({ match, onContest }: ContestableMatchCardP
             onClick={() => { haptic('light'); setContesting(true); }}
             className="w-full py-3 text-sm text-red border-red/30 hover:border-red hover:bg-red/5 hover:text-red"
           >
-            <X className="w-4 h-4 mr-1.5" strokeWidth={3} />
+            <X className="w-4 h-4 me-1.5" strokeWidth={3} />
             {t('defis.contestable.contest')}
           </Button>
         </div>

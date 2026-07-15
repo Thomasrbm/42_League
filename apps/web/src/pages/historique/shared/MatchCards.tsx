@@ -64,7 +64,7 @@ export function EloDeltaPill({ delta, counted }: { delta: number; counted: boole
     >
       {positive ? '+' : ''}
       {delta}
-      <span className="opacity-70 font-sans ml-0.5">ELO</span>
+      <span className="opacity-70 font-sans ms-0.5">ELO</span>
     </span>
   );
 }
@@ -279,11 +279,11 @@ export function GlobalMatchCard({ match, lang, imgByLogin, delay = 0 }: GlobalMa
 
       {/* Perdant — droite (miroir) */}
       <div className="flex-1 min-w-0 flex flex-col items-end gap-0.5">
-        <PlayerLink login={loserLogin} className="text-sm font-semibold text-muted-2 truncate max-w-full text-right">
+        <PlayerLink login={loserLogin} className="text-sm font-semibold text-muted-2 truncate max-w-full text-end">
           {loserLogin}
         </PlayerLink>
         {loser2Login && (
-          <PlayerLink login={loser2Login} className="text-[11px] font-semibold text-muted/60 truncate max-w-full text-right">
+          <PlayerLink login={loser2Login} className="text-[11px] font-semibold text-muted/60 truncate max-w-full text-end">
             &amp; {loser2Login}
           </PlayerLink>
         )}
@@ -355,7 +355,7 @@ export function GlobalFfaCard({ ffa, lang, imgByLogin, delay = 0 }: GlobalFfaCar
           {t('ffa.label')}
         </span>
         <span className="text-[10px] text-muted-2 font-mono">· {ordered.length} {t('ffa.playersSuffix')}</span>
-        <span className="ml-auto text-[10px] text-muted font-medium whitespace-nowrap">
+        <span className="ms-auto text-[10px] text-muted font-medium whitespace-nowrap">
           {fmtDatePair(ffa.playedAt, lang).short}
         </span>
       </div>
@@ -363,7 +363,7 @@ export function GlobalFfaCard({ ffa, lang, imgByLogin, delay = 0 }: GlobalFfaCar
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
         {ordered.map((p, i) => (
           <span key={p.login} className="inline-flex items-center gap-1">
-            {i > 0 && <span className="text-muted-2 text-[10px] mr-1">vs</span>}
+            {i > 0 && <span className="text-muted-2 text-[10px] me-1">vs</span>}
             <span className={`font-mono text-[10px] font-extrabold ${p.position === 1 ? 'text-gold' : 'text-muted-2'}`}>
               {p.position === 1 ? '🏆' : `${p.position}.`}
             </span>
@@ -507,7 +507,7 @@ export function GlobalDartsCard({ ffa, lang, imgByLogin, delay = 0 }: GlobalDart
         </span>
         <span className="text-[10px] text-muted-2 font-mono">· {ordered.length} {t('darts.playersSuffix')}</span>
         <StartScoreBadge startScore={ffa.startScore} />
-        <span className="ml-auto text-[10px] text-muted font-medium whitespace-nowrap">
+        <span className="ms-auto text-[10px] text-muted font-medium whitespace-nowrap">
           {fmtDatePair(ffa.playedAt, lang).short}
         </span>
       </div>
@@ -517,7 +517,7 @@ export function GlobalDartsCard({ ffa, lang, imgByLogin, delay = 0 }: GlobalDart
           const won = p.position === 1;
           return (
             <span key={p.login} className="inline-flex items-center gap-1">
-              {i > 0 && <span className="text-muted-2 text-[10px] mr-1">vs</span>}
+              {i > 0 && <span className="text-muted-2 text-[10px] me-1">vs</span>}
               <span
                 className="font-mono text-[10px] font-extrabold"
                 style={won ? { color: DARTS_ACCENT } : undefined}

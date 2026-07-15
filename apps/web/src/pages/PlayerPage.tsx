@@ -155,12 +155,12 @@ export function PlayerPage() {
           <Button variant={following ? 'ghost' : 'primary'} size="sm" onClick={toggleFollow} className="flex-1">
             {following ? (
               <>
-                <UserCheck className="w-3.5 h-3.5 mr-1.5" strokeWidth={2.5} />
+                <UserCheck className="w-3.5 h-3.5 me-1.5" strokeWidth={2.5} />
                 {t('player.following')}
               </>
             ) : (
               <>
-                <UserPlus className="w-3.5 h-3.5 mr-1.5" strokeWidth={2.5} />
+                <UserPlus className="w-3.5 h-3.5 me-1.5" strokeWidth={2.5} />
                 {t('player.follow')}
               </>
             )}
@@ -174,11 +174,11 @@ export function PlayerPage() {
                 navigate(`/h2h?a=${encodeURIComponent(myLogin)}&b=${encodeURIComponent(p.user.login)}`)
               }
             >
-              <Swords className="w-3.5 h-3.5 mr-1.5" strokeWidth={2.5} />
+              <Swords className="w-3.5 h-3.5 me-1.5" strokeWidth={2.5} />
               Head-to-Head
               {rivalry && (
                 <span
-                  className={`ml-2 px-1.5 py-0.5 rounded-md text-[11px] font-extrabold tabular-nums ${
+                  className={`ms-2 px-1.5 py-0.5 rounded-md text-[11px] font-extrabold tabular-nums ${
                     rivalry.wins > rivalry.losses
                       ? 'bg-emerald-500/15 text-emerald-300'
                       : rivalry.wins < rivalry.losses
@@ -315,7 +315,7 @@ function FollowToggle({
     <button
       type="button"
       onClick={() => onChange(!on)}
-      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-left transition-colors ${
+      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-start transition-colors ${
         on ? 'border-gold/40 bg-gold/[0.06]' : 'border-border bg-bg-2/40'
       }`}
     >
@@ -402,7 +402,7 @@ function DeclareOpsBox({
         <p>
           {t('ops.declare.intro.a')} {playerLogin} {t('ops.declare.intro.b')} <span className="font-semibold">{t('ops.declare.hunt24')}</span>.
         </p>
-        <ul className="space-y-1 pl-3 border-l border-red/30 text-muted-2 text-[13px]">
+        <ul className="space-y-1 ps-3 border-s border-red/30 text-muted-2 text-[13px]">
           <li>{t('ops.declare.rule1.a')} <span className="text-text font-semibold">{t('ops.declare.rule1.b')}</span>.</li>
           <li>{t('ops.declare.rule2.a')} <span className="text-red font-semibold">{t('ops.declare.rule2.b')}</span>.</li>
           <li>{t('ops.declare.rule3')}</li>
