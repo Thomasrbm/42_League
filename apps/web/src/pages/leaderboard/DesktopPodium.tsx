@@ -212,8 +212,8 @@ function PodiumColumn({
           style={{ textShadow: '0 0 14px rgba(255,201,74,0.4)' }}
         >
           {entry.elo}
-          <span className="text-[9px] text-muted ml-1 font-bold uppercase tracking-wider">ELO</span>
-          {isFirst && <RankedBadge size="xs" className="ml-1 align-middle" />}
+          <span className="text-[9px] text-muted ms-1 font-bold uppercase tracking-wider">ELO</span>
+          {isFirst && <RankedBadge size="xs" className="ms-1 align-middle" />}
         </div>
         {stats && stats.games > 0 && (
           <div className="text-[10px] text-muted-2 font-mono tabular-nums mt-0.5">
@@ -230,7 +230,7 @@ function PodiumColumn({
 
       {/* Marche */}
       <div
-        className={`relative w-full ${stepClass} rounded-t-xl border-t border-l border-r bg-gradient-to-b ${STEP[color]} flex items-start justify-center pt-2 overflow-hidden transition-all duration-300 group-hover:brightness-110`}
+        className={`relative w-full ${stepClass} rounded-t-xl border-t border-s border-e bg-gradient-to-b ${STEP[color]} flex items-start justify-center pt-2 overflow-hidden transition-all duration-300 group-hover:brightness-110`}
         style={{ transform: 'rotateX(8deg)', transformOrigin: 'bottom' }}
       >
         {/* Reflet brossé */}

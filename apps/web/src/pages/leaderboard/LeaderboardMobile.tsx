@@ -394,7 +394,7 @@ export function LeaderboardMobile() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('lb.search.placeholder')}
-            className="w-full pl-11 pr-10 py-3 bg-bg-1 border border-border rounded-xl text-sm font-medium focus:border-gold focus:shadow-[0_0_16px_rgba(255,201,74,0.18)] outline-none text-text-strong placeholder:text-muted tap-transparent allow-select transition-all"
+            className="w-full ps-11 pe-10 py-3 bg-bg-1 border border-border rounded-xl text-sm font-medium focus:border-gold focus:shadow-[0_0_16px_rgba(255,201,74,0.18)] outline-none text-text-strong placeholder:text-muted tap-transparent allow-select transition-all"
           />
           {query && (
             <button

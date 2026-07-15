@@ -118,6 +118,9 @@ export function ReglagesPage() {
               { value: 'fr', label: t('settings.lang.fr') },
               { value: 'en', label: t('settings.lang.en') },
               { value: 'es', label: t('settings.lang.es') },
+              { value: 'ja', label: t('settings.lang.ja') },
+              { value: 'ar', label: t('settings.lang.ar') },
+              { value: 'pt', label: t('settings.lang.pt') },
             ]}
           />
         </div>
@@ -291,7 +294,7 @@ export function ReglagesPage() {
           <span className="font-gaming text-[10px] font-extrabold uppercase tracking-[0.18em] text-gold/50">
             One League
           </span>
-          <div className="text-right leading-snug">
+          <div className="text-end leading-snug">
             <span className="font-mono text-[11px] font-bold text-muted-2 tabular-nums">
               v{APP_VERSION}
             </span>

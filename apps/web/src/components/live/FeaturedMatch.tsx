@@ -184,7 +184,7 @@ function HypeBar({ hype, unknown }: { hype: number; unknown: boolean }) {
             transition={{ type: 'spring', stiffness: 120, damping: 22 }}
           />
         </div>
-        <span className="text-[1.3vh] font-mono font-bold tabular-nums text-gold w-[4ch] text-right shrink-0">
+        <span className="text-[1.3vh] font-mono font-bold tabular-nums text-gold w-[4ch] text-end shrink-0">
           {unknown ? '–' : `${pct}%`}
         </span>
       </div>

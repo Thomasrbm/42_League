@@ -392,7 +392,7 @@ function GoatHero({ player, isMe }: { player: GoatPlayer; isMe: boolean }) {
             <div className="text-xs text-muted-2 mt-1">@{entry.login} · #{entry.rank} ELO</div>
           </div>
           {/* Score GOAT */}
-          <div className="text-right shrink-0">
+          <div className="text-end shrink-0">
             <div className="font-display text-5xl font-black gradient-text-brand tabular-nums leading-none">
               {player.score}
             </div>
@@ -457,7 +457,7 @@ function ContenderCard({ player, isMe }: { player: GoatPlayer; isMe: boolean }) 
           </div>
         </PlayerLink>
         {/* Score GOAT proéminent */}
-        <div className="text-right shrink-0">
+        <div className="text-end shrink-0">
           <div className="font-display text-xl font-black text-gold tabular-nums">{player.score}</div>
           {metrics.officialTitles > 0 && (
             <div className="flex items-center justify-end gap-0.5 mt-0.5">
@@ -481,7 +481,7 @@ function ContenderCard({ player, isMe }: { player: GoatPlayer; isMe: boolean }) 
                 <div className="h-full rounded-full bg-gradient-to-r from-gold/50 to-gold"
                   style={{ width: `${pct}%`, transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)' }} />
               </div>
-              <span className="text-[9px] font-mono text-muted-2 w-7 text-right shrink-0">{pct}%</span>
+              <span className="text-[9px] font-mono text-muted-2 w-7 text-end shrink-0">{pct}%</span>
             </div>
           );
         })}
@@ -517,7 +517,7 @@ function MetricBars({ player }: { player: GoatPlayer }) {
               <div className="h-full rounded-full bg-gradient-to-r from-gold/60 to-gold"
                 style={{ width: `${pct}%` }} />
             </div>
-            <span className="w-9 text-right text-[10px] font-mono tabular-nums text-muted-2">
+            <span className="w-9 text-end text-[10px] font-mono tabular-nums text-muted-2">
               {Math.round(w.weight * 100)}%
             </span>
           </div>

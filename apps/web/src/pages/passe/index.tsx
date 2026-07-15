@@ -679,7 +679,7 @@ function ClaimFx({
         >
           <RewardVisual tile={tile} unlocked size="lg" />
           <span
-            className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1 text-[11px] font-gaming font-black italic uppercase tracking-[0.18em] text-[#0a1228] whitespace-nowrap"
+            className="absolute -bottom-3 start-1/2 -translate-x-1/2 px-4 py-1 text-[11px] font-gaming font-black italic uppercase tracking-[0.18em] text-[#0a1228] whitespace-nowrap"
             style={{ background: tile.hex, transform: 'translateX(-50%) skewX(-8deg)', boxShadow: `0 0 18px ${tile.hex}` }}
           >
             {tile.tag}
@@ -740,7 +740,7 @@ function TierTile({
       // claim via le guard onClick à la place.
       aria-disabled={!claimable}
       onClick={() => claimable && onClaim(tile)}
-      className={`relative w-full aspect-[4/5] rounded-xl overflow-hidden text-left ${claimable ? '' : 'cursor-default'}`}
+      className={`relative w-full aspect-[4/5] rounded-xl overflow-hidden text-start ${claimable ? '' : 'cursor-default'}`}
       animate={claimable ? { scale: 1.03 } : { scale: 1 }}
       whileHover={lite || !claimable ? undefined : { scale: 1.08, zIndex: 10 }}
       whileTap={claimable ? { scale: 0.97 } : undefined}
@@ -767,14 +767,14 @@ function TierTile({
       {/* Lueur blanche derrière l'icône (la couleur, c'est déjà la case) */}
       {unlocked && (
         <span
-          className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 w-3/4 aspect-square rounded-full pointer-events-none"
+          className="absolute start-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 w-3/4 aspect-square rounded-full pointer-events-none"
           style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.38), transparent 66%)', filter: 'blur(7px)' }}
         />
       )}
 
       {/* Numéro de palier : plaque sombre penchée en haut à gauche (lisible sur case colorée) */}
       <span
-        className="absolute top-0 left-0 px-3 py-1 font-gaming font-black italic text-base sm:text-lg tabular-nums leading-none"
+        className="absolute top-0 start-0 px-3 py-1 font-gaming font-black italic text-base sm:text-lg tabular-nums leading-none"
         style={{
           background: unlocked ? 'rgba(8,15,36,0.82)' : '#22335c',
           color: unlocked ? '#ffffff' : '#7d8db4',
@@ -786,7 +786,7 @@ function TierTile({
       </span>
 
       {/* Cluster haut-droite : bouton « prévisualiser » (cosmétiques), verrou, coche. */}
-      <span className="absolute top-2 right-2 z-20 flex items-center gap-1.5">
+      <span className="absolute top-2 end-2 z-20 flex items-center gap-1.5">
         {previewable && (
           <span
             role="button"
@@ -833,7 +833,7 @@ function TierTile({
 
       {/* Icône de récompense, flottement doux (alternate → sans à-coup) */}
       <span
-        className="absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+        className="absolute start-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
         style={{
           animation: unlocked && !claimed && !lite ? 'bpFloat 2.4s ease-in-out infinite alternate' : undefined,
           filter: unlocked ? undefined : 'grayscale(0.35) brightness(0.8)',
@@ -921,7 +921,7 @@ function TilePreviewModal({
           type="button"
           onClick={onClose}
           aria-label={t('battlepass.close') || 'Fermer'}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#0a1228]/70 border border-white/25 flex items-center justify-center text-white hover:bg-[#0a1228] transition-colors"
+          className="absolute top-3 end-3 w-8 h-8 rounded-full bg-[#0a1228]/70 border border-white/25 flex items-center justify-center text-white hover:bg-[#0a1228] transition-colors"
         >
           <X className="w-4 h-4" strokeWidth={2.6} />
         </button>
@@ -1330,7 +1330,7 @@ export function PassePage() {
           <button
             type="button"
             onClick={() => scrollByPage(-1)}
-            className="absolute left-0 top-1/2 z-30 -translate-y-1/2 w-11 h-14 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
+            className="absolute start-0 top-1/2 z-30 -translate-y-1/2 w-11 h-14 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
             style={{ background: '#16234acc', border: '1px solid #2a3d6e', clipPath: 'polygon(22% 0, 100% 0, 78% 100%, 0 100%)', backdropFilter: 'blur(4px)' }}
             aria-label="reculer"
           >
@@ -1339,7 +1339,7 @@ export function PassePage() {
           <button
             type="button"
             onClick={() => scrollByPage(1)}
-            className="absolute right-0 top-1/2 z-30 -translate-y-1/2 w-11 h-14 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
+            className="absolute end-0 top-1/2 z-30 -translate-y-1/2 w-11 h-14 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
             style={{ background: '#16234acc', border: '1px solid #2a3d6e', clipPath: 'polygon(22% 0, 100% 0, 78% 100%, 0 100%)', backdropFilter: 'blur(4px)' }}
             aria-label="avancer"
           >
@@ -1347,8 +1347,8 @@ export function PassePage() {
           </button>
 
           {/* Fondus latéraux */}
-          <div className="pointer-events-none absolute left-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(90deg, #0b1836, transparent)' }} />
-          <div className="pointer-events-none absolute right-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(270deg, #0b1836, transparent)' }} />
+          <div className="pointer-events-none absolute start-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(90deg, #0b1836, transparent)' }} />
+          <div className="pointer-events-none absolute end-0 inset-y-0 w-10 z-20" style={{ background: 'linear-gradient(270deg, #0b1836, transparent)' }} />
 
           {/* 2 lignes, remplissage colonne par colonne. Le padding intérieur
               laisse la place au zoom du hover (plus de tuile rognée aux bords). */}

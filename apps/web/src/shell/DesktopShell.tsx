@@ -245,7 +245,7 @@ function NavItem({ to, label, Icon, badge = 0 }: NavItemProps) {
           {isActive && (
             <motion.span
               layoutId="desktop-nav-bar"
-              className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
+              className="absolute left-0 top-2 bottom-2 w-[3px] rounded-e"
               style={{
                 background: 'linear-gradient(to bottom, rgb(var(--accent-gold)), rgb(var(--accent-gold-dim)))',
                 boxShadow: '0 0 10px rgb(var(--accent-gold) / 0.65)',

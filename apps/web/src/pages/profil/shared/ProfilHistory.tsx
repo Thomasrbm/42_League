@@ -165,7 +165,7 @@ export function ProfilHistory({
             );
           })}
           {filterElo != null && (
-            <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-mono font-extrabold tabular-nums text-text-strong">
+            <span className="ms-auto inline-flex items-center gap-1 text-[11px] font-mono font-extrabold tabular-nums text-text-strong">
               <span className="text-[9px] uppercase tracking-wider text-muted-2 font-sans">ELO</span>
               {filterElo}
             </span>

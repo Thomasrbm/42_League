@@ -43,7 +43,7 @@ function TeamCard({ team }: { team: BabyfootTeamEntry }) {
         navigate(`/team/${team.id}`);
       }}
       whileTap={{ scale: 0.97 }}
-      className="flex-shrink-0 w-44 flex flex-col gap-2 card-hud rounded-2xl p-3.5 border border-gold/15 hover:border-gold/30 transition-all text-left tap-transparent"
+      className="flex-shrink-0 w-44 flex flex-col gap-2 card-hud rounded-2xl p-3.5 border border-gold/15 hover:border-gold/30 transition-all text-start tap-transparent"
       style={{ boxShadow: 'inset 0 1px 0 rgba(255,215,120,0.06)' }}
     >
       {/* Avatars en overlap + rank */}
@@ -82,7 +82,7 @@ function TeamCard({ team }: { team: BabyfootTeamEntry }) {
           <div className="text-[9px] text-muted uppercase tracking-wider font-bold">ELO</div>
         </div>
         {games > 0 && (
-          <div className="text-right">
+          <div className="text-end">
             <div className={`font-mono text-sm font-extrabold tabular-nums leading-none ${winRate >= 50 ? 'text-gold' : 'text-red'}`}>
               {winRate}%
             </div>

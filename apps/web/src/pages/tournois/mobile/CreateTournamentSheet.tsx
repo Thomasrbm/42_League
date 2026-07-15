@@ -218,7 +218,7 @@ function KindButton({ active, onClick, label, hint, tone, sealed }: KindButtonPr
       whileTap={!sealed ? { scale: 0.97 } : undefined}
       onClick={onClick}
       aria-disabled={sealed || undefined}
-      className={`relative flex flex-col gap-0.5 py-3 px-3 rounded-xl border-2 tap-transparent transition-all text-left ${
+      className={`relative flex flex-col gap-0.5 py-3 px-3 rounded-xl border-2 tap-transparent transition-all text-start ${
         sealed
           ? 'border-red/40 bg-bg-2/50 text-muted-2'
           : active

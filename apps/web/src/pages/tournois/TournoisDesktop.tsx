@@ -73,7 +73,7 @@ export function TournoisDesktop() {
             type="button"
             onClick={() => openCreate('friendly')}
             className="shine group relative w-full overflow-hidden rounded-2xl border-2 border-gold/45 hover:border-gold
-              flex items-center gap-5 px-6 py-5 text-left transition-all duration-300"
+              flex items-center gap-5 px-6 py-5 text-start transition-all duration-300"
             style={{
               background: 'linear-gradient(135deg, rgba(50,38,12,0.7) 0%, rgba(20,16,6,0.9) 100%)',
               boxShadow: '0 0 28px rgba(255,201,74,0.14)',
@@ -224,7 +224,7 @@ function TournoiGroup({ label, tone, items }: { label: string; tone: GroupTone; 
         <span className={`inline-block w-1 h-2.5 bg-gradient-to-b ${GROUP_BAR[tone]} rounded-sm`} />
         {label}
         <span className="text-muted-2 font-mono text-[10px] normal-case">· {items.length}</span>
-        <div className="flex-1 h-px bg-gradient-to-r from-border/50 to-transparent ml-1" />
+        <div className="flex-1 h-px bg-gradient-to-r from-border/50 to-transparent ms-1" />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
         {items.map((t, i) => (
@@ -463,7 +463,7 @@ function CreateTournamentModal({ isAdmin, initialKind, onClose, onCreated }: {
             <div className="text-[11px] text-muted-2">{t('tournois.modal.subtitle')}</div>
           </div>
           <button onClick={onClose} aria-label={t('tournois.modal.close')}
-            className="ml-auto grid place-items-center w-8 h-8 rounded-lg text-muted-2 hover:text-text hover:bg-bg-2 transition-colors">
+            className="ms-auto grid place-items-center w-8 h-8 rounded-lg text-muted-2 hover:text-text hover:bg-bg-2 transition-colors">
             <X className="w-4 h-4" strokeWidth={2.5} />
           </button>
         </div>

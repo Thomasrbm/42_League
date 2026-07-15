@@ -85,7 +85,7 @@ function Folder({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left tap-transparent"
+        className="w-full flex items-center gap-3 px-4 py-3 text-start tap-transparent"
       >
         <span
           className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center border"
@@ -185,7 +185,7 @@ function BannersSection() {
                   </span>
                 )}
                 <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-                <span className="absolute bottom-1 left-2 right-6 font-gaming text-[10px] font-extrabold text-white drop-shadow truncate text-left">
+                <span className="absolute bottom-1 left-2 right-6 font-gaming text-[10px] font-extrabold text-white drop-shadow truncate text-start">
                   {b.item.name}
                 </span>
                 {b.equipped && (
@@ -544,9 +544,9 @@ export function InventoryPanel() {
                     {Math.max(0, c.monthlyCap - c.monthlyUsed)}/{c.monthlyCap}
                   </span>{' '}
                   par mois
-                  {boosted && <span className="ml-2 font-bold tabular-nums" style={{ color: meta.color }}>· EN FEU {boost.hms}</span>}
-                  {!boosted && weekTaken && <span className="ml-2 text-muted font-bold">· activé cette semaine</span>}
-                  {left > 0 && <span className="ml-2 text-red font-bold">· cooldown {fmtLeft(left)}</span>}
+                  {boosted && <span className="ms-2 font-bold tabular-nums" style={{ color: meta.color }}>· EN FEU {boost.hms}</span>}
+                  {!boosted && weekTaken && <span className="ms-2 text-muted font-bold">· activé cette semaine</span>}
+                  {left > 0 && <span className="ms-2 text-red font-bold">· cooldown {fmtLeft(left)}</span>}
                 </div>
               </div>
               <button

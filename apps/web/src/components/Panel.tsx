@@ -28,11 +28,11 @@ export function Panel({ title, sub, children, className = '', accent }: PanelPro
           {title}
         </h2>
         {sub && (
-          <span className="text-[10px] font-bold text-muted normal-case tracking-[0.1em] ml-1">
+          <span className="text-[10px] font-bold text-muted normal-case tracking-[0.1em] ms-1">
             {sub}
           </span>
         )}
-        {accent && <PanelAccent variant={accent} className="ml-auto self-center" />}
+        {accent && <PanelAccent variant={accent} className="ms-auto self-center" />}
       </header>
 
       <div className="relative">{children}</div>

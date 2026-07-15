@@ -477,9 +477,9 @@ export function EloChart({
                     <div className="text-[8px] font-bold uppercase tracking-wider text-white/40">vs</div>
                     <div className="max-w-[84px] truncate text-xs font-extrabold text-white">{cur.opponent ?? '?'}</div>
                   </div>
-                  <div className="ml-auto flex items-center gap-1.5">
+                  <div className="ms-auto flex items-center gap-1.5">
                     <TrendArrow up={won} />
-                    <div className="text-right leading-tight">
+                    <div className="text-end leading-tight">
                       <motion.div className="font-display text-base font-black tabular-nums" animate={{ color: won ? WIN : LOSS }} transition={COLOR_T}>
                         {displayElo}
                       </motion.div>
@@ -502,7 +502,7 @@ export function EloChart({
           </motion.div>
           <motion.div
             style={{ x: arrowDx, rotate: 45 }}
-            className="mx-auto mt-[-5px] h-2.5 w-2.5 border-b border-r border-white/10 bg-slate-900/95"
+            className="mx-auto mt-[-5px] h-2.5 w-2.5 border-b border-e border-white/10 bg-slate-900/95"
           />
         </div>
       </motion.div>

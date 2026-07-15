@@ -100,7 +100,7 @@ export function FollowLists({ following: followingProp, followers: followersProp
 function Count({ n, active }: { n: number; active: boolean }) {
   return (
     <span
-      className={`ml-1 inline-flex items-center justify-center min-w-[18px] px-1 rounded-full text-[10px] font-mono tabular-nums ${
+      className={`ms-1 inline-flex items-center justify-center min-w-[18px] px-1 rounded-full text-[10px] font-mono tabular-nums ${
         active ? 'bg-gold/20 text-gold' : 'bg-bg-1 text-muted-2'
       }`}
     >

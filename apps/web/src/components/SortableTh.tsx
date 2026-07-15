@@ -68,7 +68,7 @@ export function SortableTh<K extends string>({
   className?: string;
 }) {
   const active = sort.key === k;
-  const alignCls = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
+  const alignCls = align === 'right' ? 'text-end' : align === 'center' ? 'text-center' : 'text-start';
   const rowCls = align === 'right' ? 'flex-row-reverse' : align === 'center' ? 'justify-center' : '';
   return (
     <th className={`select-none ${alignCls} ${className}`}>

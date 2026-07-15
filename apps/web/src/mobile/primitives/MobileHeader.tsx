@@ -73,7 +73,7 @@ export function MobileHeader() {
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          className="font-gaming text-base font-extrabold text-text-strong tracking-wide flex-1 truncate ml-1 uppercase"
+          className="font-gaming text-base font-extrabold text-text-strong tracking-wide flex-1 truncate ms-1 uppercase"
         >
           {title}
         </motion.h1>
@@ -91,7 +91,7 @@ export function MobileHeader() {
               navigate('/profile');
             }}
             aria-label="Tu es une cible OPS"
-            className="relative flex items-center gap-1 pl-1.5 pr-2 h-7 rounded-md bg-gradient-to-br from-red/25 to-red/10 border border-red/45 active:scale-95 transition-transform tap-transparent"
+            className="relative flex items-center gap-1 ps-1.5 pe-2 h-7 rounded-md bg-gradient-to-br from-red/25 to-red/10 border border-red/45 active:scale-95 transition-transform tap-transparent"
             style={{ boxShadow: 'inset 0 1px 0 rgba(255,120,140,0.18), 0 2px 10px rgba(255,59,92,0.22)' }}
           >
             <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red ring-2 ring-bg-0 animate-pulse" />
@@ -116,7 +116,7 @@ export function MobileHeader() {
               navigate('/challenges');
             }}
             aria-label={`Il te reste ${forcedLeftAsHunter} match${forcedLeftAsHunter > 1 ? 's' : ''} OPS à imposer`}
-            className="relative flex items-center gap-1 pl-1.5 pr-2 h-7 rounded-md bg-gradient-to-br from-gold/25 to-gold/10 border border-gold/45 active:scale-95 transition-transform tap-transparent"
+            className="relative flex items-center gap-1 ps-1.5 pe-2 h-7 rounded-md bg-gradient-to-br from-gold/25 to-gold/10 border border-gold/45 active:scale-95 transition-transform tap-transparent"
             style={{ boxShadow: 'inset 0 1px 0 rgba(255,215,120,0.18), 0 2px 10px rgba(212,175,55,0.22)' }}
           >
             <Crosshair className="w-3.5 h-3.5 text-gold" strokeWidth={2.5} />

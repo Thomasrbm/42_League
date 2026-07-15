@@ -90,7 +90,7 @@ export function ContestModal({
               <button
                 key={opt.value}
                 onClick={() => setReason(opt.value)}
-                className={`p-3 rounded-lg border text-left transition-all duration-200 active:scale-[0.98] ${
+                className={`p-3 rounded-lg border text-start transition-all duration-200 active:scale-[0.98] ${
                   reason === opt.value
                     ? 'border-red/70 bg-red/15 text-text-strong shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
                     : 'border-border bg-bg-2/40 text-muted-2 hover:border-red/40 hover:bg-bg-2'

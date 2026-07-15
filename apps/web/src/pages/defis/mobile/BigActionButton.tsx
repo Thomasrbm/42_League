@@ -98,7 +98,7 @@ export function BigActionButton({
         >
           <Icon className={`w-4 h-4 ${cfg.iconClass}`} strokeWidth={2.75} />
         </div>
-        <div className="text-left">
+        <div className="text-start">
           <div className="font-gaming text-sm font-extrabold text-text-strong tracking-wide uppercase">
             {title}
           </div>

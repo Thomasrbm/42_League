@@ -322,7 +322,7 @@ export const LeaderboardScatter = forwardRef<
 
       {/* Légende + explication — ancrée en BAS À DROITE pour ne pas chevaucher
           les axes/points (l'angle haut-gauche est occupé par l'axe Matchs). */}
-      <div className="absolute bottom-2 right-2 z-20 pointer-events-none flex flex-col items-end gap-1 text-right max-w-[60%]">
+      <div className="absolute bottom-2 right-2 z-20 pointer-events-none flex flex-col items-end gap-1 text-end max-w-[60%]">
         <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-2">
           {t('lb.scatter.legendTop')}
         </div>
@@ -697,7 +697,7 @@ export function GradesNavButton({ className = '' }: { className?: string }) {
     >
       <Shield className="w-3.5 h-3.5" strokeWidth={2.5} />
       {t('lb.grades')}
-      <ChevronRight className="w-3 h-3 opacity-60 -mr-0.5" strokeWidth={2.5} />
+      <ChevronRight className="w-3 h-3 opacity-60 -me-0.5" strokeWidth={2.5} />
     </button>
   );
 }

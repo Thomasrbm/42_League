@@ -127,7 +127,7 @@ function TeamHeroCard({ team, nameOverride, onRenamed }: {
               <button
                 type="button"
                 onClick={() => { setNameInput(team.name ?? ''); setEditing(true); }}
-                className="flex items-center gap-1.5 group tap-transparent text-left"
+                className="flex items-center gap-1.5 group tap-transparent text-start"
               >
                 <span className="font-display text-xl font-black text-text-strong truncate tracking-tight group-hover:text-gold transition-colors">
                   {teamName}
@@ -218,7 +218,7 @@ function SectionHeader({ title, badge }: { title: string; badge?: number }) {
       {badge !== undefined && badge > 0 && (
         <span className="font-mono text-[10px] text-muted tabular-nums">· {badge}</span>
       )}
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent ml-2" />
+      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent ms-2" />
     </div>
   );
 }
@@ -241,8 +241,8 @@ function TeamMatchHistory({ team }: { team: TeamProfile }) {
       {history.map((p, i) => (
         <div
           key={i}
-          className={`flex items-center gap-3 rounded-xl px-4 py-2.5 card-hud border-l-2 ${
-            p.won ? 'border-l-gold/60' : 'border-l-red/60'
+          className={`flex items-center gap-3 rounded-xl px-4 py-2.5 card-hud border-s-2 ${
+            p.won ? 'border-s-gold/60' : 'border-s-red/60'
           }`}
         >
           <div className={`text-[10px] font-extrabold uppercase tracking-wide w-10 flex-shrink-0 ${p.won ? 'text-gold' : 'text-red'}`}>
@@ -263,7 +263,7 @@ function TeamMatchHistory({ team }: { team: TeamProfile }) {
               {new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short' }).format(new Date(p.playedAt))}
             </div>
           </div>
-          <div className="flex-shrink-0 text-right">
+          <div className="flex-shrink-0 text-end">
             <div className="font-mono text-sm font-extrabold text-text-strong tabular-nums">
               {p.scoreTeam}–{p.scoreOpponent}
             </div>
@@ -343,7 +343,7 @@ export function TeamProfileMobile({ team, onRefresh }: TeamProfileMobileProps) {
                       <div className="font-display text-base font-black text-gold tabular-nums leading-none">{entry.elo}</div>
                       <div className="text-[8px] text-muted uppercase tracking-wider font-bold">ELO perso</div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="text-[10px] text-muted-2 font-mono tabular-nums">#{entry.rank}</div>
                       <div className="text-[8px] text-muted uppercase tracking-wider font-bold">rang</div>
                     </div>

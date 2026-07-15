@@ -661,13 +661,13 @@ export function LeaderboardDesktop() {
                             <BadgeChip code="goat" size="xs" iconOnly />
                           )}
                           {isMe && (
-                            <span className="text-[8px] font-extrabold text-[#1a1100] metal-plate-gold px-1.5 py-0.5 rounded-full uppercase tracking-wider ml-1">
+                            <span className="text-[8px] font-extrabold text-[#1a1100] metal-plate-gold px-1.5 py-0.5 rounded-full uppercase tracking-wider ms-1">
                               {t('lb.me')}
                             </span>
                           )}
                           {targetedBy && (
                             <span
-                              className="text-red ml-1"
+                              className="text-red ms-1"
                               title={`${t('lb.opsOf')} ${targetedBy.ownerLogin}`}
                             >
                               <Skull className="w-3 h-3 inline" strokeWidth={2.5} />
@@ -676,7 +676,7 @@ export function LeaderboardDesktop() {
                         </PlayerLink>
                         {u.title && (
                           <div
-                            className={`text-[10px] italic mt-0.5 ml-10 truncate ${
+                            className={`text-[10px] italic mt-0.5 ms-10 truncate ${
                               u.titleColor === 'rainbow' ? 'title-rainbow' : ''
                             }`}
                             style={u.titleColor === 'rainbow' ? undefined : { color: u.titleColor ?? '#ffc94a' }}
@@ -686,7 +686,7 @@ export function LeaderboardDesktop() {
                         )}
                       </td>
                       <td
-                        className="px-2 sm:px-3 py-2.5 text-right tabular-nums font-display font-extrabold text-gold"
+                        className="px-2 sm:px-3 py-2.5 text-end tabular-nums font-display font-extrabold text-gold"
                         style={{ textShadow: '0 0 10px rgba(255,201,74,0.25)' }}
                       >
                         <span className="inline-flex items-center gap-1.5">
@@ -694,7 +694,7 @@ export function LeaderboardDesktop() {
                           {u.elo}
                         </span>
                       </td>
-                      <td className="px-1 sm:px-3 py-2.5 text-right tabular-nums text-muted-2">
+                      <td className="px-1 sm:px-3 py-2.5 text-end tabular-nums text-muted-2">
                         {stats.games}
                       </td>
                       <td className="px-2 sm:px-3 py-2.5 min-w-[230px]">
@@ -705,13 +705,13 @@ export function LeaderboardDesktop() {
                           losses={stats.losses}
                         />
                       </td>
-                      <td className="px-1 sm:px-3 py-2.5 text-right">
+                      <td className="px-1 sm:px-3 py-2.5 text-end">
                         <StreakCell streak={stats.streak} />
                       </td>
-                      <td className="px-1 sm:px-3 py-2.5 text-right">
+                      <td className="px-1 sm:px-3 py-2.5 text-end">
                         <MaxStreakCell value={stats.maxWinStreak} kind="win" breaker={stats.maxWinBreaker} />
                       </td>
-                      <td className="px-1 sm:px-3 py-2.5 text-right">
+                      <td className="px-1 sm:px-3 py-2.5 text-end">
                         <MaxStreakCell value={stats.maxLossStreak} kind="loss" breaker={stats.maxLossBreaker} />
                       </td>
                     </tr>
@@ -780,7 +780,7 @@ function SortTh({
   const toneCls = tone === 'gold' ? 'text-gold' : tone === 'red' ? 'text-red' : '';
   return (
     <th
-      className={`px-1 sm:px-3 py-2 border-b border-gold/20 select-none ${align === 'left' ? 'text-left' : align === 'center' ? 'text-center' : 'text-right'}`}
+      className={`px-1 sm:px-3 py-2 border-b border-gold/20 select-none ${align === 'left' ? 'text-start' : align === 'center' ? 'text-center' : 'text-end'}`}
     >
       <button
         type="button"

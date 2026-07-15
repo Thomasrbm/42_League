@@ -150,7 +150,7 @@ export function GameOnboarding() {
                 type="button"
                 onClick={() => toggle(g.id)}
                 style={active ? { borderColor: accent, background: `${accent}1a` } : undefined}
-                className={`relative flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
+                className={`relative flex items-center gap-4 p-4 rounded-xl border-2 text-start transition-all ${
                   active ? '' : 'border-border bg-bg-2/40 opacity-70 hover:opacity-100'
                 }`}
               >

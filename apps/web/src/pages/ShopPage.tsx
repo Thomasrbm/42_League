@@ -182,7 +182,7 @@ function EarnGuide({ onPick }: { onPick: (key: string) => void }) {
               key={m.key}
               type="button"
               onClick={() => onPick(m.key)}
-              className={`group relative overflow-hidden rounded-2xl border bg-bg-2/70 p-4 flex flex-col gap-3 text-left transition-colors cursor-pointer hover:brightness-110 active:scale-[0.99] ${m.ring}`}
+              className={`group relative overflow-hidden rounded-2xl border bg-bg-2/70 p-4 flex flex-col gap-3 text-start transition-colors cursor-pointer hover:brightness-110 active:scale-[0.99] ${m.ring}`}
             >
               {/* Lueur de fond propre à la méthode */}
               <div
@@ -692,7 +692,7 @@ export function ShopPage() {
       <button
         type="button"
         onClick={() => navigate('/shop/propose')}
-        className="w-full flex items-center gap-3 rounded-xl border border-violet-400/40 bg-gradient-to-r from-violet-500/15 to-transparent px-4 py-3 text-left hover:from-violet-500/25 transition-all"
+        className="w-full flex items-center gap-3 rounded-xl border border-violet-400/40 bg-gradient-to-r from-violet-500/15 to-transparent px-4 py-3 text-start hover:from-violet-500/25 transition-all"
       >
         <span className="shrink-0 w-9 h-9 rounded-lg bg-violet-500/20 border border-violet-400/40 flex items-center justify-center">
           <Lightbulb className="w-5 h-5 text-violet-200" strokeWidth={2.2} />
@@ -833,7 +833,7 @@ export function ShopPage() {
                     {meta.label}
                   </span>
                   <span className="font-mono text-[10px] text-muted tabular-nums">· {catItems.length}</span>
-                  <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-gold/15 to-transparent ml-1" />
+                  <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-gold/15 to-transparent ms-1" />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -1076,7 +1076,7 @@ export function ShopPage() {
                   Autre
                 </span>
                 <span className="font-mono text-[10px] text-muted tabular-nums">· {autreItems.length}</span>
-                <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-gold/15 to-transparent ml-1" />
+                <div className="flex-1 h-px bg-gradient-to-r from-gold/30 via-gold/15 to-transparent ms-1" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {autreItems.map((item, idx) => {

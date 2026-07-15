@@ -49,7 +49,7 @@ function QuestRow({
       <div className="mt-3 flex items-center gap-3">
         <div className="relative h-2 flex-1 rounded-full bg-bg-2/80 overflow-hidden">
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-gold to-gold-dim transition-[width] duration-500"
+            className="absolute inset-y-0 start-0 rounded-full bg-gradient-to-r from-gold to-gold-dim transition-[width] duration-500"
             style={{ width: `${pct}%` }}
           />
         </div>

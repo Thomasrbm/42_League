@@ -225,7 +225,7 @@ export function H2HPage() {
               <span className="inline-block w-1 h-2.5 bg-gradient-to-b from-gold/80 to-gold-dim/80 rounded-sm" />
               {t('h2h.last10')}
               <span className="text-muted-2 normal-case tracking-normal font-mono">· {t('h2h.seenFrom')} {a}</span>
-              <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ml-1" />
+              <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ms-1" />
             </div>
             <div className="flex flex-wrap gap-2">
               {data.h2h.slice(0, 10).map((m, i) => {

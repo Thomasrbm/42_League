@@ -260,7 +260,7 @@ export function ProfilDesktop() {
           </div>
 
           {/* Bloc ELO mis en valeur — libellé "ELO" centré au-dessus du nombre. */}
-          <div className="text-center flex-shrink-0 pl-2">
+          <div className="text-center flex-shrink-0 ps-2">
             <div className="mb-1 flex items-center justify-center gap-1.5 text-[10px] text-muted uppercase tracking-[0.28em] font-extrabold">
               ELO
               <RankBadge elo={stats.elo} rank={myRank} size="xs" asLink />
@@ -357,7 +357,7 @@ export function ProfilDesktop() {
         <div className="font-gaming text-[10px] uppercase tracking-[0.18em] text-gold/80 font-extrabold mb-3 flex items-center gap-2">
           <span className="inline-block w-1 h-2.5 bg-gradient-to-b from-gold/80 to-gold-dim/80 rounded-sm" />
           {t('profil.eloEvolution')}
-          <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ml-1" />
+          <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ms-1" />
         </div>
         <EloChart
           matches={matches}

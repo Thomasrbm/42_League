@@ -232,7 +232,7 @@ export function ProfilePreviewModal({
                   {realName && <div className="text-xs text-muted-2 font-mono truncate">@{u?.login}</div>}
                 </div>
 
-                <div className="text-center flex-shrink-0 pl-1 pb-1">
+                <div className="text-center flex-shrink-0 ps-1 pb-1">
                   <div className="mb-1 text-[10px] text-muted uppercase tracking-[0.28em] font-extrabold">ELO</div>
                   <div
                     className="font-display text-4xl sm:text-5xl leading-none font-black text-gold-emboss tabular-nums"

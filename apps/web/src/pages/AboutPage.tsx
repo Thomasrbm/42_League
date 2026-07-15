@@ -6,6 +6,10 @@ import { api, type ContributorStat, type AnnouncementData } from '../lib/api';
 import { announcementKindMeta } from '../lib/announcements';
 import { useT, useI18n } from '../lib/i18n';
 import type { Lang } from '../lib/i18n';
+
+// Contenus longs (règles, confidentialité, technique, blurbs équipe) traduits en
+// fr/en/es/ja/ar/pt : toutes les langues de l'UI sont prises en charge.
+type UiLang = Lang;
 import { useAuth } from '../hooks/useAuth';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { useGameMode } from '../hooks/useGameMode';
@@ -252,7 +256,7 @@ function ChangelogSection() {
       {/* Liste déroulable : on borne la hauteur et on scrolle DANS la section pour
           que toutes les entrées soient atteignables (sur mobile, les dernières
           passaient sous la barre d'onglets du bas). */}
-      <div className="flex flex-col gap-6 max-h-[62vh] overflow-y-auto custom-scrollbar pr-1 -mr-1 overscroll-contain">
+      <div className="flex flex-col gap-6 max-h-[62vh] overflow-y-auto custom-scrollbar pe-1 -me-1 overscroll-contain">
         {CHANGELOG.map((rel, i) => (
           <div key={`${rel.version}-${rel.date}-${i}`} className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
@@ -295,7 +299,8 @@ function ChangelogSection() {
 
 function AnnouncementsSection() {
   const t = useT();
-  const { lang } = useI18n();
+  const { lang: _lang } = useI18n();
+  const lang: UiLang = _lang;
   const [list, setList] = useState<AnnouncementData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -337,7 +342,7 @@ function AnnouncementsSection() {
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <Icon className="w-4 h-4 shrink-0" style={{ color: meta.accent }} strokeWidth={2.4} />
                   <span className="text-sm font-bold text-text-strong leading-tight">{a.title}</span>
-                  <span className="ml-auto text-[11px] font-mono text-muted-2 shrink-0">
+                  <span className="ms-auto text-[11px] font-mono text-muted-2 shrink-0">
                     {new Date(a.createdAt).toLocaleDateString(lang, { day: '2-digit', month: 'short', year: 'numeric' })}
                   </span>
                 </div>
@@ -1193,15 +1198,838 @@ const RULES_ES: Record<Game, GameRules> = {
   },
 };
 
-const RULES_I18N: Record<Lang, Record<Game, GameRules>> = {
+const RULES_JA: Record<Game, GameRules> = {
+  babyfoot: {
+    label: 'テーブルサッカー 1対1',
+    terrain: {
+      intro: (
+        <>
+          ゴールが有効になり、試合がクリーンに競われるためのプレイ上の取り決めです：
+        </>
+      ),
+      bullets: [
+        <>
+          エンゲージ（<span className="text-text font-semibold">キックオフ</span>）の後、ゴールがカウントされるには、ボールを
+          <span className="text-gold font-semibold">少なくとも2回タッチ</span>する必要があります。
+        </>,
+        <>
+          <span className="text-text font-semibold">失点したばかり</span>のプレイヤーは、リスタートのために
+          <span className="text-gold font-semibold">自分のミッドフィールドバー</span>（ハーフ）からボールを出す権利があります。
+        </>,
+        <>
+          <span className="text-gold font-semibold">ミッドフィールドバーから決めたゴール</span>（ハーフ）は
+          有効です。
+        </>,
+        <>
+          <span className="text-gold font-semibold">ガメル</span>（ゴールから跳ね返って出てきたボール）の場合、
+          <span className="text-text font-semibold">自分が1点取る</span>か、
+          <span className="text-text font-semibold">相手から1点減らす</span>かを選べます — ただし
+          <span className="text-text font-semibold">ガメルで試合を締めくくることはできません</span>。
+        </>,
+        <>
+          <span className="text-gold font-semibold">ルーレット</span>（回転）は
+          <span className="text-text font-semibold">コントロールされている</span>必要があります（制御不能な高速回転は禁止です）。
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League は<span className="text-text font-semibold">テーブルサッカー 1対1</span>の ELO ランキングです。
+          登録した各プレイヤーは、自分のリーグの他のメンバー全員にチャレンジできます。
+        </>
+      ),
+      bullets: [
+        <><span className="text-gold font-semibold">10ゴール</span>制の試合 — 先に10点に到達した方が勝ちます。</>,
+        <>試合は<span className="text-text font-semibold">実際にプレイされた後</span>にのみ申告できます。</>,
+        <>両プレイヤーがそれぞれ独立してスコアを申告します。食い違いがある場合、試合は無効になります。</>,
+      ],
+    },
+  },
+  smash: {
+    label: 'Super Smash Bros. 1対1',
+    terrain: {
+      intro: (
+        <>
+          勝利が明確になり、試合が公平になるためのセットの取り決めです：
+        </>
+      ),
+      bullets: [
+        <>
+          各試合は<span className="text-gold font-semibold">ストック（残機）</span>制で行われ — 相手のストックをすべて
+          奪ったプレイヤーがそのラウンドを制します。
+        </>,
+        <>
+          各ラウンドの前に<span className="text-gold font-semibold">キャラクター</span>を選択します。ラウンドを
+          落とした後、敗者は<span className="text-text font-semibold">キャラクターを変更</span>できます。
+        </>,
+        <>
+          セットは状況（公式戦、トーナメント）に応じて<span className="text-gold font-semibold">3本先取（Bo3）</span>または{' '}
+          <span className="text-gold font-semibold">5本先取（Bo5）</span>で争われます。
+        </>,
+        <>
+          <span className="text-text font-semibold">アイテム</span>や議論の分かれるステージは、両プレイヤーが明示的に
+          合意しない限り、デフォルトでオフです。
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League はここで<span className="text-text font-semibold">Super Smash Bros. 1対1</span>をストック制で
+          ランク付けします。登録した各プレイヤーは、自分のリーグの他のメンバー全員にチャレンジできます。
+        </>
+      ),
+      bullets: [
+        <><span className="text-gold font-semibold">3本先取または5本先取</span>のセット（Bo3 / Bo5）。</>,
+        <>勝者は<span className="text-text font-semibold">ラウンドの過半数</span>を取った方です。</>,
+        <><span className="text-text font-semibold">ELO は競技ごと</span>です。あなたの Smash のレートはテーブルサッカーとは別物です。</>,
+        <>両プレイヤーがそれぞれ独立して結果を申告します。食い違いがある場合、試合は無効になります。</>,
+      ],
+    },
+  },
+  chess: {
+    label: 'チェス 1対1',
+    terrain: {
+      intro: (
+        <>
+          結果が議論の余地なく確定するための対局の取り決めです：
+        </>
+      ),
+      bullets: [
+        <>
+          チェスの古典的なルール（触れた駒は動かす）に基づく<span className="text-gold font-semibold">1対1</span>の対局です。
+        </>,
+        <>
+          結果は<span className="text-gold font-semibold">二者択一</span>です：勝ちか負け。引き分けは
+          プレイヤーの合意に応じて指し直すか決着をつけます。
+        </>,
+        <>
+          勝利は<span className="text-text font-semibold">チェックメイト</span>、または相手の
+          <span className="text-text font-semibold">投了</span>によって確定します。
+        </>,
+        <>
+          <span className="text-text font-semibold">持ち時間</span>（時計）を使う場合、時間切れは負けとなります。
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League はここで<span className="text-text font-semibold">チェス 1対1</span>をランク付けします。登録した各
+          プレイヤーは、自分のリーグの他のメンバー全員にチャレンジできます。
+        </>
+      ),
+      bullets: [
+        <>結果は<span className="text-gold font-semibold">二者択一</span> — 勝ちか負けで、数値スコアはありません。</>,
+        <>試合は<span className="text-text font-semibold">実際にプレイされた後</span>にのみ申告できます。</>,
+        <><span className="text-text font-semibold">ELO はチェス専用</span>で、他の競技とは別です。</>,
+        <>両プレイヤーがそれぞれ独立して結果を申告します。食い違いがある場合、試合は無効になります。</>,
+      ],
+    },
+  },
+  streetfighter: {
+    label: 'Street Fighter 1対1',
+    terrain: {
+      intro: (
+        <>
+          勝利が明確になり、試合が公平になるためのセットの取り決めです：
+        </>
+      ),
+      bullets: [
+        <>
+          各試合は<span className="text-gold font-semibold">ラウンド</span>制で行われ — ラウンドの過半数を取った
+          プレイヤーがそのゲームを制します。
+        </>,
+        <>
+          各ラウンドの前に<span className="text-gold font-semibold">キャラクター</span>を選択します。ラウンドを
+          落とした後、敗者は<span className="text-text font-semibold">キャラクターを変更</span>できます。
+        </>,
+        <>
+          セットは状況（公式戦、トーナメント）に応じて<span className="text-gold font-semibold">3本先取（Bo3）</span>または{' '}
+          <span className="text-gold font-semibold">5本先取（Bo5）</span>で争われます。
+        </>,
+        <>
+          <span className="text-text font-semibold">標準設定</span>：タイマーと体力はデフォルト、改造や特殊なアシストは
+          なし — 公平で分かりやすいセットにします。
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League はここで<span className="text-text font-semibold">Street Fighter 1対1</span>をランク付けします。
+          登録した各プレイヤーは、自分のリーグの他のメンバー全員にチャレンジできます。
+        </>
+      ),
+      bullets: [
+        <><span className="text-gold font-semibold">3本先取または5本先取</span>のセット（Bo3 / Bo5）。</>,
+        <>勝者は<span className="text-text font-semibold">ラウンドの過半数</span>を取った方です。</>,
+        <><span className="text-text font-semibold">ELO は競技ごと</span>です。あなたの Street Fighter のレートは他のゲームとは別物です。</>,
+        <>両プレイヤーがそれぞれ独立して結果を申告します。食い違いがある場合、試合は無効になります。</>,
+      ],
+    },
+  },
+  flechettes: {
+    label: 'ダーツ（301 / 501）',
+    terrain: {
+      intro: (
+        <>
+          カウントが明確になり、結果が議論の余地なく確定するためのラウンドの取り決めです：
+        </>
+      ),
+      bullets: [
+        <>
+          <span className="text-gold font-semibold">301または501</span>のラウンド：各プレイヤーは自分の
+          スタートスコアから始め、得点するごとに<span className="text-text font-semibold">数を減らして</span>いきます。
+        </>,
+        <>
+          最初に<span className="text-gold font-semibold">ちょうど0</span>に到達した人がそのラウンドを制します。
+        </>,
+        <>
+          <span className="text-gold font-semibold">2〜8人</span>のプレイヤーが同じラウンドを戦えて、
+          それぞれが<span className="text-text font-semibold">自分の残り点</span>を持ちます。
+        </>,
+        <>
+          <span className="text-text font-semibold">キャラクター</span>もチームもなし — これは
+          <span className="text-text font-semibold">個人</span>戦です。
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League はここで<span className="text-text font-semibold">ダーツ（301 / 501）</span>をランク付けします。
+          登録した各プレイヤーは、自分のリーグの他のメンバー全員にチャレンジできます。
+        </>
+      ),
+      bullets: [
+        <><span className="text-gold font-semibold">2〜8人</span>のラウンド、<span className="text-text font-semibold">301または501</span>形式。</>,
+        <>
+          申告者は各プレイヤーの終了時の<span className="text-gold font-semibold">残り点</span>を入力します
+          （<span className="text-text font-semibold">勝者 = 0</span>）。ランキングは残り点から導かれます：
+          0 = 1位、以降は残り点の小さい順です。
+        </>,
+        <>
+          他の各プレイヤーは<span className="text-text font-semibold">自分の残り点を確認</span>します。{' '}
+          <span className="text-text font-semibold">異議があればラウンドは無効</span>になります。
+        </>,
+        <>
+          <span className="text-text font-semibold">ELO は競技ごと</span>です。あなたのダーツのレートは他のゲームとは別物です。
+          ダーツのトーナメントや2対2はありません。
+        </>,
+      ],
+    },
+  },
+  coding: {
+    label: 'コーディング（1対1）',
+    terrain: {
+      intro: (
+        <>コーディング系のゲームなら何でも可（CodinGame、Clash of Code、LeetCode の対戦など）。</>
+      ),
+      bullets: [
+        <>結果は<span className="text-gold font-semibold">二者択一</span>：勝ちか負けで、数値スコアも引き分けもありません。</>,
+        <><span className="text-text font-semibold">コーディングのサイトは自由</span>です — どのプラットフォームでも ELO は同じです。</>,
+        <>キャラクター選択はなし：単に<span className="text-text font-semibold">勝者</span>を申告するだけです。</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League は<span className="text-text font-semibold">コーディング</span>を1対1でランク付けします。各メンバーは他の誰にでもチャレンジできます。</>
+      ),
+      bullets: [
+        <>申告 = <span className="text-gold font-semibold">「勝った」</span>か「負けた」を選ぶこと。</>,
+        <>チャレンジに<span className="text-text font-semibold">任意の招待リンク</span>を添付できます（コーディングサイトのルーム）。</>,
+        <><span className="text-text font-semibold">ELO は競技ごと</span>で、他のゲームとは別です。</>,
+      ],
+    },
+  },
+  pokemon: {
+    label: 'ポケモン（1対1）',
+    terrain: {
+      intro: (
+        <>ポケモンの対戦なら何でも可（例：Pokémon Showdown、カートリッジ、カードなど）。</>
+      ),
+      bullets: [
+        <>結果は<span className="text-gold font-semibold">二者択一</span>：勝ちか負けで、数値スコアも引き分けもありません。</>,
+        <><span className="text-text font-semibold">すべての形式が可</span> — どの媒体でも ELO は同じです。</>,
+        <>キャラクター選択はなし：単に<span className="text-text font-semibold">勝者</span>を申告するだけです。</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League は<span className="text-text font-semibold">ポケモン</span>を1対1でランク付けします。各メンバーは他の誰にでもチャレンジできます。</>
+      ),
+      bullets: [
+        <>申告 = <span className="text-gold font-semibold">「勝った」</span>か「負けた」を選ぶこと。</>,
+        <><span className="text-text font-semibold">ELO は競技ごと</span>で、他のゲームとは別です。</>,
+        <><span className="text-text font-semibold">試合の詳細</span>はなし：結果だけが重要です。</>,
+      ],
+    },
+  },
+};
+
+const RULES_AR: Record<Game, GameRules> = {
+  babyfoot: {
+    label: 'بيبي فوت 1 ضد 1',
+    terrain: {
+      intro: (
+        <>
+          اتفاقيات اللعب حتى يكون الهدف صحيحًا وتبقى المباريات تُلعب بنزاهة:
+        </>
+      ),
+      bullets: [
+        <>
+          بعد الافتتاح (<span className="text-text font-semibold">كيك أوف</span>)، يجب أن تُلمس الكرة
+          <span className="text-gold font-semibold"> مرتين على الأقل</span> قبل أن يُحتسب الهدف.
+        </>,
+        <>
+          يحق للاعب <span className="text-text font-semibold">الذي تلقى هدفًا للتو</span> أن يعيد الكرة
+          <span className="text-gold font-semibold"> من قضيب خط الوسط الخاص به</span> (خط الوسط) لاستئناف اللعب.
+        </>,
+        <>
+          <span className="text-gold font-semibold">الأهداف المسجَّلة من قضيب خط الوسط</span> (خط الوسط)
+          صحيحة.
+        </>,
+        <>
+          <span className="text-gold font-semibold">الغاميل</span> (الكرة التي ترتد خارجةً من المرمى): يمكنك إما
+          <span className="text-text font-semibold">أخذ النقطة</span> أو
+          <span className="text-text font-semibold"> خصم نقطة من الخصم</span> — لكن لا يمكن
+          <span className="text-text font-semibold"> إنهاء المباراة على غاميل</span>.
+        </>,
+        <>
+          <span className="text-gold font-semibold">اللفّات</span> يجب أن تكون
+          <span className="text-text font-semibold"> مضبوطة</span> (بدون تدوير عشوائي غير منضبط).
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League تصنيف ELO لـ<span className="text-text font-semibold">بيبي فوت 1 ضد 1</span>.
+          يمكن لكل لاعب مسجَّل أن يتحدى أي عضو آخر في دوريه.
+        </>
+      ),
+      bullets: [
+        <>مباراة حتى <span className="text-gold font-semibold">10 أهداف</span> — أول من يصل إلى 10 يفوز.</>,
+        <>لا يمكن الإبلاغ عن المباراة إلا <span className="text-text font-semibold">بعد أن تُلعب</span>.</>,
+        <>يبلّغ اللاعبان عن نتيجتهما بشكل مستقل. في حال الاختلاف، تُلغى المباراة.</>,
+      ],
+    },
+  },
+  smash: {
+    label: 'Super Smash Bros. 1 ضد 1',
+    terrain: {
+      intro: (
+        <>
+          اتفاقيات المجموعة حتى يكون الفوز واضحًا والمباريات عادلة:
+        </>
+      ),
+      bullets: [
+        <>
+          تُلعب كل مباراة بـ<span className="text-gold font-semibold">أرصدة (أرواح)</span> — اللاعب الذي
+          يستنفد كل أرصدة خصمه يفوز بالجولة.
+        </>,
+        <>
+          اختيار <span className="text-gold font-semibold">الشخصية</span> قبل كل جولة؛ بعد خسارة جولة،
+          يمكن للخاسر <span className="text-text font-semibold">تغيير الشخصية</span>.
+        </>,
+        <>
+          تُلعب المجموعات بنظام <span className="text-gold font-semibold">أفضل من 3 (Bo3)</span> أو{' '}
+          <span className="text-gold font-semibold">أفضل من 5 (Bo5)</span> حسب السياق (رسمي، بطولة).
+        </>,
+        <>
+          تكون <span className="text-text font-semibold">العناصر</span> والمراحل المتنازع عليها معطّلة
+          افتراضيًا، ما لم يتفق اللاعبان صراحةً على خلاف ذلك.
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League تصنّف هنا <span className="text-text font-semibold">Super Smash Bros. 1 ضد 1</span> بالأرصدة.
+          يمكن لكل لاعب مسجَّل أن يتحدى أي عضو آخر في دوريه.
+        </>
+      ),
+      bullets: [
+        <>مجموعة بنظام <span className="text-gold font-semibold">أفضل من 3 أو أفضل من 5</span> جولات (Bo3 / Bo5).</>,
+        <>الفائز هو من يحصد <span className="text-text font-semibold">أغلبية الجولات</span>.</>,
+        <><span className="text-text font-semibold">ELO خاص بكل تخصص</span>: تصنيفك في Smash منفصل عن بيبي فوت.</>,
+        <>يبلّغ اللاعبان عن نتيجتهما بشكل مستقل. في حال الاختلاف، تُلغى المباراة.</>,
+      ],
+    },
+  },
+  chess: {
+    label: 'الشطرنج 1 ضد 1',
+    terrain: {
+      intro: (
+        <>
+          اتفاقيات المباراة حتى تكون النتيجة لا تقبل الجدل:
+        </>
+      ),
+      bullets: [
+        <>
+          مباراة <span className="text-gold font-semibold">1 ضد 1</span> بقواعد الشطرنج الكلاسيكية
+          (القطعة الملموسة تُلعب).
+        </>,
+        <>
+          النتيجة <span className="text-gold font-semibold">ثنائية</span>: فوز أو خسارة. التعادل
+          يُعاد أو يُحسم حسب اتفاق اللاعبين.
+        </>,
+        <>
+          يتحقق الفوز بـ<span className="text-text font-semibold">كش ملك</span> أو بـ
+          <span className="text-text font-semibold">استسلام</span> الخصم.
+        </>,
+        <>
+          إذا استُخدم <span className="text-text font-semibold">توقيت</span> (ساعة)، فإن سقوط الراية
+          يُحتسب خسارة.
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League تصنّف هنا <span className="text-text font-semibold">الشطرنج 1 ضد 1</span>. يمكن لكل
+          لاعب مسجَّل أن يتحدى أي عضو آخر في دوريه.
+        </>
+      ),
+      bullets: [
+        <>نتيجة <span className="text-gold font-semibold">ثنائية</span> — فوز أو خسارة، بلا نتيجة رقمية.</>,
+        <>لا يمكن الإبلاغ عن المباراة إلا <span className="text-text font-semibold">بعد أن تُلعب</span>.</>,
+        <><span className="text-text font-semibold">ELO مخصص للشطرنج</span>، منفصل عن التخصصات الأخرى.</>,
+        <>يبلّغ اللاعبان عن نتيجتهما بشكل مستقل. في حال الاختلاف، تُلغى المباراة.</>,
+      ],
+    },
+  },
+  streetfighter: {
+    label: 'Street Fighter 1 ضد 1',
+    terrain: {
+      intro: (
+        <>
+          اتفاقيات المجموعة حتى يكون الفوز واضحًا والمباريات عادلة:
+        </>
+      ),
+      bullets: [
+        <>
+          تُلعب كل مباراة بـ<span className="text-gold font-semibold">أشواط</span> — اللاعب الذي يفوز
+          بأغلبية الأشواط يحصد الجولة.
+        </>,
+        <>
+          اختيار <span className="text-gold font-semibold">الشخصية</span> قبل كل جولة؛ بعد خسارة جولة،
+          يمكن للخاسر <span className="text-text font-semibold">تغيير الشخصية</span>.
+        </>,
+        <>
+          تُلعب المجموعات بنظام <span className="text-gold font-semibold">أفضل من 3 (Bo3)</span> أو{' '}
+          <span className="text-gold font-semibold">أفضل من 5 (Bo5)</span> حسب السياق (رسمي، بطولة).
+        </>,
+        <>
+          <span className="text-text font-semibold">إعدادات قياسية</span>: المؤقّت والصحة الافتراضيان،
+          بلا معدّلات أو مساعدات غريبة — مجموعة عادلة وواضحة.
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League تصنّف هنا <span className="text-text font-semibold">Street Fighter 1 ضد 1</span>.
+          يمكن لكل لاعب مسجَّل أن يتحدى أي عضو آخر في دوريه.
+        </>
+      ),
+      bullets: [
+        <>مجموعة بنظام <span className="text-gold font-semibold">أفضل من 3 أو أفضل من 5</span> جولات (Bo3 / Bo5).</>,
+        <>الفائز هو من يحصد <span className="text-text font-semibold">أغلبية الجولات</span>.</>,
+        <><span className="text-text font-semibold">ELO خاص بكل تخصص</span>: تصنيفك في Street Fighter منفصل عن الألعاب الأخرى.</>,
+        <>يبلّغ اللاعبان عن نتيجتهما بشكل مستقل. في حال الاختلاف، تُلغى المباراة.</>,
+      ],
+    },
+  },
+  flechettes: {
+    label: 'الدارتس (301 / 501)',
+    terrain: {
+      intro: (
+        <>
+          اتفاقيات الجولة حتى يكون العدّ واضحًا والنتيجة لا تقبل الجدل:
+        </>
+      ),
+      bullets: [
+        <>
+          جولة بنظام <span className="text-gold font-semibold">301 أو 501</span>: يبدأ كل لاعب من نتيجته
+          الأولية و<span className="text-text font-semibold">ينزل</span> كلما سجّل.
+        </>,
+        <>
+          أول من يصل إلى <span className="text-gold font-semibold">صفر بالضبط</span> يفوز بالجولة.
+        </>,
+        <>
+          يمكن أن يلعب <span className="text-gold font-semibold">من 2 إلى 8 لاعبين</span> الجولة نفسها، لكل
+          منهم <span className="text-text font-semibold">رصيده المتبقي الخاص</span>.
+        </>,
+        <>
+          بلا <span className="text-text font-semibold">شخصيات</span> ولا فرق — إنها مواجهة
+          <span className="text-text font-semibold"> فردية</span>.
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League تصنّف هنا <span className="text-text font-semibold">الدارتس (301 / 501)</span>.
+          يمكن لكل لاعب مسجَّل أن يتحدى أي عضو آخر في دوريه.
+        </>
+      ),
+      bullets: [
+        <>جولة من <span className="text-gold font-semibold">2 إلى 8 لاعبين</span>، بنظام <span className="text-text font-semibold">301 أو 501</span>.</>,
+        <>
+          يُدخل المبلِّغ لكل لاعب <span className="text-gold font-semibold">نقاطه المتبقية</span> في النهاية
+          (<span className="text-text font-semibold">الفائز = 0</span>). يُستنتج الترتيب من المتبقي:
+          0 = الأول، ثم من الأصغر متبقيًا إلى الأكبر.
+        </>,
+        <>
+          يؤكّد كل لاعب آخر <span className="text-text font-semibold">متبقيه الخاص</span>؛ و{' '}
+          <span className="text-text font-semibold">أي اعتراض يُلغي الجولة</span>.
+        </>,
+        <>
+          <span className="text-text font-semibold">ELO خاص بكل تخصص</span>: تصنيفك في الدارتس منفصل عن الألعاب الأخرى.
+          لا بطولة دارتس ولا 2 ضد 2.
+        </>,
+      ],
+    },
+  },
+  coding: {
+    label: 'البرمجة (1 ضد 1)',
+    terrain: {
+      intro: (
+        <>أي لعبة برمجة مقبولة (CodinGame، Clash of Code، مبارزات LeetCode…).</>
+      ),
+      bullets: [
+        <>نتيجة <span className="text-gold font-semibold">ثنائية</span>: فوز أو خسارة، بلا نتيجة رقمية ولا تعادل.</>,
+        <><span className="text-text font-semibold">موقع البرمجة حرّ</span> — الـ ELO نفسه مهما كانت المنصة.</>,
+        <>بلا اختيار شخصية: تعلن ببساطة عن <span className="text-text font-semibold">الفائز</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League تصنّف <span className="text-text font-semibold">البرمجة</span> بنظام 1 ضد 1. يمكن لأي عضو أن يتحدى أي عضو آخر.</>
+      ),
+      bullets: [
+        <>الإبلاغ = اختيار <span className="text-gold font-semibold">«فُزت»</span> أو «خسِرت».</>,
+        <>يمكن إرفاق <span className="text-text font-semibold">رابط دعوة اختياري</span> بالتحدي (غرفة موقع البرمجة).</>,
+        <><span className="text-text font-semibold">ELO خاص بكل تخصص</span>، منفصل عن الألعاب الأخرى.</>,
+      ],
+    },
+  },
+  pokemon: {
+    label: 'بوكيمون (1 ضد 1)',
+    terrain: {
+      intro: (
+        <>أي مبارزة بوكيمون مقبولة (مثل Pokémon Showdown، الخراطيش، البطاقات…).</>
+      ),
+      bullets: [
+        <>نتيجة <span className="text-gold font-semibold">ثنائية</span>: فوز أو خسارة، بلا نتيجة رقمية ولا تعادل.</>,
+        <>جميع <span className="text-text font-semibold">الصيغ مقبولة</span> — الـ ELO نفسه مهما كان الوسيط.</>,
+        <>بلا اختيار شخصية: تعلن ببساطة عن <span className="text-text font-semibold">الفائز</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League تصنّف <span className="text-text font-semibold">بوكيمون</span> بنظام 1 ضد 1. يمكن لأي عضو أن يتحدى أي عضو آخر.</>
+      ),
+      bullets: [
+        <>الإبلاغ = اختيار <span className="text-gold font-semibold">«فُزت»</span> أو «خسِرت».</>,
+        <><span className="text-text font-semibold">ELO خاص بكل تخصص</span>، منفصل عن الألعاب الأخرى.</>,
+        <>بلا <span className="text-text font-semibold">تفاصيل المباراة</span>: النتيجة وحدها هي ما يهم.</>,
+      ],
+    },
+  },
+};
+
+const RULES_PT: Record<Game, GameRules> = {
+  babyfoot: {
+    label: 'pebolim 1 contra 1',
+    terrain: {
+      intro: (
+        <>
+          Convenções de jogo para que um gol seja válido e as partidas se mantenham disputadas de forma
+          limpa:
+        </>
+      ),
+      bullets: [
+        <>
+          Após o saque (<span className="text-text font-semibold">kick-off</span>), a bola precisa ser
+          <span className="text-gold font-semibold"> tocada pelo menos duas vezes</span> antes que um gol
+          conte.
+        </>,
+        <>
+          O jogador que <span className="text-text font-semibold">acabou de sofrer um gol</span> tem o direito
+          de recolocar a bola <span className="text-gold font-semibold">na sua barra do meio</span> (os meias)
+          para recomeçar.
+        </>,
+        <>
+          Os <span className="text-gold font-semibold">gols marcados a partir da barra do meio</span> (os meias)
+          são válidos.
+        </>,
+        <>
+          A <span className="text-gold font-semibold">gamelle</span> (bola que volta a sair do gol): você pode
+          <span className="text-text font-semibold"> ficar com o ponto</span> ou
+          <span className="text-text font-semibold"> tirar um ponto do adversário</span> — mas não dá para
+          <span className="text-text font-semibold"> fechar a partida numa gamelle</span>.
+        </>,
+        <>
+          As <span className="text-gold font-semibold">roletas</span> precisam ser
+          <span className="text-text font-semibold"> controladas</span> (sem giros descontrolados).
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League é um ranking ELO de <span className="text-text font-semibold">pebolim 1 contra 1</span>.
+          Cada jogador inscrito pode desafiar qualquer outro membro da sua league.
+        </>
+      ),
+      bullets: [
+        <>Partida em <span className="text-gold font-semibold">10 gols</span> — o primeiro a chegar a 10 vence.</>,
+        <>Uma partida só pode ser declarada <span className="text-text font-semibold">depois de ter sido jogada</span>.</>,
+        <>Os dois jogadores declaram o placar de forma independente. Em caso de desacordo, a partida é anulada.</>,
+      ],
+    },
+  },
+  smash: {
+    label: 'Super Smash Bros. 1 contra 1',
+    terrain: {
+      intro: (
+        <>
+          Convenções de set para que a vitória seja clara e as partidas justas:
+        </>
+      ),
+      bullets: [
+        <>
+          Cada partida é disputada em <span className="text-gold font-semibold">stocks (vidas)</span> — o jogador
+          que esgota todos os stocks do adversário vence a rodada.
+        </>,
+        <>
+          Seleção de <span className="text-gold font-semibold">personagem</span> antes de cada rodada; após uma
+          rodada perdida, o perdedor pode <span className="text-text font-semibold">trocar de personagem</span>.
+        </>,
+        <>
+          Os sets são disputados em <span className="text-gold font-semibold">melhor de 3 (Bo3)</span> ou{' '}
+          <span className="text-gold font-semibold">melhor de 5 (Bo5)</span> conforme o contexto (oficial, torneio).
+        </>,
+        <>
+          Os <span className="text-text font-semibold">itens</span> e os estágios contestados ficam desativados
+          por padrão, salvo acordo explícito dos dois jogadores.
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League classifica aqui o <span className="text-text font-semibold">Super Smash Bros. 1 contra 1</span> em
+          stocks. Cada jogador inscrito pode desafiar qualquer outro membro da sua league.
+        </>
+      ),
+      bullets: [
+        <>Set em <span className="text-gold font-semibold">melhor de 3 ou melhor de 5</span> rodadas (Bo3 / Bo5).</>,
+        <>O vencedor é quem leva a <span className="text-text font-semibold">maioria das rodadas</span>.</>,
+        <>O <span className="text-text font-semibold">ELO é por modalidade</span>: seu rating de Smash é separado do pebolim.</>,
+        <>Os dois jogadores declaram o resultado de forma independente. Em caso de desacordo, a partida é anulada.</>,
+      ],
+    },
+  },
+  chess: {
+    label: 'xadrez 1 contra 1',
+    terrain: {
+      intro: (
+        <>
+          Convenções de partida para que o resultado seja incontestável:
+        </>
+      ),
+      bullets: [
+        <>
+          Partida <span className="text-gold font-semibold">1 contra 1</span> com as regras clássicas do xadrez
+          (peça tocada, peça jogada).
+        </>,
+        <>
+          O resultado é <span className="text-gold font-semibold">binário</span>: vitória ou derrota. Um empate
+          é rejogado ou decidido conforme o acordo dos jogadores.
+        </>,
+        <>
+          A vitória vem por <span className="text-text font-semibold">xeque-mate</span> ou por
+          <span className="text-text font-semibold"> desistência</span> do adversário.
+        </>,
+        <>
+          Se um <span className="text-text font-semibold">controle de tempo</span> (relógio) for usado, a queda
+          da bandeira conta como derrota.
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League classifica aqui o <span className="text-text font-semibold">xadrez 1 contra 1</span>. Cada
+          jogador inscrito pode desafiar qualquer outro membro da sua league.
+        </>
+      ),
+      bullets: [
+        <>Resultado <span className="text-gold font-semibold">binário</span> — vitória ou derrota, sem placar numérico.</>,
+        <>Uma partida só pode ser declarada <span className="text-text font-semibold">depois de ter sido jogada</span>.</>,
+        <>O <span className="text-text font-semibold">ELO é dedicado ao xadrez</span>, separado das outras modalidades.</>,
+        <>Os dois jogadores declaram o resultado de forma independente. Em caso de desacordo, a partida é anulada.</>,
+      ],
+    },
+  },
+  streetfighter: {
+    label: 'Street Fighter 1 contra 1',
+    terrain: {
+      intro: (
+        <>
+          Convenções de set para que a vitória seja clara e as partidas justas:
+        </>
+      ),
+      bullets: [
+        <>
+          Cada partida é disputada em <span className="text-gold font-semibold">rounds</span> — o jogador que
+          vence a maioria dos rounds leva a rodada.
+        </>,
+        <>
+          Seleção de <span className="text-gold font-semibold">personagem</span> antes de cada rodada; após uma
+          rodada perdida, o perdedor pode <span className="text-text font-semibold">trocar de personagem</span>.
+        </>,
+        <>
+          Os sets são disputados em <span className="text-gold font-semibold">melhor de 3 (Bo3)</span> ou{' '}
+          <span className="text-gold font-semibold">melhor de 5 (Bo5)</span> conforme o contexto (oficial, torneio).
+        </>,
+        <>
+          <span className="text-text font-semibold">Configurações padrão</span>: timer e vida no padrão, sem
+          modificadores nem assists exóticos — um set justo e legível.
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League classifica aqui o <span className="text-text font-semibold">Street Fighter 1 contra 1</span>.
+          Cada jogador inscrito pode desafiar qualquer outro membro da sua league.
+        </>
+      ),
+      bullets: [
+        <>Set em <span className="text-gold font-semibold">melhor de 3 ou melhor de 5</span> rodadas (Bo3 / Bo5).</>,
+        <>O vencedor é quem leva a <span className="text-text font-semibold">maioria das rodadas</span>.</>,
+        <>O <span className="text-text font-semibold">ELO é por modalidade</span>: seu rating de Street Fighter é separado dos outros jogos.</>,
+        <>Os dois jogadores declaram o resultado de forma independente. Em caso de desacordo, a partida é anulada.</>,
+      ],
+    },
+  },
+  flechettes: {
+    label: 'dardos (301 / 501)',
+    terrain: {
+      intro: (
+        <>
+          Convenções de rodada para que a contagem seja clara e o resultado incontestável:
+        </>
+      ),
+      bullets: [
+        <>
+          Rodada em <span className="text-gold font-semibold">301 ou 501</span>: cada jogador parte do seu placar
+          inicial e <span className="text-text font-semibold">vai descontando</span> conforme pontua.
+        </>,
+        <>
+          O primeiro a chegar a <span className="text-gold font-semibold">exatamente 0</span> vence a rodada.
+        </>,
+        <>
+          De <span className="text-gold font-semibold">2 a 8 jogadores</span> podem disputar a mesma rodada, cada
+          um com o <span className="text-text font-semibold">próprio restante</span>.
+        </>,
+        <>
+          Sem <span className="text-text font-semibold">personagens</span> nem times — é um confronto
+          <span className="text-text font-semibold"> individual</span>.
+        </>,
+      ],
+    },
+    format: {
+      intro: (
+        <>
+          42 League classifica aqui os <span className="text-text font-semibold">dardos (301 / 501)</span>.
+          Cada jogador inscrito pode desafiar qualquer outro membro da sua league.
+        </>
+      ),
+      bullets: [
+        <>Rodada de <span className="text-gold font-semibold">2 a 8 jogadores</span>, formato <span className="text-text font-semibold">301 ou 501</span>.</>,
+        <>
+          Quem declara insere, para cada jogador, os <span className="text-gold font-semibold">pontos restantes</span> no fim
+          (o <span className="text-text font-semibold">vencedor = 0</span>). A classificação vem do restante:
+          0 = 1º, depois do menor restante ao maior.
+        </>,
+        <>
+          Cada um dos outros jogadores <span className="text-text font-semibold">confirma o próprio restante</span>; uma{' '}
+          <span className="text-text font-semibold">contestação anula a rodada</span>.
+        </>,
+        <>
+          O <span className="text-text font-semibold">ELO é por modalidade</span>: seu rating de dardos é separado dos outros jogos.
+          Sem torneio de dardos e sem 2v2.
+        </>,
+      ],
+    },
+  },
+  coding: {
+    label: 'coding (1 contra 1)',
+    terrain: {
+      intro: (
+        <>Qualquer jogo de código é aceito (CodinGame, Clash of Code, duelos LeetCode…).</>
+      ),
+      bullets: [
+        <>Resultado <span className="text-gold font-semibold">binário</span>: vitória ou derrota, sem placar numérico nem empate.</>,
+        <>O <span className="text-text font-semibold">site de código é livre</span> — o ELO é o mesmo em qualquer plataforma.</>,
+        <>Sem seleção de personagem: você simplesmente declara o <span className="text-text font-semibold">vencedor</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League classifica o <span className="text-text font-semibold">coding</span> em 1 contra 1. Qualquer membro pode desafiar qualquer outro.</>
+      ),
+      bullets: [
+        <>Declarar = escolher <span className="text-gold font-semibold">“ganhei”</span> ou “perdi”.</>,
+        <>Um <span className="text-text font-semibold">link de convite opcional</span> pode ser anexado ao desafio (a sala do site de código).</>,
+        <>O <span className="text-text font-semibold">ELO é por modalidade</span>, separado dos outros jogos.</>,
+      ],
+    },
+  },
+  pokemon: {
+    label: 'pokémon (1 contra 1)',
+    terrain: {
+      intro: (
+        <>Qualquer duelo de Pokémon é aceito (ex.: Pokémon Showdown, cartuchos, cartas…).</>
+      ),
+      bullets: [
+        <>Resultado <span className="text-gold font-semibold">binário</span>: vitória ou derrota, sem placar numérico nem empate.</>,
+        <>Todos os <span className="text-text font-semibold">formatos são aceitos</span> — o ELO é o mesmo em qualquer meio.</>,
+        <>Sem seleção de personagem: você simplesmente declara o <span className="text-text font-semibold">vencedor</span>.</>,
+      ],
+    },
+    format: {
+      intro: (
+        <>42 League classifica o <span className="text-text font-semibold">pokémon</span> em 1 contra 1. Qualquer membro pode desafiar qualquer outro.</>
+      ),
+      bullets: [
+        <>Declarar = escolher <span className="text-gold font-semibold">“ganhei”</span> ou “perdi”.</>,
+        <>O <span className="text-text font-semibold">ELO é por modalidade</span>, separado dos outros jogos.</>,
+        <>Sem <span className="text-text font-semibold">detalhes da partida</span>: só o resultado conta.</>,
+      ],
+    },
+  },
+};
+
+const RULES_I18N: Record<UiLang, Record<Game, GameRules>> = {
   fr: RULES_FR,
   en: RULES_EN,
   es: RULES_ES,
+  ja: RULES_JA,
+  ar: RULES_AR,
+  pt: RULES_PT,
 };
 
 // ─── Défis & OPS (texte riche, par langue) ───────────────────────────────────
 
-const CHALLENGES_BODY: Record<Lang, React.ReactNode> = {
+const CHALLENGES_BODY: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       <p>
@@ -1213,7 +2041,7 @@ const CHALLENGES_BODY: Record<Lang, React.ReactNode> = {
         <span className="text-text font-semibold">ennemi juré</span> : tu cibles un joueur et la traque
         s'ouvre. Action unilatérale, aucune acceptation requise.
       </p>
-      <ul className="space-y-1.5 pl-3 border-l border-red/30">
+      <ul className="space-y-1.5 ps-3 border-s border-red/30">
         <li>La traque dure <span className="text-text font-semibold">24 heures</span>.</li>
         <li>
           Pendant ce temps, la cible <span className="text-text font-semibold">ne peut pas refuser</span> les
@@ -1238,7 +2066,7 @@ const CHALLENGES_BODY: Record<Lang, React.ReactNode> = {
         <span className="text-text font-semibold">arch-rival</span>: you target a player and the hunt
         begins. A unilateral action — no acceptance required.
       </p>
-      <ul className="space-y-1.5 pl-3 border-l border-red/30">
+      <ul className="space-y-1.5 ps-3 border-s border-red/30">
         <li>The hunt lasts <span className="text-text font-semibold">24 hours</span>.</li>
         <li>
           During that window, the target <span className="text-text font-semibold">cannot decline</span> the
@@ -1263,7 +2091,7 @@ const CHALLENGES_BODY: Record<Lang, React.ReactNode> = {
         <span className="text-text font-semibold">archienemigo</span>: marcas a un jugador y se abre la
         caza. Acción unilateral, sin necesidad de aceptación.
       </p>
-      <ul className="space-y-1.5 pl-3 border-l border-red/30">
+      <ul className="space-y-1.5 ps-3 border-s border-red/30">
         <li>La caza dura <span className="text-text font-semibold">24 horas</span>.</li>
         <li>
           Durante ese tiempo, el objetivo <span className="text-text font-semibold">no puede rechazar</span> los
@@ -1277,9 +2105,84 @@ const CHALLENGES_BODY: Record<Lang, React.ReactNode> = {
       </ul>
     </>
   ),
+  ja: (
+    <>
+      <p>
+        <span className="text-gold font-semibold">チャレンジ</span>を使うと、指定した時刻に試合を予定できます。
+        相手が承認するか辞退します。
+      </p>
+      <p>
+        <span className="text-red font-semibold">OPS</span>（オペレーション）はあなたの{' '}
+        <span className="text-text font-semibold">宿敵</span>を指定します：プレイヤーを標的にすると狩りが
+        始まります。一方的なアクションで、承認は不要です。
+      </p>
+      <ul className="space-y-1.5 ps-3 border-s border-red/30">
+        <li>狩りは<span className="text-text font-semibold">24時間</span>続きます。</li>
+        <li>
+          その間、標的は追跡者からの<span className="text-text font-semibold">最初の3件のチャレンジ</span>を
+          <span className="text-text font-semibold">拒否できません</span> — 必ずプレイしなければなりません。
+        </li>
+        <li>
+          これらの強制試合の1つを拒否すると<span className="text-red font-semibold">敗北時の ELO の3倍</span>
+          {' '}のコストがかかります（単なる棄権よりはるかに大きいです）。
+        </li>
+        <li>OPS は同時に1つだけ有効で、失効後は1週間のクールダウンがあります。</li>
+      </ul>
+    </>
+  ),
+  ar: (
+    <>
+      <p>
+        تتيح لك <span className="text-gold font-semibold">التحدّيات</span> جدولة مباراة في وقت محدَّد.
+        يقبل الخصم أو يرفض.
+      </p>
+      <p>
+        الـ<span className="text-red font-semibold">OPS</span> (عملية) تحدِّد{' '}
+        <span className="text-text font-semibold">عدوّك اللدود</span>: تستهدف لاعبًا فتبدأ المطاردة.
+        إجراء أحادي، لا يتطلب أي قبول.
+      </p>
+      <ul className="space-y-1.5 ps-3 border-s border-red/30">
+        <li>تستمر المطاردة <span className="text-text font-semibold">24 ساعة</span>.</li>
+        <li>
+          خلال هذه المدة، <span className="text-text font-semibold">لا يمكن</span> للهدف رفض
+          <span className="text-text font-semibold"> أول 3 تحدّيات</span> من مطارِده — عليه أن يلعبها.
+        </li>
+        <li>
+          رفض إحدى هذه المباريات الإجبارية يكلّف <span className="text-red font-semibold">3 أضعاف ELO الخسارة</span>
+          {' '}(أكثر بكثير من مجرد انسحاب).
+        </li>
+        <li>عملية OPS واحدة نشطة في كل مرة، مع فترة تهدئة أسبوع بعد انتهائها.</li>
+      </ul>
+    </>
+  ),
+  pt: (
+    <>
+      <p>
+        Os <span className="text-gold font-semibold">desafios</span> permitem agendar uma partida em um horário definido.
+        O adversário aceita ou recusa.
+      </p>
+      <p>
+        Uma <span className="text-red font-semibold">OPS</span> (operação) marca o seu{' '}
+        <span className="text-text font-semibold">arqui-inimigo</span>: você mira um jogador e a caçada
+        começa. Ação unilateral, sem necessidade de aceitação.
+      </p>
+      <ul className="space-y-1.5 ps-3 border-s border-red/30">
+        <li>A caçada dura <span className="text-text font-semibold">24 horas</span>.</li>
+        <li>
+          Durante esse período, o alvo <span className="text-text font-semibold">não pode recusar</span> os
+          <span className="text-text font-semibold"> 3 primeiros desafios</span> do seu caçador — precisa jogá-los.
+        </li>
+        <li>
+          Recusar uma dessas partidas forçadas custa <span className="text-red font-semibold">3× o ELO de uma derrota</span>
+          {' '}(bem mais que uma simples desistência).
+        </li>
+        <li>Apenas uma OPS ativa por vez, com um cooldown de uma semana após expirar.</li>
+      </ul>
+    </>
+  ),
 };
 
-const TOURNAMENTS_BODY: Record<Lang, React.ReactNode> = {
+const TOURNAMENTS_BODY: Record<UiLang, React.ReactNode> = {
   fr: (
     <p>
       Deux formats : <span className="text-text font-semibold">élimination directe</span> (bracket,
@@ -1310,11 +2213,42 @@ const TOURNAMENTS_BODY: Record<Lang, React.ReactNode> = {
       todos, sin impacto en el ELO, y solo figuran en el historial de sus participantes.
     </p>
   ),
+  ja: (
+    <p>
+      2つの形式があります：<span className="text-text font-semibold">シングルエリミネーション</span>（ブラケット、
+      必要に応じて自動的にバイ）または<span className="text-text font-semibold">グループステージ</span>（12
+      人以上から — 4人のグループ、各グループ2人が通過、その後は通過者のブラケット）。{' '}
+      <span className="text-gold font-semibold">公式</span>トーナメントは管理者が作成し、特別な報酬を
+      与えます。<span className="text-text font-semibold">親善</span>トーナメントは全員に開かれ、ELO への
+      影響はなく、履歴には参加者の分だけ表示されます。
+    </p>
+  ),
+  ar: (
+    <p>
+      صيغتان: <span className="text-text font-semibold">إقصاء مباشر</span> (شبكة، مع باي تلقائي عند
+      الحاجة) أو <span className="text-text font-semibold">دور المجموعات</span> (اعتبارًا من 12
+      لاعبًا — مجموعات من 4، يتأهل 2 من كل مجموعة، ثم شبكة المتأهلين). البطولات{' '}
+      <span className="text-gold font-semibold">الرسمية</span> يُنشئها المشرفون وتمنح مكافآت خاصة؛
+      أما <span className="text-text font-semibold">الودّية</span> فمفتوحة للجميع، بلا تأثير على ELO،
+      ولا تظهر في السجل إلا للمشاركين فيها.
+    </p>
+  ),
+  pt: (
+    <p>
+      Dois formatos: <span className="text-text font-semibold">eliminatória simples</span> (chave, byes
+      automáticos se necessário) ou <span className="text-text font-semibold">fase de grupos</span> (a partir de 12
+      jogadores — grupos de 4, 2 classificados por grupo, depois a chave dos classificados). Os torneios{' '}
+      <span className="text-gold font-semibold">oficiais</span> são criados pelos admins e dão recompensas
+      especiais; os <span className="text-text font-semibold">amistosos</span> são abertos a todos, sem impacto no
+      ELO, e aparecem no histórico apenas para os seus participantes.
+    </p>
+  ),
 };
 
 function RulesSection() {
   const { game } = useGameMode();
-  const { lang } = useI18n();
+  const { lang: _lang } = useI18n();
+  const lang: UiLang = _lang;
   const t = useT();
   const rules = RULES_I18N[lang][game];
   return (
@@ -1323,7 +2257,7 @@ function RulesSection() {
       <Panel title={t('about.rules.terrain.title')} accent="book">
         <div className="space-y-3 text-sm text-muted leading-relaxed">
           <p>{rules.terrain.intro}</p>
-          <ul className="space-y-1.5 pl-3 border-l border-gold/25">
+          <ul className="space-y-1.5 ps-3 border-s border-gold/25">
             {rules.terrain.bullets.map((b, i) => (
               <li key={i}>{b}</li>
             ))}
@@ -1339,7 +2273,7 @@ function RulesSection() {
       <Panel title={t('about.rules.format.title')}>
         <div className="space-y-3 text-sm text-muted leading-relaxed">
           <p>{rules.format.intro}</p>
-          <ul className="space-y-1.5 pl-3 border-l border-gold/25">
+          <ul className="space-y-1.5 ps-3 border-s border-gold/25">
             {rules.format.bullets.map((b, i) => (
               <li key={i}>{b}</li>
             ))}
@@ -1385,7 +2319,7 @@ type EloContent = {
   exampleNote: (scored: boolean) => React.ReactNode;
 };
 
-const ELO_CONTENT: Record<Lang, EloContent> = {
+const ELO_CONTENT: Record<UiLang, EloContent> = {
   fr: {
     intro: (label, scored) => (
       <>
@@ -1548,10 +2482,171 @@ const ELO_CONTENT: Record<Lang, EloContent> = {
       </>
     ),
   },
+  ja: {
+    intro: (label, scored) => (
+      <>
+        ランキングは<span className="text-gold font-semibold">チェスから派生した ELO システム</span>に基づき、
+        <span className="text-text font-semibold">競技ごと</span>に適用されます（{label}）。
+        各プレイヤーは{' '}
+        <span className="text-text font-semibold">1000ポイント</span>から始めます。試合ごとに、ポイントが
+        敗者から勝者へ移動します。その移動量は、結果が{' '}
+        <span className="text-text font-semibold">予想外</span>であるほど
+        {scored ? (
+          <>、そして勝利が<span className="text-text font-semibold">大差</span>であるほど</>
+        ) : null}
+        大きくなります。
+      </>
+    ),
+    term: {
+      E: (
+        <>
+          勝者の理論上の勝率で、レート差から計算されます
+          (<code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">1 / (1 + 10^((Elo_敗者 − Elo_勝者) / 400))</code>)。
+          上位のレートの相手を倒すほど多く得られます。勝利が起こりにくかったからです。
+        </>
+      ),
+      K: (
+        <>
+          「中立的な」試合で動く最大ポイント量です。値が大きいほど、ランキングは速く反応します。
+        </>
+      ),
+      M: (
+        <>
+          <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">1 + (10 − 敗者スコア) × 0.1</code> ：
+          <span className="text-text font-semibold">10–0</span>での勝利は、接戦の{' '}
+          <span className="text-text font-semibold">10–9</span>よりも重みがあります。勝利の大きさが重要です。
+        </>
+      ),
+      bonus: (
+        <>
+          はっきり言うと：{' '}
+          <span className="text-text font-semibold">
+            自分よりずっと上位の相手を倒せば、はるかに多くのポイントが得られます
+          </span>{' '}
+          — そして相手は同じだけ失います。近いレベルの相手を倒してもわずかしか得られません：
+          レート差が大きいほど、番狂わせの見返りは大きくなります。
+        </>
+      ),
+    },
+    exampleNote: (scored) => (
+      <>
+        {scored ? '同じスコア、同じ勝利' : '同じ勝利'}：レート差+400の相手に対する番狂わせは
+        <span className="text-text font-semibold">2倍のポイント</span>をもたらします。
+      </>
+    ),
+  },
+  ar: {
+    intro: (label, scored) => (
+      <>
+        يعتمد التصنيف على نظام <span className="text-gold font-semibold">ELO مشتق من الشطرنج</span>،
+        يُطبَّق <span className="text-text font-semibold">لكل تخصص</span> ({label}).
+        يبدأ كل لاعب من{' '}
+        <span className="text-text font-semibold">1000 نقطة</span>. في كل مباراة، تُنقل النقاط من
+        الخاسر إلى الفائز، وكلما كانت النتيجة{' '}
+        <span className="text-text font-semibold">غير متوقَّعة</span> أكثر
+        {scored ? (
+          <>، وكان الفوز <span className="text-text font-semibold">بفارق كبير</span></>
+        ) : null}
+        ، زاد ما يُنقل منها.
+      </>
+    ),
+    term: {
+      E: (
+        <>
+          الاحتمال النظري لفوز الفائز، محسوبًا من فارق التصنيف
+          (<code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">1 / (1 + 10^((Elo_الخاسر − Elo_الفائز) / 400))</code>).
+          التغلب على خصم أعلى تصنيفًا يمنح نقاطًا أكثر، لأن الفوز كان غير مرجَّح.
+        </>
+      ),
+      K: (
+        <>
+          الحد الأقصى لعدد النقاط المطروحة في مباراة «محايدة». كلما ارتفع، كان تفاعل التصنيف أسرع.
+        </>
+      ),
+      M: (
+        <>
+          <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">1 + (10 − نتيجة_الخاسر) × 0.1</code> :
+          الفوز <span className="text-text font-semibold">10–0</span> يزن أكثر من{' '}
+          <span className="text-text font-semibold">10–9</span> المتقارب. حجم الفوز مهم.
+        </>
+      ),
+      bonus: (
+        <>
+          بوضوح:{' '}
+          <span className="text-text font-semibold">
+            إذا هزمت شخصًا أعلى منك تصنيفًا بكثير، تكسب نقاطًا أكثر بكثير
+          </span>{' '}
+          — وهو يخسر بالقدر نفسه. التغلب على خصم قريب من مستواك يمنح القليل فقط:
+          كلما اتسع فارق التصنيف، زاد مردود المفاجأة.
+        </>
+      ),
+    },
+    exampleNote: (scored) => (
+      <>
+        {scored ? 'النتيجة نفسها، الفوز نفسه' : 'الفوز نفسه'}: المفاجأة أمام اللاعب على بُعد +400
+        تمنح <span className="text-text font-semibold">ضعف عدد النقاط</span>.
+      </>
+    ),
+  },
+  pt: {
+    intro: (label, scored) => (
+      <>
+        A classificação se baseia em um sistema <span className="text-gold font-semibold">ELO derivado do xadrez</span>,
+        aplicado <span className="text-text font-semibold">por modalidade</span> ({label}).
+        Cada jogador começa com{' '}
+        <span className="text-text font-semibold">1000 pontos</span>. A cada partida, pontos são
+        transferidos do perdedor para o vencedor — ainda mais quando o resultado foi{' '}
+        <span className="text-text font-semibold">inesperado</span>
+        {scored ? (
+          <> e a vitória foi <span className="text-text font-semibold">ampla</span></>
+        ) : null}
+        .
+      </>
+    ),
+    term: {
+      E: (
+        <>
+          A chance teórica de vitória do vencedor, calculada a partir da diferença de classificação
+          (<code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">1 / (1 + 10^((Elo_perdedor − Elo_vencedor) / 400))</code>).
+          Vencer um adversário mais bem classificado rende mais, já que a vitória era pouco provável.
+        </>
+      ),
+      K: (
+        <>
+          A quantidade máxima de pontos em jogo em uma partida “neutra”. Quanto maior, mais rápido o
+          ranking reage.
+        </>
+      ),
+      M: (
+        <>
+          <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">1 + (10 − placar_perdedor) × 0,1</code>:
+          vencer por <span className="text-text font-semibold">10–0</span> pesa mais que um{' '}
+          <span className="text-text font-semibold">10–9</span> apertado. A margem da vitória conta.
+        </>
+      ),
+      bonus: (
+        <>
+          Em resumo:{' '}
+          <span className="text-text font-semibold">
+            se você vence alguém classificado bem acima de você, ganha muito mais pontos
+          </span>{' '}
+          — e ele perde outro tanto. Vencer um adversário de nível parecido rende pouco:
+          quanto maior a diferença de classificação, mais a zebra compensa.
+        </>
+      ),
+    },
+    exampleNote: (scored) => (
+      <>
+        {scored ? 'Mesmo placar, mesma vitória' : 'Mesma vitória'}: a zebra contra o jogador a +400 de diferença
+        rende <span className="text-text font-semibold">o dobro de pontos</span>.
+      </>
+    ),
+  },
 };
 
 function EloSection({ game }: { game: Game }) {
-  const { lang } = useI18n();
+  const { lang: _lang } = useI18n();
+  const lang: UiLang = _lang;
   const t = useT();
   const content = ELO_CONTENT[lang];
   const label = RULES_I18N[lang][game].label;
@@ -1634,7 +2729,7 @@ function EloSection({ game }: { game: Game }) {
         </div>
 
         {/* Garde-fous & règles annexes */}
-        <ul className="space-y-1.5 pl-3 border-l border-gold/25">
+        <ul className="space-y-1.5 ps-3 border-s border-gold/25">
           {ELO_GUARDRAILS[lang]}
         </ul>
       </div>
@@ -1642,7 +2737,7 @@ function EloSection({ game }: { game: Game }) {
   );
 }
 
-const ELO_GUARDRAILS: Record<Lang, React.ReactNode> = {
+const ELO_GUARDRAILS: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       <li>
@@ -1700,6 +2795,63 @@ const ELO_GUARDRAILS: Record<Lang, React.ReactNode> = {
       </li>
     </>
   ),
+  ja: (
+    <>
+      <li>
+        <span className="text-text font-semibold">大きな番狂わせでの非対称性</span> — 過大評価された敗者は
+        ボーナス全額を被ります（1試合で最大 <span className="text-gold font-semibold">−400</span> まで）が、勝者は
+        <span className="text-text font-semibold">+50に上限が設けられた</span>分しか上がりません：水増しされた
+        「ボス」を1人倒しただけで、自分のレートが急騰することはありません。
+      </li>
+      <li>
+        <span className="text-text font-semibold">ガードレール</span> — 変動は1試合あたり{' '}
+        <span className="text-gold font-semibold">±400ポイント</span>に制限されます。
+      </li>
+      <li>
+        <span className="text-text font-semibold">ランク戦は無制限</span> —{' '}
+        <span className="text-text font-semibold">すべての試合が ELO に反映され</span>、1日あたりや
+        対戦相手ごとの制限はありません。
+      </li>
+    </>
+  ),
+  ar: (
+    <>
+      <li>
+        <span className="text-text font-semibold">عدم تناظر في المفاجآت الكبرى</span> — الخاسر المبالَغ في
+        تصنيفه يتحمّل المكافأة كاملةً (حتى <span className="text-gold font-semibold">−400</span> في مباراة واحدة)، لكن
+        الفائز لا يرتفع إلا بحصة <span className="text-text font-semibold">محدودة بـ +50</span>: هزيمة «بوس»
+        منتفخ واحد لا تُفجّر تصنيفك الخاص.
+      </li>
+      <li>
+        <span className="text-text font-semibold">حاجز أمان</span> — التغيّر محدود بـ{' '}
+        <span className="text-gold font-semibold">±400 نقطة</span> لكل مباراة.
+      </li>
+      <li>
+        <span className="text-text font-semibold">مصنّف بلا حدود</span> —{' '}
+        <span className="text-text font-semibold">كل مباراة تُحتسب في ELO</span>، بلا حدّ يومي ولا
+        لكل خصم.
+      </li>
+    </>
+  ),
+  pt: (
+    <>
+      <li>
+        <span className="text-text font-semibold">Assimetria nas grandes zebras</span> — o perdedor supervalorizado
+        leva todo o bônus (até <span className="text-gold font-semibold">−400</span> em uma partida), mas o vencedor
+        sobe apenas uma parcela <span className="text-text font-semibold">limitada a +50</span>: vencer um único
+        “chefe” inflado não faz o seu próprio rating explodir.
+      </li>
+      <li>
+        <span className="text-text font-semibold">Trava de segurança</span> — a variação é limitada a{' '}
+        <span className="text-gold font-semibold">±400 pontos</span> por partida.
+      </li>
+      <li>
+        <span className="text-text font-semibold">Ranqueado ilimitado</span> —{' '}
+        <span className="text-text font-semibold">toda partida conta para o ELO</span>, sem
+        limite diário nem por adversário.
+      </li>
+    </>
+  ),
 };
 
 function EloTerm({
@@ -1725,7 +2877,7 @@ function EloTerm({
 // ─── Politique de confidentialité ─────────────────────────────────────────────
 
 // Paragraphes riches (liens, surlignages) → par langue.
-const PRIVACY_CONTROLLER: Record<Lang, React.ReactNode> = {
+const PRIVACY_CONTROLLER: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       Cette application est développée et opérée par des étudiants du réseau 42 dans le cadre
@@ -1765,9 +2917,46 @@ const PRIVACY_CONTROLLER: Record<Lang, React.ReactNode> = {
       </a>
     </>
   ),
+  ja: (
+    <>
+      このアプリケーションは、42 API の利用規約（
+      <a href="https://api.intra.42.fr/apidoc" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">
+        api.intra.42.fr
+      </a>
+      ）の枠組みのもとで、42 ネットワークの学生によって開発・運営されています。あなたのデータに関するお問い合わせは：{' '}
+      <a href="mailto:abidaux@student.42lehavre.fr" className="text-gold hover:underline">
+        abidaux@student.42lehavre.fr
+      </a>
+    </>
+  ),
+  ar: (
+    <>
+      هذا التطبيق مطوَّر ومُشغَّل من قِبل طلاب شبكة 42 في إطار شروط استخدام واجهة 42 البرمجية (
+      <a href="https://api.intra.42.fr/apidoc" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">
+        api.intra.42.fr
+      </a>
+      ). لأي سؤال يتعلق ببياناتك:{' '}
+      <a href="mailto:abidaux@student.42lehavre.fr" className="text-gold hover:underline">
+        abidaux@student.42lehavre.fr
+      </a>
+    </>
+  ),
+  pt: (
+    <>
+      Este aplicativo é desenvolvido e operado por estudantes da rede 42 no âmbito dos termos de uso da
+      API 42 (
+      <a href="https://api.intra.42.fr/apidoc" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">
+        api.intra.42.fr
+      </a>
+      ). Para qualquer dúvida sobre os seus dados:{' '}
+      <a href="mailto:abidaux@student.42lehavre.fr" className="text-gold hover:underline">
+        abidaux@student.42lehavre.fr
+      </a>
+    </>
+  ),
 };
 
-const PRIVACY_LEGAL: Record<Lang, React.ReactNode> = {
+const PRIVACY_LEGAL: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       Le traitement est fondé sur l'<span className="text-text font-semibold">intérêt légitime</span> (RGPD Art. 6(1)(f)) :
@@ -1792,9 +2981,31 @@ const PRIVACY_LEGAL: Record<Lang, React.ReactNode> = {
       consentimiento explícito durante el inicio de sesión OAuth.
     </>
   ),
+  ja: (
+    <>
+      この処理は<span className="text-text font-semibold">正当な利益</span>（GDPR 第6条(1)(f)）に基づきます：
+      42 API の利用規約が定める教育的な枠組みのなかで、42 ネットワーク内のスポーツランキングを運営するためです。
+      あなたの 42 プロフィールデータへのアクセスは、OAuth 接続時の明示的な同意を条件とします。
+    </>
+  ),
+  ar: (
+    <>
+      تستند المعالجة إلى <span className="text-text font-semibold">المصلحة المشروعة</span> (GDPR المادة 6(1)(f)):
+      إدارة تصنيف رياضي داخل شبكة 42، ضمن الإطار التعليمي الذي تحدده شروط استخدام واجهة 42 البرمجية.
+      يخضع الوصول إلى بيانات ملفك الشخصي في 42 لموافقتك الصريحة أثناء تسجيل الدخول عبر OAuth.
+    </>
+  ),
+  pt: (
+    <>
+      O tratamento se baseia no <span className="text-text font-semibold">interesse legítimo</span> (GDPR Art. 6(1)(f)):
+      gestão de uma classificação esportiva dentro da rede 42, no âmbito pedagógico definido pelos
+      termos de uso da API 42. O acesso aos seus dados de perfil da 42 está sujeito ao seu
+      consentimento explícito durante o login via OAuth.
+    </>
+  ),
 };
 
-const PRIVACY_RIGHTS: Record<Lang, React.ReactNode> = {
+const PRIVACY_RIGHTS: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       <li>
@@ -1852,9 +3063,66 @@ const PRIVACY_RIGHTS: Record<Lang, React.ReactNode> = {
       </li>
     </>
   ),
+  ja: (
+    <>
+      <li>
+        <span className="text-text font-semibold">アクセスとポータビリティ</span> — JSON エクスポートは
+        <Link to="/settings" className="text-gold hover:underline">設定</Link>から利用できます。
+      </li>
+      <li>
+        <span className="text-text font-semibold">消去</span> — アカウントの削除（匿名化）は
+        <Link to="/settings" className="text-gold hover:underline">設定</Link>から行えます。
+      </li>
+      <li>
+        <span className="text-text font-semibold">訂正</span> — メールでお問い合わせください。
+      </li>
+      <li>
+        <span className="text-text font-semibold">異議申し立て</span> — いつでもアプリケーションの利用を
+        やめて、アカウントの削除を求めることができます。
+      </li>
+    </>
+  ),
+  ar: (
+    <>
+      <li>
+        <span className="text-text font-semibold">الوصول وقابلية النقل</span> — تصدير JSON متاح في
+        <Link to="/settings" className="text-gold hover:underline"> الإعدادات</Link>.
+      </li>
+      <li>
+        <span className="text-text font-semibold">المحو</span> — حذف الحساب (إخفاء الهوية) متاح في
+        <Link to="/settings" className="text-gold hover:underline"> الإعدادات</Link>.
+      </li>
+      <li>
+        <span className="text-text font-semibold">التصحيح</span> — تواصل معنا عبر البريد الإلكتروني.
+      </li>
+      <li>
+        <span className="text-text font-semibold">الاعتراض</span> — يمكنك التوقف عن استخدام التطبيق في
+        أي وقت وطلب حذف حسابك.
+      </li>
+    </>
+  ),
+  pt: (
+    <>
+      <li>
+        <span className="text-text font-semibold">Acesso e portabilidade</span> — exportação JSON disponível
+        em <Link to="/settings" className="text-gold hover:underline">Configurações</Link>.
+      </li>
+      <li>
+        <span className="text-text font-semibold">Eliminação</span> — exclusão (anonimização)
+        da conta disponível em <Link to="/settings" className="text-gold hover:underline">Configurações</Link>.
+      </li>
+      <li>
+        <span className="text-text font-semibold">Retificação</span> — entre em contato por e-mail.
+      </li>
+      <li>
+        <span className="text-text font-semibold">Oposição</span> — você pode parar de usar o aplicativo
+        a qualquer momento e solicitar a exclusão da sua conta.
+      </li>
+    </>
+  ),
 };
 
-const PRIVACY_SECURITY: Record<Lang, React.ReactNode> = {
+const PRIVACY_SECURITY: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       Les communications sont chiffrées en transit (HTTPS). Les tokens de session
@@ -1885,10 +3153,38 @@ const PRIVACY_SECURITY: Record<Lang, React.ReactNode> = {
       (sin datos personales).
     </>
   ),
+  ja: (
+    <>
+      通信は転送時に暗号化されます（HTTPS）。セッショントークンは暗号的に署名され
+      （HMAC-SHA256）、<code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">HttpOnly</code>
+      クッキー、または URL フラグメント（ログに記録されません）を通じてのみ送信されます。管理者向けの
+      アラートに使われる内部の Discord ウェブフックを除き、いかなるデータも第三者と共有されません
+      （個人データなし）。
+    </>
+  ),
+  ar: (
+    <>
+      الاتصالات مشفَّرة أثناء النقل (HTTPS). رموز الجلسة موقَّعة تشفيريًا (HMAC-SHA256) وتُرسَل حصريًا عبر
+      ملفات تعريف الارتباط <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">HttpOnly</code> أو
+      جزء من عنوان URL (غير مسجَّل في السجلات). لا تُشارك أي بيانات مع أطراف ثالثة، باستثناء ويب هوك
+      Discord الداخلي المستخدَم لتنبيهات المشرفين (بدون بيانات شخصية).
+    </>
+  ),
+  pt: (
+    <>
+      As comunicações são criptografadas em trânsito (HTTPS). Os tokens de sessão são
+      assinados criptograficamente (HMAC-SHA256) e transmitidos exclusivamente via
+      cookies <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">HttpOnly</code> ou
+      fragmento de URL (não registrados em log). Nenhum dado é compartilhado com terceiros,
+      exceto o webhook interno do Discord usado para os alertas de admin
+      (sem dados pessoais).
+    </>
+  ),
 };
 
 function PrivacySection() {
-  const { lang } = useI18n();
+  const { lang: _lang } = useI18n();
+  const lang: UiLang = _lang;
   const t = useT();
   return (
     <div className="flex flex-col gap-4">
@@ -1902,30 +3198,30 @@ function PrivacySection() {
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="border-b border-border/40">
-                <th className="text-left py-1.5 pr-3 text-muted-2 font-bold uppercase tracking-wider">{t('about.privacy.table.data')}</th>
-                <th className="text-left py-1.5 pr-3 text-muted-2 font-bold uppercase tracking-wider">{t('about.privacy.table.source')}</th>
-                <th className="text-left py-1.5 text-muted-2 font-bold uppercase tracking-wider">{t('about.privacy.table.retention')}</th>
+                <th className="text-start py-1.5 pe-3 text-muted-2 font-bold uppercase tracking-wider">{t('about.privacy.table.data')}</th>
+                <th className="text-start py-1.5 pe-3 text-muted-2 font-bold uppercase tracking-wider">{t('about.privacy.table.source')}</th>
+                <th className="text-start py-1.5 text-muted-2 font-bold uppercase tracking-wider">{t('about.privacy.table.retention')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/20">
               <tr>
-                <td className="py-1.5 pr-3 text-text">{t('about.privacy.row1.data')}</td>
-                <td className="py-1.5 pr-3 text-muted">{t('about.privacy.row1.source')}</td>
+                <td className="py-1.5 pe-3 text-text">{t('about.privacy.row1.data')}</td>
+                <td className="py-1.5 pe-3 text-muted">{t('about.privacy.row1.source')}</td>
                 <td className="py-1.5 text-muted">{t('about.privacy.row1.retention')}</td>
               </tr>
               <tr>
-                <td className="py-1.5 pr-3 text-text">{t('about.privacy.row2.data')}</td>
-                <td className="py-1.5 pr-3 text-muted">{t('about.privacy.row2.source')}</td>
+                <td className="py-1.5 pe-3 text-text">{t('about.privacy.row2.data')}</td>
+                <td className="py-1.5 pe-3 text-muted">{t('about.privacy.row2.source')}</td>
                 <td className="py-1.5 text-muted">{t('about.privacy.row2.retention')}</td>
               </tr>
               <tr>
-                <td className="py-1.5 pr-3 text-text">{t('about.privacy.row3.data')}</td>
-                <td className="py-1.5 pr-3 text-muted">{t('about.privacy.row3.source')}</td>
+                <td className="py-1.5 pe-3 text-text">{t('about.privacy.row3.data')}</td>
+                <td className="py-1.5 pe-3 text-muted">{t('about.privacy.row3.source')}</td>
                 <td className="py-1.5 text-muted">{t('about.privacy.row3.retention')}</td>
               </tr>
               <tr>
-                <td className="py-1.5 pr-3 text-text">{t('about.privacy.row4.data')}</td>
-                <td className="py-1.5 pr-3 text-muted">{t('about.privacy.row4.source')}</td>
+                <td className="py-1.5 pe-3 text-text">{t('about.privacy.row4.data')}</td>
+                <td className="py-1.5 pe-3 text-muted">{t('about.privacy.row4.source')}</td>
                 <td className="py-1.5 text-muted">{t('about.privacy.row4.retention')}</td>
               </tr>
             </tbody>
@@ -1940,7 +3236,7 @@ function PrivacySection() {
       <Panel title={t('about.privacy.rights.title')}>
         <div className="space-y-2 text-sm text-muted leading-relaxed">
           <p>{t('about.privacy.rights.intro')}</p>
-          <ul className="space-y-1.5 pl-3 border-l border-gold/25">
+          <ul className="space-y-1.5 ps-3 border-s border-gold/25">
             {PRIVACY_RIGHTS[lang]}
           </ul>
           <p className="text-xs text-muted-2 pt-1">
@@ -1966,13 +3262,13 @@ function PrivacySection() {
  * fonctionnement. Volontairement court et synthétique, dans le ton du reste.
  * Contenu riche → par langue.
  */
-const TECH_ARCHITECTURE: Record<Lang, React.ReactNode> = {
+const TECH_ARCHITECTURE: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       <p>
         Monorepo <span className="text-text font-semibold">TypeScript</span> de bout en bout, en trois morceaux :
       </p>
-      <ul className="space-y-1.5 pl-3 border-l border-gold/25">
+      <ul className="space-y-1.5 ps-3 border-s border-gold/25">
         <li>
           <span className="text-gold font-semibold">Front</span> — React 18 + Vite, installable en{' '}
           <span className="text-text font-semibold">PWA</span> (service worker, plein écran sur mobile).
@@ -1994,7 +3290,7 @@ const TECH_ARCHITECTURE: Record<Lang, React.ReactNode> = {
       <p>
         End-to-end <span className="text-text font-semibold">TypeScript</span> monorepo, in three pieces:
       </p>
-      <ul className="space-y-1.5 pl-3 border-l border-gold/25">
+      <ul className="space-y-1.5 ps-3 border-s border-gold/25">
         <li>
           <span className="text-gold font-semibold">Front</span> — React 18 + Vite, installable as a{' '}
           <span className="text-text font-semibold">PWA</span> (service worker, full screen on mobile).
@@ -2016,7 +3312,7 @@ const TECH_ARCHITECTURE: Record<Lang, React.ReactNode> = {
       <p>
         Monorepo <span className="text-text font-semibold">TypeScript</span> de extremo a extremo, en tres piezas:
       </p>
-      <ul className="space-y-1.5 pl-3 border-l border-gold/25">
+      <ul className="space-y-1.5 ps-3 border-s border-gold/25">
         <li>
           <span className="text-gold font-semibold">Front</span> — React 18 + Vite, instalable como{' '}
           <span className="text-text font-semibold">PWA</span> (service worker, pantalla completa en móvil).
@@ -2033,9 +3329,75 @@ const TECH_ARCHITECTURE: Record<Lang, React.ReactNode> = {
       </ul>
     </>
   ),
+  ja: (
+    <>
+      <p>
+        端から端まで <span className="text-text font-semibold">TypeScript</span> のモノレポで、3つの部分から成ります：
+      </p>
+      <ul className="space-y-1.5 ps-3 border-s border-gold/25">
+        <li>
+          <span className="text-gold font-semibold">フロント</span> — React 18 + Vite、{' '}
+          <span className="text-text font-semibold">PWA</span> としてインストール可能（サービスワーカー、モバイルで全画面）。
+        </li>
+        <li>
+          <span className="text-gold font-semibold">バック</span> — Node 上の <span className="text-text font-semibold">Hono</span> API{' '}
+          、Prisma 経由の <span className="text-text font-semibold">PostgreSQL</span> データベース。42 へのログインは OAuth。
+        </li>
+        <li>
+          <span className="text-gold font-semibold">リアルタイム</span> — サーバーは変更を{' '}
+          <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">SSE</code> でプッシュします。ランキング、チャレンジ、OPS は
+          <span className="text-text font-semibold">再読み込みなし</span>で更新されます。
+        </li>
+      </ul>
+    </>
+  ),
+  ar: (
+    <>
+      <p>
+        مستودع أحادي <span className="text-text font-semibold">TypeScript</span> من الطرف إلى الطرف، من ثلاثة أجزاء:
+      </p>
+      <ul className="space-y-1.5 ps-3 border-s border-gold/25">
+        <li>
+          <span className="text-gold font-semibold">الواجهة الأمامية</span> — React 18 + Vite، قابلة للتثبيت كـ{' '}
+          <span className="text-text font-semibold">PWA</span> (service worker، ملء الشاشة على الجوال).
+        </li>
+        <li>
+          <span className="text-gold font-semibold">الواجهة الخلفية</span> — واجهة <span className="text-text font-semibold">Hono</span>{' '}
+          على Node، وقاعدة بيانات <span className="text-text font-semibold">PostgreSQL</span> عبر Prisma. تسجيل الدخول إلى 42 عبر OAuth.
+        </li>
+        <li>
+          <span className="text-gold font-semibold">الوقت الفعلي</span> — يدفع الخادم التغييرات عبر{' '}
+          <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">SSE</code>؛ ويُحدَّث التصنيف والتحدّيات وعمليات OPS
+          <span className="text-text font-semibold"> بلا إعادة تحميل</span>.
+        </li>
+      </ul>
+    </>
+  ),
+  pt: (
+    <>
+      <p>
+        Monorepo <span className="text-text font-semibold">TypeScript</span> de ponta a ponta, em três partes:
+      </p>
+      <ul className="space-y-1.5 ps-3 border-s border-gold/25">
+        <li>
+          <span className="text-gold font-semibold">Front</span> — React 18 + Vite, instalável como{' '}
+          <span className="text-text font-semibold">PWA</span> (service worker, tela cheia no celular).
+        </li>
+        <li>
+          <span className="text-gold font-semibold">Back</span> — API <span className="text-text font-semibold">Hono</span>{' '}
+          no Node, banco <span className="text-text font-semibold">PostgreSQL</span> via Prisma. Login na 42 por OAuth.
+        </li>
+        <li>
+          <span className="text-gold font-semibold">Tempo real</span> — o servidor envia as mudanças por{' '}
+          <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">SSE</code>; a classificação, os desafios e as OPS
+          se atualizam <span className="text-text font-semibold">sem recarregar</span>.
+        </li>
+      </ul>
+    </>
+  ),
 };
 
-const TECH_HOSTING: Record<Lang, React.ReactNode> = {
+const TECH_HOSTING: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       <p>
@@ -2081,9 +3443,54 @@ const TECH_HOSTING: Record<Lang, React.ReactNode> = {
       </p>
     </>
   ),
+  ja: (
+    <>
+      <p>
+        サイトは <span className="text-gold font-semibold">Scaleway</span> のサーバー上で動作し、{' '}
+        <span className="text-text font-semibold">Caddy</span> のリバースプロキシの背後で <span className="text-text font-semibold">TLS</span>{' '}
+        を自動的に処理します（Let's Encrypt）。
+      </p>
+      <p>
+        メインブランチへの各 <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">push</code> は
+        <span className="text-gold font-semibold">GitHub Action</span> をトリガーします：{' '}
+        <span className="text-text font-semibold">Docker イメージ</span>をビルドし、スキャン（Trivy）してから
+        サーバーへプッシュし、サーバーは新しいバージョンで再起動します。<span className="text-text font-semibold">手動デプロイはゼロです。</span>
+      </p>
+    </>
+  ),
+  ar: (
+    <>
+      <p>
+        يعمل الموقع على خادم <span className="text-gold font-semibold">Scaleway</span>، خلف بروكسي عكسي{' '}
+        <span className="text-text font-semibold">Caddy</span> يتولّى <span className="text-text font-semibold">TLS</span>{' '}
+        تلقائيًا (Let's Encrypt).
+      </p>
+      <p>
+        كل <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">push</code> إلى الفرع الرئيسي
+        يُطلق <span className="text-gold font-semibold">GitHub Action</span>: تبني{' '}
+        <span className="text-text font-semibold">صورة Docker</span>، وتفحصها (Trivy) ثم تدفعها إلى الخادم، الذي
+        يعيد التشغيل على الإصدار الجديد. <span className="text-text font-semibold">صفر نشر يدوي.</span>
+      </p>
+    </>
+  ),
+  pt: (
+    <>
+      <p>
+        O site roda em um servidor <span className="text-gold font-semibold">Scaleway</span>, atrás de um reverse proxy{' '}
+        <span className="text-text font-semibold">Caddy</span> que cuida do <span className="text-text font-semibold">TLS</span>{' '}
+        automaticamente (Let's Encrypt).
+      </p>
+      <p>
+        Cada <code className="bg-bg-2 px-1 py-0.5 rounded text-xs text-text">push</code> na branch principal
+        dispara uma <span className="text-gold font-semibold">GitHub Action</span>: ela constrói uma{' '}
+        <span className="text-text font-semibold">imagem Docker</span>, escaneia (Trivy) e a envia ao servidor, que
+        reinicia na nova versão. <span className="text-text font-semibold">Zero deploy manual.</span>
+      </p>
+    </>
+  ),
 };
 
-const TECH_HACK: Record<Lang, React.ReactNode> = {
+const TECH_HACK: Record<UiLang, React.ReactNode> = {
   fr: (
     <>
       <p>
@@ -2135,10 +3542,62 @@ const TECH_HACK: Record<Lang, React.ReactNode> = {
       </p>
     </>
   ),
+  ja: (
+    <>
+      <p>
+        ここでスタックを詳しく説明するのは意図的です：42 <span className="text-text font-semibold">によって</span>、そして 42 の
+        <span className="text-text font-semibold">ために</span>作られたサイトは、内側から探られる価値があります。アプリケーションのコードは
+        <span className="text-gold font-semibold">プライベート</span>リポジトリのままですが、その仕組みは何ら秘密ではありません。
+      </p>
+      <p>
+        脆弱性、怪しい挙動、抜け道のアイデアを見つけましたか？ <span className="text-gold font-semibold">悪用するより
+        報告を</span> — 責任ある開示は{' '}
+        <a href="mailto:abidaux@student.42lehavre.fr" className="text-gold hover:underline">
+          abidaux@student.42lehavre.fr
+        </a>
+        まで。良い報告は最終的にクレジットされます。🏴‍☠️
+      </p>
+    </>
+  ),
+  ar: (
+    <>
+      <p>
+        تفصيل حزمة التقنيات هنا أمر مقصود: موقع صُنع <span className="text-text font-semibold">بواسطة</span> 42 و{' '}
+        <span className="text-text font-semibold">من أجلها</span> يستحق أن يُستكشف من الداخل. تبقى شيفرة التطبيق
+        في مستودع <span className="text-gold font-semibold">خاص</span>، لكن طريقة عمله ليست سرًّا على الإطلاق.
+      </p>
+      <p>
+        هل وجدت ثغرة أو سلوكًا مريبًا أو فكرة للالتفاف؟ <span className="text-gold font-semibold">أبلِغ
+        بدل أن تستغل</span> — الإفصاح المسؤول إلى{' '}
+        <a href="mailto:abidaux@student.42lehavre.fr" className="text-gold hover:underline">
+          abidaux@student.42lehavre.fr
+        </a>
+        . التقارير الجيدة يُنسب إليها الفضل في النهاية. 🏴‍☠️
+      </p>
+    </>
+  ),
+  pt: (
+    <>
+      <p>
+        Detalhar a stack aqui é assumido: um site feito <span className="text-text font-semibold">por</span> e{' '}
+        <span className="text-text font-semibold">para</span> a 42 merece ser espiado por dentro. O código da aplicação
+        continua em um repositório <span className="text-gold font-semibold">privado</span>, mas o funcionamento não é segredo nenhum.
+      </p>
+      <p>
+        Achou uma falha, um comportamento suspeito, uma ideia de contorno? <span className="text-gold font-semibold">Avise
+        em vez de explorar</span> — divulgação responsável para{' '}
+        <a href="mailto:abidaux@student.42lehavre.fr" className="text-gold hover:underline">
+          abidaux@student.42lehavre.fr
+        </a>
+        . Os bons relatos acabam creditados. 🏴‍☠️
+      </p>
+    </>
+  ),
 };
 
 function TechSection() {
-  const { lang } = useI18n();
+  const { lang: _lang } = useI18n();
+  const lang: UiLang = _lang;
   const t = useT();
   return (
     <div className="flex flex-col gap-4">
@@ -2182,7 +3641,7 @@ type Member = {
   /** Affiche le « ? » avec les stats de contributions git sur la carte. */
   gitStats?: boolean;
   /** Blurb riche par langue. */
-  blurb: Record<Lang, React.ReactNode>;
+  blurb: Record<UiLang, React.ReactNode>;
 };
 
 // Ordre d'affichage du carrousel (gauche → droite). nithomas est centré au
@@ -2224,6 +3683,35 @@ const TEAM: Member[] = [
           <span className="text-text font-semibold">pule para la puesta en producción</span>.
         </>
       ),
+      ja: (
+        <>
+          アイデアを本物のプロジェクトに変えた人物です。{' '}
+          <span className="text-text font-semibold">当初のビジョン</span>：公平で活気のある、キャンパスの{' '}
+          <span className="text-text font-semibold">1v1 の ELO ランキング</span>。彼が{' '}
+          <span className="text-gold font-semibold">機能を開発</span>します。{' '}
+          その後、<span className="text-gold font-semibold">Adrien</span> がそれらを{' '}
+          <span className="text-text font-semibold">本番投入に向けて磨き上げます</span>。
+        </>
+      ),
+      ar: (
+        <>
+          هو من حوّل الفكرة إلى مشروع حقيقي.{' '}
+          <span className="text-text font-semibold">الرؤية الأصلية</span>: <span className="text-text font-semibold">تصنيف ELO 1 ضد 1</span> للحرم الجامعي، عادل وحيّ. هو{' '}
+          <span className="text-gold font-semibold">يطوّر الميزات</span>.{' '}
+          ثم <span className="text-gold font-semibold">Adrien</span>{' '}
+          <span className="text-text font-semibold">يصقلها للنشر في الإنتاج</span>.
+        </>
+      ),
+      pt: (
+        <>
+          Quem transformou a ideia em um projeto de verdade. A{' '}
+          <span className="text-text font-semibold">visão original</span>: um{' '}
+          <span className="text-text font-semibold">ranking ELO 1v1</span> do campus, justo e
+          vivo. Ele <span className="text-gold font-semibold">desenvolve features</span>.{' '}
+          Depois o <span className="text-gold font-semibold">Adrien</span> as{' '}
+          <span className="text-text font-semibold">refina para a produção</span>.
+        </>
+      ),
     },
   },
   {
@@ -2247,6 +3735,24 @@ const TEAM: Member[] = [
         <>
           Todo empezó con una <span className="text-text font-semibold">idea que soltó</span> un
           día, así sin más. Sin esa primera chispa, 42 League nunca habría salido adelante.
+        </>
+      ),
+      ja: (
+        <>
+          すべては、ある日ふと彼が<span className="text-text font-semibold">口にしたアイデア</span>から始まりました。
+          その最初のひらめきがなければ、42 League が世に出ることは決してありませんでした。
+        </>
+      ),
+      ar: (
+        <>
+          بدأ كل شيء من <span className="text-text font-semibold">فكرة أطلقها</span> ذات يوم، هكذا ببساطة.
+          لولا تلك الشرارة الأولى، لما رأى 42 League النور أبدًا.
+        </>
+      ),
+      pt: (
+        <>
+          Tudo começou com uma <span className="text-text font-semibold">ideia que ele soltou</span> um
+          dia, assim do nada. Sem aquela primeira faísca, o 42 League nunca teria saído do papel.
         </>
       ),
     },
@@ -2276,6 +3782,27 @@ const TEAM: Member[] = [
           Convirtió la <span className="text-text font-semibold">extensión de campus</span> en un
           sitio web real, y luego lo <span className="text-gold font-semibold">alojó y desplegó en línea</span>.
           Es él, en particular, quien está detrás de los <span className="text-text font-semibold">diseños y las animaciones</span>.
+        </>
+      ),
+      ja: (
+        <>
+          彼は<span className="text-text font-semibold">キャンパスの拡張機能</span>を本物のウェブサイトに変え、
+          その後<span className="text-gold font-semibold">オンラインでホスティングしデプロイ</span>しました。
+          とりわけ<span className="text-text font-semibold">デザインとアニメーション</span>を手がけているのは彼です。
+        </>
+      ),
+      ar: (
+        <>
+          حوّل <span className="text-text font-semibold">إضافة الحرم الجامعي</span> إلى موقع ويب حقيقي، ثم
+          <span className="text-gold font-semibold"> استضافه ونشره على الإنترنت</span>.
+          وهو تحديدًا من يقف خلف <span className="text-text font-semibold">التصاميم والرسوم المتحركة</span>.
+        </>
+      ),
+      pt: (
+        <>
+          Ele transformou a <span className="text-text font-semibold">extensão de campus</span> em um
+          site de verdade e depois o <span className="text-gold font-semibold">hospedou e publicou online</span>.
+          É ele, em especial, por trás dos <span className="text-text font-semibold">designs e das animações</span>.
         </>
       ),
     },
@@ -2309,6 +3836,30 @@ const TEAM: Member[] = [
           Ninguna vulnerabilidad se le escapa entre los dedos.
         </>
       ),
+      ja: (
+        <>
+          彼の<span className="text-text font-semibold">サイバーセキュリティ</span>の専門知識がプロジェクトを
+          堅牢にしました：ルートを監査し、脆弱性を追い、{' '}
+          <span className="text-[#c97bff] font-semibold">問題になる前にパッチを当てます</span>。
+          彼の手をすり抜ける脆弱性はありません。
+        </>
+      ),
+      ar: (
+        <>
+          خبرته في <span className="text-text font-semibold">الأمن السيبراني</span> حصّنت المشروع:
+          يدقّق المسارات، ويطارد الثغرات، و{' '}
+          <span className="text-[#c97bff] font-semibold">يرقّعها قبل أن تصبح مشكلة</span>.
+          لا ثغرة تفلت من بين يديه.
+        </>
+      ),
+      pt: (
+        <>
+          A sua expertise em <span className="text-text font-semibold">cibersegurança</span> blindou o
+          projeto: ele audita as rotas, caça as falhas e{' '}
+          <span className="text-[#c97bff] font-semibold">corrige antes que vire um problema</span>.
+          Nenhuma vulnerabilidade escapa por entre os dedos dele.
+        </>
+      ),
     },
   },
   {
@@ -2340,6 +3891,30 @@ const TEAM: Member[] = [
           <span className="text-text font-semibold">antes de que los jugadores los encuentren</span>.
         </>
       ),
+      ja: (
+        <>
+          プロジェクトの<span className="text-text font-semibold">やっかいな存在</span>です：彼は{' '}
+          <span className="text-[#c97bff] font-semibold">アプリをあらゆる方向から酷使し</span>、
+          誰も思いつかなかった厄介なケースや悪用を、{' '}
+          <span className="text-text font-semibold">プレイヤーが遭遇する前に</span>引き起こします。
+        </>
+      ),
+      ar: (
+        <>
+          <span className="text-text font-semibold">مثير المتاعب</span> في المشروع: فهو{' '}
+          <span className="text-[#c97bff] font-semibold">يعذّب التطبيق</span> في كل الاتجاهات،
+          ويُطلق الحالات الملتوية والاستغلالات التي لم يفكّر فيها أحد{' '}
+          <span className="text-text font-semibold">قبل أن يقع عليها اللاعبون</span>.
+        </>
+      ),
+      pt: (
+        <>
+          O <span className="text-text font-semibold">pé no saco</span> do projeto: ele{' '}
+          <span className="text-[#c97bff] font-semibold">judia do app</span> de todos os jeitos,
+          disparando os casos tortos e os abusos em que ninguém pensou{' '}
+          <span className="text-text font-semibold">antes de os jogadores esbarrarem neles</span>.
+        </>
+      ),
     },
   },
   {
@@ -2369,6 +3944,28 @@ const TEAM: Member[] = [
           de los sitios de ranked pesaron mucho: es él quien aportó el{' '}
           <span className="text-text font-semibold">análisis UX/UI</span> para hacer la app nítida y
           legible.
+        </>
+      ),
+      ja: (
+        <>
+          彼の<span className="text-text font-semibold">e スポーツの専門知識</span>とランク戦サイトへの
+          知見は大きな影響を与えました：アプリを洗練させ読みやすくするための{' '}
+          <span className="text-text font-semibold">UX/UI 分析</span>をもたらしたのは彼です。
+        </>
+      ),
+      ar: (
+        <>
+          <span className="text-text font-semibold">خبرته في الرياضات الإلكترونية</span> ومعرفته بمواقع
+          اللعب المصنّف كان لهما وزن كبير: فهو من قدّم <span className="text-text font-semibold">تحليل UX/UI</span> لجعل
+          التطبيق واضحًا وسهل القراءة.
+        </>
+      ),
+      pt: (
+        <>
+          A sua <span className="text-text font-semibold">expertise em e-sport</span> e o seu conhecimento
+          dos sites de ranqueado pesaram muito: foi ele quem trouxe a{' '}
+          <span className="text-text font-semibold">análise UX/UI</span> para deixar o app limpo e
+          legível.
         </>
       ),
     },
@@ -2598,7 +4195,8 @@ function MemberCard({
   active: boolean;
   stat?: ContributorStat;
 }) {
-  const { lang } = useI18n();
+  const { lang: _lang } = useI18n();
+  const lang: UiLang = _lang;
   const t = useT();
   const accent = ACCENT[member.accent];
   const [broken, setBroken] = useState(false);
@@ -2675,7 +4273,7 @@ function MemberCard({
               <span className="text-[10px] uppercase tracking-[0.14em] font-extrabold text-gold/85">
                 {t('about.stats.title')}
               </span>
-              <span className="ml-auto text-[10px] font-mono font-bold text-muted-2">@{member.login}</span>
+              <span className="ms-auto text-[10px] font-mono font-bold text-muted-2">@{member.login}</span>
             </div>
             <div className="space-y-1 text-xs tabular-nums">
               <div className="flex items-center justify-between">

@@ -103,14 +103,14 @@ export function WinRateBar({ wins, losses, variant = 'full' }: WinRateBarProps) 
   return (
     <span className="flex w-full items-center gap-1.5">
       <span
-        className="w-8 shrink-0 text-right text-xs font-extrabold tabular-nums"
+        className="w-8 shrink-0 text-end text-xs font-extrabold tabular-nums"
         style={{ color: '#ffc94a' }}
       >
         {high ? `${winRate}%` : ''}
       </span>
       {bar}
       <span
-        className="w-8 shrink-0 text-left text-xs font-extrabold tabular-nums"
+        className="w-8 shrink-0 text-start text-xs font-extrabold tabular-nums"
         style={{ color: '#ff5366' }}
       >
         {high ? '' : `${winRate}%`}

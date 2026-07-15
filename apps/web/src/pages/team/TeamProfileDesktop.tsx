@@ -44,7 +44,7 @@ function ChartLabel({ title }: { title: string }) {
     <div className="font-gaming text-[10px] uppercase tracking-[0.18em] text-gold/80 font-extrabold mb-3 flex items-center gap-2">
       <span className="inline-block w-1 h-2.5 bg-gradient-to-b from-gold/80 to-gold-dim/80 rounded-sm" />
       {title}
-      <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ml-1" />
+      <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ms-1" />
     </div>
   );
 }
@@ -156,7 +156,7 @@ export function TeamProfileDesktop({ team }: TeamProfileDesktopProps) {
                   <button
                     type="button"
                     onClick={() => { setNameInput(nameOverride ?? team.name ?? ''); setEditing(true); }}
-                    className="flex items-center gap-2 group tap-transparent text-left mb-1"
+                    className="flex items-center gap-2 group tap-transparent text-start mb-1"
                   >
                     <span className="font-display text-2xl font-black text-text-strong truncate tracking-tight group-hover:text-gold transition-colors">
                       {teamName}
@@ -188,7 +188,7 @@ export function TeamProfileDesktop({ team }: TeamProfileDesktopProps) {
               </div>
 
               {/* ELO bloc */}
-              <div className="text-left flex-shrink-0 pl-2">
+              <div className="text-start flex-shrink-0 ps-2">
                 <div
                   className="font-display text-[2.75rem] leading-none font-black text-gold-emboss tabular-nums"
                   style={{ textShadow: '0 1px 0 rgba(0,0,0,0.6), 0 0 18px rgba(255,201,74,0.35)' }}
@@ -226,7 +226,7 @@ export function TeamProfileDesktop({ team }: TeamProfileDesktopProps) {
             <div className="font-gaming text-[10px] uppercase tracking-[0.18em] text-gold/80 font-extrabold mb-3 flex items-center gap-2">
               <span className="inline-block w-1 h-2.5 bg-gradient-to-b from-gold/80 to-gold-dim/80 rounded-sm" />
               {t('team.trophies')}
-              <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ml-1" />
+              <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ms-1" />
             </div>
             <TeamProfileTrophiesSection teamId={team.id} />
           </div>
@@ -263,7 +263,7 @@ export function TeamProfileDesktop({ team }: TeamProfileDesktopProps) {
                       <div className="font-display text-lg font-black text-gold tabular-nums leading-none">{entry.elo}</div>
                       <div className="text-[8px] text-muted uppercase tracking-wider font-bold">ELO solo</div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="text-[10px] text-muted-2 font-medium">{t('team.viewProfile')}</div>
                     </div>
                   </div>
@@ -292,11 +292,11 @@ export function TeamProfileDesktop({ team }: TeamProfileDesktopProps) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-wider text-muted">
-                      <th className="text-left px-3 py-2">{t('team.col.date')}</th>
-                      <th className="text-left px-3 py-2">{t('team.col.opponents')}</th>
-                      <th className="text-right px-3 py-2">{t('team.col.score')}</th>
-                      <th className="text-right px-3 py-2">{t('team.col.result')}</th>
-                      <th className="text-right px-3 py-2">{t('team.col.elo')}</th>
+                      <th className="text-start px-3 py-2">{t('team.col.date')}</th>
+                      <th className="text-start px-3 py-2">{t('team.col.opponents')}</th>
+                      <th className="text-end px-3 py-2">{t('team.col.score')}</th>
+                      <th className="text-end px-3 py-2">{t('team.col.result')}</th>
+                      <th className="text-end px-3 py-2">{t('team.col.elo')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -315,13 +315,13 @@ export function TeamProfileDesktop({ team }: TeamProfileDesktopProps) {
                             {p.opponentPlayer2Login}
                           </PlayerLink>
                         </td>
-                        <td className="px-3 py-2 text-right tabular-nums font-mono text-xs">
+                        <td className="px-3 py-2 text-end tabular-nums font-mono text-xs">
                           {p.scoreTeam}–{p.scoreOpponent}
                         </td>
-                        <td className={`px-3 py-2 text-right text-[10px] uppercase font-extrabold ${p.won ? 'text-gold' : 'text-red'}`}>
+                        <td className={`px-3 py-2 text-end text-[10px] uppercase font-extrabold ${p.won ? 'text-gold' : 'text-red'}`}>
                           {p.won ? t('team.result.win') : t('team.result.loss')}
                         </td>
-                        <td className={`px-3 py-2 text-right font-mono text-xs font-extrabold tabular-nums ${p.delta >= 0 ? 'text-[#7fd66e]' : 'text-red'}`}>
+                        <td className={`px-3 py-2 text-end font-mono text-xs font-extrabold tabular-nums ${p.delta >= 0 ? 'text-[#7fd66e]' : 'text-red'}`}>
                           {p.delta >= 0 ? '+' : ''}{p.delta}
                         </td>
                       </tr>

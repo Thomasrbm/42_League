@@ -347,7 +347,7 @@ export function ProfileHeroCard({
               <span className="text-[11px] uppercase tracking-[0.16em] font-extrabold text-violet-200/90">
                 League Coins
               </span>
-              <span className="ml-auto font-display text-xl font-black tabular-nums text-violet-100">
+              <span className="ms-auto font-display text-xl font-black tabular-nums text-violet-100">
                 <CoinCount login={coinLogin} value={coinValue} />
               </span>
             </div>
@@ -554,7 +554,7 @@ function FooterStat({ label, value, suffix, tone = 'default', tooltip }: FooterS
     <>
       <div className={`text-sm font-extrabold font-mono tabular-nums ${TONE_FOOTER[tone]}`}>
         {value}
-        {suffix && <span className="text-[10px] ml-0.5 opacity-70">{suffix}</span>}
+        {suffix && <span className="text-[10px] ms-0.5 opacity-70">{suffix}</span>}
       </div>
       <div className="text-[9px] text-muted uppercase tracking-wider font-bold">{label}</div>
     </>
