@@ -45,7 +45,7 @@ function TeamFaces({
     </span>
   );
   return (
-    <div className={`flex items-center gap-2 min-w-0 ${align === 'right' ? 'flex-row-reverse text-right' : ''}`}>
+    <div className={`flex items-center gap-2 min-w-0 ${align === 'right' ? 'flex-row-reverse text-end' : ''}`}>
       {faces}
       {label}
     </div>

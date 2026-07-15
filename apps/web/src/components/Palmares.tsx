@@ -14,7 +14,7 @@ export function Palmares({ entries }: { entries: PalmaresEntry[] }) {
       <div className="font-gaming text-[10px] uppercase tracking-[0.18em] text-gold/80 font-extrabold mb-3 flex items-center gap-2">
         <span className="inline-block w-1 h-2.5 bg-gradient-to-b from-gold/80 to-gold-dim/80 rounded-sm" />
         Palmarès
-        <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ml-1" />
+        <div className="flex-1 h-px bg-gradient-to-r from-gold/20 to-transparent ms-1" />
       </div>
       <div className="space-y-1">
         {entries.map((e) => (

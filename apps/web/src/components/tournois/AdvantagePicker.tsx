@@ -49,7 +49,7 @@ export default function AdvantagePicker({
       >
         {isWinner ? (
           <p className="text-sm font-extrabold text-text">
-            <span className="text-lg mr-1">{chosen?.icon}</span>
+            <span className="text-lg me-1">{chosen?.icon}</span>
             {t('tourn.duel.youGet').replace('{label}', chosen?.label ?? pick)}
           </p>
         ) : (
@@ -62,7 +62,7 @@ export default function AdvantagePicker({
 
         {other && (
           <p className="text-xs text-muted-2">
-            <span className="mr-1">{other.icon}</span>
+            <span className="me-1">{other.icon}</span>
             {isWinner
               ? t('tourn.duel.opponentGets')
                   .replace('{name}', opponentName)

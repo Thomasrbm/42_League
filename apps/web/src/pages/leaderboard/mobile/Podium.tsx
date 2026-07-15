@@ -220,7 +220,7 @@ function PodiumSlot({ rank, entry, stats, onClick, height, color, delay, past = 
 
       {/* Step */}
       <div
-        className={`w-full ${height} rounded-t-2xl border-t border-l border-r flex items-start justify-center pt-1.5 ${COLOR_STEP[color]}`}
+        className={`w-full ${height} rounded-t-2xl border-t border-s border-e flex items-start justify-center pt-1.5 ${COLOR_STEP[color]}`}
       >
         <span className={`font-mono font-black text-3xl ${COLOR_TEXT[color]} opacity-50`}>
           {rank}

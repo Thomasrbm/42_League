@@ -285,7 +285,7 @@ export function GradesPage() {
           <h2 className="font-gaming text-base font-extrabold uppercase tracking-[0.16em] text-text-strong leading-none">
             La frise
           </h2>
-          <span className="text-[10px] font-bold text-muted normal-case tracking-[0.1em] ml-1">
+          <span className="text-[10px] font-bold text-muted normal-case tracking-[0.1em] ms-1">
             où en es-tu ?
           </span>
         </header>
@@ -601,7 +601,7 @@ function TierCard({
       )}
       <div className="mt-2 pt-2 border-t border-border/50">
         <span className="font-display text-lg font-black tabular-nums text-text-strong leading-none">{count}</span>
-        <span className="text-[9px] text-muted uppercase tracking-wider font-extrabold ml-1">
+        <span className="text-[9px] text-muted uppercase tracking-wider font-extrabold ms-1">
           joueur{count !== 1 ? 's' : ''}
         </span>
       </div>

@@ -155,7 +155,7 @@ export function Challenge2v2Flow({
           <TimePicker value={when} onChange={setWhen} lang={lang} />
           <div className="mt-5">
             <Button size="md" loading={busy} onClick={() => void handleSubmit()} className="w-full py-3.5 text-sm font-bold shadow-lg">
-              <Swords className="w-4 h-4 mr-1.5" strokeWidth={2.5} />
+              <Swords className="w-4 h-4 me-1.5" strokeWidth={2.5} />
               {t('defis.sendChallenge')}
             </Button>
           </div>

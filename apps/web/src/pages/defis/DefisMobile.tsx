@@ -575,7 +575,7 @@ function FfaMobileCard({
         <Users className="w-4 h-4 text-red flex-shrink-0" strokeWidth={2.5} />
         <span className="text-xs font-bold text-text-strong">{ffa.declarerLogin}</span>
         <span className="text-[10px] text-muted-2">{t('ffa.placedYou')}</span>
-        <span className="ml-auto font-mono text-[10px] text-muted bg-bg-2 px-1.5 py-0.5 rounded">{confirmedCount}/{total}</span>
+        <span className="ms-auto font-mono text-[10px] text-muted bg-bg-2 px-1.5 py-0.5 rounded">{confirmedCount}/{total}</span>
       </div>
 
       {/* Classement proposé */}
@@ -712,7 +712,7 @@ function DartsMobileCard({
         {startScore != null && (
           <span className="font-mono text-[10px] text-muted bg-bg-2 px-1.5 py-0.5 rounded">{startScore}</span>
         )}
-        <span className="ml-auto font-mono text-[10px] text-muted bg-bg-2 px-1.5 py-0.5 rounded">{confirmedCount}/{total}</span>
+        <span className="ms-auto font-mono text-[10px] text-muted bg-bg-2 px-1.5 py-0.5 rounded">{confirmedCount}/{total}</span>
       </div>
 
       {/* Restes proposés */}
@@ -831,7 +831,7 @@ function SectionHeader({ title, icon, badge, tone = 'muted' }: SectionHeaderProp
       {badge !== undefined && badge > 0 && (
         <span className="font-mono text-[10px] text-muted tabular-nums">· {badge}</span>
       )}
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent ml-2" />
+      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent ms-2" />
     </div>
   );
 }

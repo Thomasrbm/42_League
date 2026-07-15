@@ -441,7 +441,7 @@ export function TournoiDetailPage() {
           }`}
         >
           {tournament.status === 'in_progress' && (
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-red animate-pulse mr-1.5 align-middle" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-red animate-pulse me-1.5 align-middle" />
           )}
           {phaseLabel}
         </span>
@@ -456,7 +456,7 @@ export function TournoiDetailPage() {
             </>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2">
           {/* Accès TV : nouvel onglet pour garder la console ouverte pendant le live. */}
           <Link
             to={liveHref}
@@ -783,7 +783,7 @@ export function TournoiDetailPage() {
           <div className="text-[10px] uppercase tracking-wider text-muted font-semibold mb-2">
             {t('tournois.detail.entrants')}
             {tournament.status === 'registration' && checkedInCount > 0 && (
-              <span className="ml-2 text-[#4ade80] font-extrabold tabular-nums normal-case tracking-normal">
+              <span className="ms-2 text-[#4ade80] font-extrabold tabular-nums normal-case tracking-normal">
                 {checkedInCount}/{entriesCount} {t('tournois.detail.checkin.present')}
               </span>
             )}
@@ -914,7 +914,7 @@ export function TournoiDetailPage() {
                   <button
                     type="button"
                     onClick={() => setDetailTab('bets')}
-                    className="mb-4 w-full flex items-center gap-3 rounded-xl border border-gold/40 bg-gold/[0.08] px-4 py-3 text-left hover:bg-gold/15 transition-all"
+                    className="mb-4 w-full flex items-center gap-3 rounded-xl border border-gold/40 bg-gold/[0.08] px-4 py-3 text-start hover:bg-gold/15 transition-all"
                   >
                     <Coins className="w-6 h-6 text-gold shrink-0" strokeWidth={2.2} />
                     <span className="flex-1 min-w-0">
@@ -977,7 +977,7 @@ export function TournoiDetailPage() {
                     <span className="text-[11px] font-bold text-gold">+{TOURNAMENT_ELO_PLACEMENTS[0]} Elo</span>
                   </div>
                   {runners.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-gold/15 space-y-1.5 text-left">
+                    <div className="mt-4 pt-3 border-t border-gold/15 space-y-1.5 text-start">
                       {runners.map(({ login, rank }) => {
                         const team = teamForCaptain(tournament, login);
                         const elo = tournamentEloForPlacement(rank);
@@ -1380,7 +1380,7 @@ function MatchSide({
   if (!login) return <span className="text-muted-2">?</span>;
   const partner = partners[login] ?? null;
   return (
-    <div className={`flex items-center gap-2 min-w-0 ${right ? 'flex-row-reverse text-right' : ''}`}>
+    <div className={`flex items-center gap-2 min-w-0 ${right ? 'flex-row-reverse text-end' : ''}`}>
       <div className="flex -space-x-2 shrink-0">
         <Avatar login={login} imageUrl={avatars[login] ?? null} size="sm" />
         {partner && <Avatar login={partner} imageUrl={avatars[partner] ?? null} size="sm" />}
@@ -1482,7 +1482,7 @@ function LeagueMatrix({
           <tbody>
             {teams.map((row) => (
               <tr key={row.captain}>
-                <th className="p-1 font-mono text-muted-2 font-semibold text-right whitespace-nowrap">{short(row)}</th>
+                <th className="p-1 font-mono text-muted-2 font-semibold text-end whitespace-nowrap">{short(row)}</th>
                 {teams.map((col) => {
                   // Match impossible : une équipe ne peut pas s'affronter elle-même
                   // (diagonale) → croix rouge.
@@ -1853,14 +1853,14 @@ function LeagueSection({
           <table className="w-full text-xs">
             <thead>
               <tr className="text-muted-2 border-b border-border/40">
-                <th className="text-left font-semibold py-1.5 pl-3">#</th>
-                <th className="text-left font-semibold py-1.5">
+                <th className="text-start font-semibold py-1.5 ps-3">#</th>
+                <th className="text-start font-semibold py-1.5">
                   {is2v2 ? t('tournois.league.col.team') : t('tournois.pool.col.player')}
                 </th>
                 <th className="text-center font-semibold py-1.5">{t('tournois.pool.col.played')}</th>
                 <th className="text-center font-semibold py-1.5">{t('tournois.pool.col.wins')}</th>
                 <th className="text-center font-semibold py-1.5">{t('tournois.pool.col.diff')}</th>
-                <th className="text-right font-semibold py-1.5 pr-3">{t('tournois.league.col.gains')}</th>
+                <th className="text-end font-semibold py-1.5 pe-3">{t('tournois.league.col.gains')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1876,7 +1876,7 @@ function LeagueSection({
                       isMine ? 'bg-gold/10' : qualified ? 'bg-teal/5' : ''
                     }`}
                   >
-                    <td className="py-1.5 pl-3">
+                    <td className="py-1.5 ps-3">
                       <span className={`inline-flex w-4 justify-center font-bold ${qualified ? 'text-teal' : 'text-muted-2'}`}>
                         {i + 1}
                       </span>
@@ -1900,7 +1900,7 @@ function LeagueSection({
                         {s.diff > 0 ? `+${s.diff}` : s.diff}
                       </span>
                     </td>
-                    <td className="py-1.5 pr-3 text-right whitespace-nowrap">
+                    <td className="py-1.5 pe-3 text-end whitespace-nowrap">
                       {!qualified ? (
                         <span className="text-muted-2 text-[11px]">{t('tournois.league.gainNone')}</span>
                       ) : i === 0 ? (
@@ -2106,7 +2106,7 @@ function LeagueSection({
                   <span className="truncate">
                     {lbl(m.playerALogin)} <span className="text-muted-2">vs</span> {lbl(m.playerBLogin)}
                   </span>
-                  <span className="text-[10px] uppercase tracking-wider text-amber-400/80 shrink-0 ml-2">
+                  <span className="text-[10px] uppercase tracking-wider text-amber-400/80 shrink-0 ms-2">
                     {t('tournois.league.absent')}
                   </span>
                 </div>
@@ -2176,7 +2176,7 @@ function LeagueSection({
                   <span className="truncate">
                     {lbl(m.playerALogin)} <span className="text-muted-2">vs</span> {lbl(m.playerBLogin)}
                   </span>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-2 shrink-0 ml-2">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-2 shrink-0 ms-2">
                     {t('tournois.league.notPlayed')}
                   </span>
                 </div>
@@ -2271,11 +2271,11 @@ function PoolCard({
       <table className="w-full text-xs">
         <thead>
           <tr className="text-muted-2 border-b border-border/40">
-            <th className="text-left font-semibold py-1.5 pl-3">#</th>
-            <th className="text-left font-semibold py-1.5">{t('tournois.pool.col.player')}</th>
+            <th className="text-start font-semibold py-1.5 ps-3">#</th>
+            <th className="text-start font-semibold py-1.5">{t('tournois.pool.col.player')}</th>
             <th className="text-center font-semibold py-1.5">{t('tournois.pool.col.played')}</th>
             <th className="text-center font-semibold py-1.5">{t('tournois.pool.col.wins')}</th>
-            <th className="text-center font-semibold py-1.5 pr-3">{t('tournois.pool.col.diff')}</th>
+            <th className="text-center font-semibold py-1.5 pe-3">{t('tournois.pool.col.diff')}</th>
           </tr>
         </thead>
         <tbody>
@@ -2288,7 +2288,7 @@ function PoolCard({
                   qualified ? 'bg-teal/5' : ''
                 }`}
               >
-                <td className="py-1.5 pl-3">
+                <td className="py-1.5 ps-3">
                   <span
                     className={`inline-flex w-4 justify-center font-bold ${
                       qualified ? 'text-teal' : 'text-muted-2'
@@ -2306,7 +2306,7 @@ function PoolCard({
                 </td>
                 <td className="py-1.5 text-center tabular-nums text-muted-2">{s.played}</td>
                 <td className="py-1.5 text-center tabular-nums font-bold">{s.wins}</td>
-                <td className="py-1.5 text-center tabular-nums pr-3">
+                <td className="py-1.5 text-center tabular-nums pe-3">
                   <span className={s.diff > 0 ? 'text-[#7fd66e]' : s.diff < 0 ? 'text-red' : ''}>
                     {s.diff > 0 ? `+${s.diff}` : s.diff}
                   </span>
@@ -2737,7 +2737,7 @@ function RecordBracketForm({
     const blockTie = tie && !allowDraw;
     const row = (label: string, value: number, onChange: (v: number) => void) => (
       <div className="flex items-center gap-2">
-        <div className="w-24 shrink-0 text-right text-xs font-semibold text-text truncate">{label}</div>
+        <div className="w-24 shrink-0 text-end text-xs font-semibold text-text truncate">{label}</div>
         <div className="flex-1 min-w-0">
           <AbacusSlider value={value} onChange={onChange} min={0} max={WINNING_SCORE} />
         </div>
@@ -2798,7 +2798,7 @@ function RecordBracketForm({
       <div className="mt-2 space-y-2">
         <div className="text-xs text-muted text-center">{t('tournois.match.setScore')}</div>
         <div className="flex items-center justify-center gap-2 text-[11px] text-muted-2">
-          <span className="w-20 text-right">{t('tournois.match.winner')}</span>
+          <span className="w-20 text-end">{t('tournois.match.winner')}</span>
           {[2, 3].map((g) => (
             <button key={g} type="button" onClick={() => setWinnerGames(g)} className={chip(winnerGames === g)}>
               {g}
@@ -2806,7 +2806,7 @@ function RecordBracketForm({
           ))}
         </div>
         <div className="flex items-center justify-center gap-2 text-[11px] text-muted-2">
-          <span className="w-20 text-right truncate">{loserLabel}</span>
+          <span className="w-20 text-end truncate">{loserLabel}</span>
           {Array.from({ length: winnerGames }, (_, i) => i).map((g) => (
             <button key={g} type="button" onClick={() => setLoserScore(g)} className={chip(loserGames === g)}>
               {g}

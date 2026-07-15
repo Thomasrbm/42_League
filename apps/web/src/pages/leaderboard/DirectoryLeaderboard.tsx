@@ -369,7 +369,7 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
             value={filters.q}
             onChange={(e) => set('q', e.target.value)}
             placeholder="Rechercher un joueur…"
-            className="w-full pl-10 pr-9 py-2.5 bg-bg-1 border border-border rounded-xl text-sm font-medium focus:border-gold outline-none text-text-strong placeholder:text-muted allow-select transition-colors"
+            className="w-full ps-10 pe-9 py-2.5 bg-bg-1 border border-border rounded-xl text-sm font-medium focus:border-gold outline-none text-text-strong placeholder:text-muted allow-select transition-colors"
           />
           {filters.q && (
             <button
@@ -439,7 +439,7 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
           <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={2.4} />
           Filtres
           {activeFilterCount > 0 && (
-            <span className="ml-0.5 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-gold text-[10px] font-black text-[#1a1100]">
+            <span className="ms-0.5 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-full bg-gold text-[10px] font-black text-[#1a1100]">
               {activeFilterCount}
             </span>
           )}
@@ -520,7 +520,7 @@ export function DirectoryLeaderboard({ myLogin }: { myLogin?: string | null }) {
               <button
                 type="button"
                 onClick={() => setFilters(EMPTY_FILTERS)}
-                className="ml-auto h-8 px-3 rounded-lg border border-red/30 bg-red/10 text-red text-xs font-bold hover:bg-red/15 transition-colors"
+                className="ms-auto h-8 px-3 rounded-lg border border-red/30 bg-red/10 text-red text-xs font-bold hover:bg-red/15 transition-colors"
               >
                 Réinitialiser
               </button>
@@ -656,7 +656,7 @@ function DirectoryRow({ row, isMe }: { row: Row; isMe: boolean }) {
       )}
 
       {/* Parties */}
-      <span className="shrink-0 w-10 text-right tabular-nums text-xs text-muted-2" title="Parties jouées">
+      <span className="shrink-0 w-10 text-end tabular-nums text-xs text-muted-2" title="Parties jouées">
         {row.games}
       </span>
 

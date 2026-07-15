@@ -48,7 +48,7 @@ export function LoginPage() {
           </Button>
 
           {/* Bloc rassurant : comment marche l'OAuth de 42 (pour les sceptiques) */}
-          <div className="mt-6 text-left card-hud rounded-xl p-4 border border-brass/20">
+          <div className="mt-6 text-start card-hud rounded-xl p-4 border border-brass/20">
             <div className="flex items-center gap-2 mb-2">
               <span aria-hidden className="text-brass text-sm">🔒</span>
               <h2 className="font-gaming text-xs font-extrabold text-text-strong uppercase tracking-wide">

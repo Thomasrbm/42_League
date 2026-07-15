@@ -87,7 +87,7 @@ export function XpLeaderboard({ myLogin }: { myLogin?: string | null }) {
                   <Zap className="w-3 h-3" strokeWidth={2.5} />
                   Niv. {e.level}
                 </span>
-                <span className="shrink-0 w-24 text-right font-display font-extrabold tabular-nums text-sm text-text-strong">
+                <span className="shrink-0 w-24 text-end font-display font-extrabold tabular-nums text-sm text-text-strong">
                   {fmt(e.xp)} <span className="text-[10px] text-muted-2 font-bold">XP</span>
                 </span>
               </div>

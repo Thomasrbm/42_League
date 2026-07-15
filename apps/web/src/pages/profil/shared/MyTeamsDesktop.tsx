@@ -38,7 +38,7 @@ function TeamRow({ team }: { team: BabyfootTeamEntry }) {
     <button
       type="button"
       onClick={() => navigate(`/team/${team.id}`)}
-      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-transparent hover:border-gold/25 hover:bg-gold/5 transition-all group text-left tap-transparent"
+      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-transparent hover:border-gold/25 hover:bg-gold/5 transition-all group text-start tap-transparent"
     >
       {/* Duo avatars */}
       <div className="relative flex-shrink-0" style={{ width: 44, height: 32 }}>
@@ -63,7 +63,7 @@ function TeamRow({ team }: { team: BabyfootTeamEntry }) {
       </div>
 
       {/* Stats */}
-      <div className="flex items-center gap-4 flex-shrink-0 text-right">
+      <div className="flex items-center gap-4 flex-shrink-0 text-end">
         <div>
           <div className="font-display text-sm font-black text-gold tabular-nums leading-none">{team.elo}</div>
           <div className="text-[9px] text-muted uppercase tracking-wider font-bold">ELO</div>
@@ -76,7 +76,7 @@ function TeamRow({ team }: { team: BabyfootTeamEntry }) {
             <div className="text-[9px] text-muted uppercase tracking-wider font-bold">WR</div>
           </div>
         )}
-        <span className="text-[10px] font-mono text-muted-2 tabular-nums w-8 text-right">
+        <span className="text-[10px] font-mono text-muted-2 tabular-nums w-8 text-end">
           {team.rank === 1 ? '🥇' : team.rank === 2 ? '🥈' : team.rank === 3 ? '🥉' : `#${team.rank}`}
         </span>
         <ChevronRight className="w-3.5 h-3.5 text-muted group-hover:text-gold transition-colors" strokeWidth={2.5} />
@@ -126,7 +126,7 @@ export function MyTeamsDesktop({ myLogin }: MyTeamsDesktopProps) {
           >
             <Swords className="w-3.5 h-3.5 text-gold" strokeWidth={2.5} />
           </div>
-          <div className="text-left">
+          <div className="text-start">
             <div className="text-sm font-extrabold text-text-strong uppercase tracking-wide">
               {t('profil.myTeams')}
             </div>

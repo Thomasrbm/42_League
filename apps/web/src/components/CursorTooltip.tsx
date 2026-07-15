@@ -42,7 +42,7 @@ export function CursorTooltip({
       {pos &&
         createPortal(
           <div
-            className="pointer-events-none fixed z-[200] w-max max-w-[280px] rounded-xl border border-gold/30 bg-bg-1/95 px-3 py-2 text-left shadow-2xl backdrop-blur-md"
+            className="pointer-events-none fixed z-[200] w-max max-w-[280px] rounded-xl border border-gold/30 bg-bg-1/95 px-3 py-2 text-start shadow-2xl backdrop-blur-md"
             style={{
               left: Math.min(pos.x + PAD, window.innerWidth - W - 8),
               top: Math.min(pos.y + 18, window.innerHeight - 12),

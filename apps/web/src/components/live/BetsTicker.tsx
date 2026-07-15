@@ -51,7 +51,7 @@ export function BetsTicker({ bets }: { bets: LiveBet[] }) {
   if (items.length === 0) {
     return (
       <div className="flex items-center h-full px-[2vw] text-[1.4vh] text-muted-2 uppercase tracking-[0.2em]">
-        <span className="text-gold mr-[1vw]">◈ Paris</span> Aucune mise pour l'instant — ouvre le marché !
+        <span className="text-gold me-[1vw]">◈ Paris</span> Aucune mise pour l'instant — ouvre le marché !
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function BetsTicker({ bets }: { bets: LiveBet[] }) {
       <div
         ref={sizerRef}
         aria-hidden
-        className="invisible pointer-events-none absolute top-0 left-0 flex items-center gap-[2vw] whitespace-nowrap pl-[16vw]"
+        className="invisible pointer-events-none absolute top-0 left-0 flex items-center gap-[2vw] whitespace-nowrap ps-[16vw]"
       >
         {items.map((b) => (
           <BetItem key={`sizer-${b.id}`} b={b} />
@@ -77,7 +77,7 @@ export function BetsTicker({ bets }: { bets: LiveBet[] }) {
         <span className="text-[1.5vh] font-gaming font-black uppercase tracking-[0.18em] text-gold">◈ Mises en direct</span>
       </div>
       <motion.div
-        className="flex items-center gap-[2vw] whitespace-nowrap pl-[16vw]"
+        className="flex items-center gap-[2vw] whitespace-nowrap ps-[16vw]"
         animate={overflow ? { x: ['0%', '-50%'] } : { x: 0 }}
         transition={overflow ? { duration, ease: 'linear', repeat: Infinity } : { duration: 0 }}
       >

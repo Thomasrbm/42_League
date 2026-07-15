@@ -295,7 +295,7 @@ export function NewTeamCelebration({
                     onKeyDown={(e) => { if (e.key === 'Enter') void handleSaveName(); }}
                     placeholder={`${player1.login} & ${player2.login}`}
                     maxLength={30}
-                    className="w-full pl-9 pr-4 py-3 bg-bg-1/80 border-2 border-gold/40 rounded-xl text-sm font-bold text-text-strong placeholder:text-muted/50 focus:border-gold outline-none allow-select transition-all"
+                    className="w-full ps-9 pe-4 py-3 bg-bg-1/80 border-2 border-gold/40 rounded-xl text-sm font-bold text-text-strong placeholder:text-muted/50 focus:border-gold outline-none allow-select transition-all"
                     style={{ caretColor: '#ffc94a' }}
                   />
                   {name.length > 0 && (

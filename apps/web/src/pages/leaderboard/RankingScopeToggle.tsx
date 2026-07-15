@@ -73,7 +73,7 @@ export function RankingScopeToggle<T extends string>({
             {active && (
               <motion.span
                 layoutId={barLayoutId}
-                className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
+                className="absolute left-0 top-2 bottom-2 w-[3px] rounded-e"
                 style={{
                   background: 'linear-gradient(to bottom, #ffc94a, #e0a82a)',
                   boxShadow: '0 0 10px rgba(255,201,74,0.6)',

@@ -171,7 +171,7 @@ export function RecentMatchRow({ match, ownerLogin, delay = 0 }: RecentMatchRowP
 
       {/* Delta ELO — colonne fixe (espace réservé même sans delta pour aligner). */}
       <div
-        className={`flex-shrink-0 w-11 text-right text-xs font-mono font-extrabold tabular-nums ${
+        className={`flex-shrink-0 w-11 text-end text-xs font-mono font-extrabold tabular-nums ${
           !match.countedForElo
             ? 'opacity-0'
             : delta > 0

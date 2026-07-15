@@ -102,7 +102,7 @@ export function TesterSwitch() {
         title={`Revenir au compte ${impersonator}`}
       >
         <span className="text-base">🧪</span>
-        <span className="text-left leading-tight">
+        <span className="text-start leading-tight">
           <span className="block text-[10px] uppercase tracking-wider text-gold font-bold">
             Mode test (tester)
           </span>

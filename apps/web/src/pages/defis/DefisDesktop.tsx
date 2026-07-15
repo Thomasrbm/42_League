@@ -566,7 +566,7 @@ function HeroCTACard({ kind, expanded, onOpen, onClose, children }: HeroCTACardP
         className={`shine group relative overflow-hidden rounded-2xl border-2 ${meta.border}
           bg-gradient-to-br from-bg-2/80 to-bg-1/90
           flex items-center gap-5 px-7 py-6
-          transition-colors duration-300 text-left
+          transition-colors duration-300 text-start
           ${kind === 'ffa' || kind === 'darts' ? 'md:col-span-2 md:w-[calc(50%-0.5rem)] md:mx-auto' : ''}`}
         style={{ boxShadow: meta.glow }}
       >
@@ -1050,7 +1050,7 @@ function PendingConfirmRow({ match, onDone }: { match: PendingMatch; onDone: () 
           label={t('defis.cooldown.autoValidateIn')}
           expiredLabel={t('defis.cooldown.autoValidating')}
         />
-        <div className="ml-auto flex gap-2">
+        <div className="ms-auto flex gap-2">
           <Button size="sm" loading={busy} onClick={is2v2 ? handleConfirm2v2 : handleConfirm}>{t('defis.confirmCheck')}</Button>
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => setContesting(true)}
             className="text-red border-red/30 hover:border-red hover:bg-red/5 hover:text-red">
@@ -1118,7 +1118,7 @@ function ContestableRow({
           → {t('defis.youHave')} {iWon ? t('defis.won') : t('defis.lost')}
         </span>
         <span className="text-[10px] text-amber-300/80 italic hidden md:inline">{t('defis.contestable.hint')}</span>
-        <div className="ml-auto flex gap-2">
+        <div className="ms-auto flex gap-2">
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => setContesting(true)}
             className="text-red border-red/30 hover:border-red hover:bg-red/5 hover:text-red">
             {t('defis.contestable.contest')}
@@ -1171,7 +1171,7 @@ function PendingWaitRow({ match, onCancel }: { match: PendingMatch; onCancel: ()
           {match.scoreOpponent}
         </span>
         <span className="text-[10px] font-bold text-muted">{confirmed}/3 ✓</span>
-        <span className="ml-auto text-[10px] text-muted italic">{t('defis.waitingConfirmEllipsis')}</span>
+        <span className="ms-auto text-[10px] text-muted italic">{t('defis.waitingConfirmEllipsis')}</span>
         <button type="button" onClick={onCancel}
           className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-2 hover:text-red hover:bg-red/10 transition-colors"
           title={t('defis.cancel')} aria-label={t('defis.cancel')}>
@@ -1191,7 +1191,7 @@ function PendingWaitRow({ match, onCancel }: { match: PendingMatch; onCancel: ()
         {match.scoreOpponent}
       </span>
       <GameTag game={match.game} />
-      <span className="ml-auto text-[10px] text-muted italic">{t('defis.waitingConfirmEllipsis')}</span>
+      <span className="ms-auto text-[10px] text-muted italic">{t('defis.waitingConfirmEllipsis')}</span>
       <button type="button" onClick={onCancel}
         className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-2 hover:text-red hover:bg-red/10 transition-colors"
         title={t('defis.cancel')} aria-label={t('defis.cancel')}>
@@ -1212,7 +1212,7 @@ function FfaRankingInline({ ffa, myLogin }: { ffa: PendingFfa; myLogin: string |
         <span key={p.login} className={p.login === myLogin ? 'text-gold font-extrabold' : 'text-muted-2'}>
           <span className="font-mono">{p.position}.</span>
           {p.login}
-          {p.confirmed && <span className="text-teal ml-0.5">✓</span>}
+          {p.confirmed && <span className="text-teal ms-0.5">✓</span>}
         </span>
       ))}
     </span>
@@ -1249,7 +1249,7 @@ function FfaConfirmRow({
         <GameTag game="smash" />
         <span className="text-[10px] text-muted bg-bg-2 px-1.5 py-0.5 rounded font-mono">{confirmedCount}/{total}</span>
         <FfaRankingInline ffa={ffa} myLogin={myLogin} />
-        <div className="ml-auto flex gap-2">
+        <div className="ms-auto flex gap-2">
           <Button size="sm" loading={busy} onClick={async () => { setBusy(true); try { await onConfirm(ffa.id, mine.position); } finally { setBusy(false); } }}>
             {t('ffa.confirmPlace')}
           </Button>
@@ -1289,7 +1289,7 @@ function FfaWaitRow({
       <span className="font-mono font-extrabold text-text-strong">{confirmedCount}/{total}</span>
       <GameTag game="smash" />
       <FfaRankingInline ffa={ffa} myLogin={myLogin} />
-      <span className="ml-auto text-[10px] text-muted italic">{t('defis.waitingConfirmEllipsis')}</span>
+      <span className="ms-auto text-[10px] text-muted italic">{t('defis.waitingConfirmEllipsis')}</span>
       {isDeclarer && (
         <button type="button" onClick={() => onCancel(ffa.id)}
           className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-2 hover:text-red hover:bg-red/10 transition-colors"
@@ -1380,9 +1380,9 @@ function DartsRemainingInline({ darts, myLogin }: { darts: PendingFfa; myLogin: 
           style={p.login === myLogin ? { color: DARTS_TEAL } : undefined}
         >
           {p.login}
-          <span className="font-mono ml-0.5">{p.remaining ?? '—'}</span>
-          {p.remaining === 0 && <span className="ml-0.5">🏆</span>}
-          {p.confirmed && <span className="text-teal ml-0.5">✓</span>}
+          <span className="font-mono ms-0.5">{p.remaining ?? '—'}</span>
+          {p.remaining === 0 && <span className="ms-0.5">🏆</span>}
+          {p.confirmed && <span className="text-teal ms-0.5">✓</span>}
         </span>
       ))}
     </span>
@@ -1428,7 +1428,7 @@ function DartsConfirmRow({
         <GameTag game="flechettes" />
         <span className="text-[10px] text-muted bg-bg-2 px-1.5 py-0.5 rounded font-mono">{confirmedCount}/{total}</span>
         <DartsRemainingInline darts={darts} myLogin={myLogin} />
-        <div className="ml-auto flex gap-2">
+        <div className="ms-auto flex gap-2">
           <Button size="sm" loading={busy} onClick={async () => { setBusy(true); try { await onConfirm(darts.id, myRemaining); } finally { setBusy(false); } }}>
             {t('darts.confirmPlace')}
           </Button>
@@ -1468,7 +1468,7 @@ function DartsWaitRow({
       <span className="font-mono font-extrabold text-text-strong">{confirmedCount}/{total}</span>
       <GameTag game="flechettes" />
       <DartsRemainingInline darts={darts} myLogin={myLogin} />
-      <span className="ml-auto text-[10px] text-muted italic">{t('defis.waitingConfirmEllipsis')}</span>
+      <span className="ms-auto text-[10px] text-muted italic">{t('defis.waitingConfirmEllipsis')}</span>
       {isDeclarer && (
         <button type="button" onClick={() => onCancel(darts.id)}
           className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-2 hover:text-red hover:bg-red/10 transition-colors"
@@ -1589,7 +1589,7 @@ function ChallengeRow({ challenge, kind, myLogin, lang, onAccept, onDecline, onA
         )}
         {/* Game badge proéminent */}
         <GameTag game={challenge.game} />
-        <span className={`text-[11px] ml-auto ${when.late ? 'text-red' : 'text-muted-2'}`}>{when.text}</span>
+        <span className={`text-[11px] ms-auto ${when.late ? 'text-red' : 'text-muted-2'}`}>{when.text}</span>
 
         {/* Coding : lien d'invitation cliquable vers la room de code (métadonnée). */}
         {challenge.inviteUrl && (

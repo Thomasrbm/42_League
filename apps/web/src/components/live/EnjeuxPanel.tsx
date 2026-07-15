@@ -74,7 +74,7 @@ function HeaderRow({ is2v2 }: { is2v2: boolean }) {
       <span className="text-center leading-[1.05]">Joués</span>
       <span className="text-center leading-[1.05]">Victoires</span>
       <span className="text-center leading-[1.05]">Goal average</span>
-      <span className="text-right pr-[0.2vw] leading-[1.05]">Enjeu</span>
+      <span className="text-end pe-[0.2vw] leading-[1.05]">Enjeu</span>
     </div>
   );
 }
@@ -302,7 +302,7 @@ function StandingRow({
       </span>
 
       {/* Enjeu */}
-      <span className="text-right pr-[0.2vw] whitespace-nowrap">
+      <span className="text-end pe-[0.2vw] whitespace-nowrap">
         <EnjeuChip enjeu={enjeu} />
       </span>
     </motion.div>

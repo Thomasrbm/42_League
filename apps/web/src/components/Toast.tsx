@@ -32,7 +32,7 @@ export function Toast() {
               flash.action?.run();
               clear();
             }}
-            className="shrink-0 ml-1 px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wide bg-gold/15 border border-gold/50 text-gold hover:bg-gold/25 transition-colors"
+            className="shrink-0 ms-1 px-2.5 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wide bg-gold/15 border border-gold/50 text-gold hover:bg-gold/25 transition-colors"
           >
             {flash.action.label}
           </button>

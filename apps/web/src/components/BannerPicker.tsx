@@ -103,7 +103,7 @@ export function BannerPicker({ className }: { className?: string }) {
               <button
                 type="button"
                 onClick={() => void applyBanner(null)}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-muted-2 italic hover:bg-gold/10"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-xs text-muted-2 italic hover:bg-gold/10"
               >
                 <X className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
                 Aucune (retirer)

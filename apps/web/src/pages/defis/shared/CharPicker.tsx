@@ -84,7 +84,7 @@ export function CharPicker({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('favorites.search')}
-          className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg bg-bg-1/60 border border-border/60 focus:border-gold outline-none transition-colors"
+          className="w-full ps-8 pe-7 py-1.5 text-xs rounded-lg bg-bg-1/60 border border-border/60 focus:border-gold outline-none transition-colors"
         />
         {query && (
           <button type="button" onClick={() => setQuery('')} aria-label="×"
@@ -205,7 +205,7 @@ export function PerGameCharsEditor({
       <button
         type="button"
         onClick={() => setPerGame((v) => !v)}
-        className="w-full flex items-center justify-between gap-2 text-left"
+        className="w-full flex items-center justify-between gap-2 text-start"
       >
         <span className="text-[11px] font-extrabold text-text-strong">🎭 Persos différents selon la manche ?</span>
         <span

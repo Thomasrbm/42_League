@@ -231,7 +231,7 @@ export function DeclareDartsGameFlow({
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-extrabold text-text-strong truncate">
                     {e.login}
-                    {e.isMe && <span className="ml-1.5 text-[9px] uppercase tracking-wider" style={{ color: ACCENT }}>· {t('darts.you')}</span>}
+                    {e.isMe && <span className="ms-1.5 text-[9px] uppercase tracking-wider" style={{ color: ACCENT }}>· {t('darts.you')}</span>}
                   </div>
                   <div className="text-[10px] text-muted font-mono tabular-nums">{e.elo} ELO</div>
                 </div>
@@ -258,7 +258,7 @@ export function DeclareDartsGameFlow({
                     max={startScore}
                     value={e.remaining}
                     onChange={(ev) => setRemaining(e.login, ev.target.valueAsNumber)}
-                    className="w-16 px-2 py-1 rounded-lg bg-bg-0 border border-border/60 text-right text-sm font-mono tabular-nums text-text-strong focus:outline-none focus:border-[#14b8a6]"
+                    className="w-16 px-2 py-1 rounded-lg bg-bg-0 border border-border/60 text-end text-sm font-mono tabular-nums text-text-strong focus:outline-none focus:border-[#14b8a6]"
                   />
                 </div>
 

@@ -194,7 +194,7 @@ function TeamSlot({
           style={{ textShadow: '0 0 12px rgba(255,201,74,0.4)' }}
         >
           {entry.elo}
-          <span className="text-[8px] text-muted ml-1 font-bold uppercase tracking-wider">ELO</span>
+          <span className="text-[8px] text-muted ms-1 font-bold uppercase tracking-wider">ELO</span>
         </div>
         {games > 0 && (
           <div className="text-[9px] font-mono tabular-nums text-muted leading-tight mt-0.5">
@@ -210,7 +210,7 @@ function TeamSlot({
 
       {/* Marche */}
       <div
-        className={`w-full ${height} rounded-t-2xl border-t border-l border-r flex items-start justify-center pt-1.5 ${COLOR_STEP[color]}`}
+        className={`w-full ${height} rounded-t-2xl border-t border-s border-e flex items-start justify-center pt-1.5 ${COLOR_STEP[color]}`}
       >
         <span className={`font-mono font-black text-3xl ${COLOR_TEXT[color]} opacity-50`}>
           {entry.rank}

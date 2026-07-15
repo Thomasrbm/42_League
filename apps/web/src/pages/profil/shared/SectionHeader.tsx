@@ -13,7 +13,7 @@ export function SectionHeader({ title, badge }: { title: string; badge?: number 
       {badge !== undefined && badge > 0 && (
         <span className="font-mono text-[10px] text-muted tabular-nums">· {badge}</span>
       )}
-      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent ml-2" />
+      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent ms-2" />
     </div>
   );
 }

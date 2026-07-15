@@ -127,7 +127,7 @@ function RecordForm({ challenge, myLogin, onClose, onDone }: {
         <div className="text-center text-sm text-muted-2">
           {t('defis.matchAgainst')} <span className="font-extrabold text-text-strong">{opponent}</span>
           {game !== 'babyfoot' && (
-            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-bg-2 border border-border">
+            <span className="ms-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-bg-2 border border-border">
               {t(`game.${game}`)}
             </span>
           )}

@@ -303,7 +303,7 @@ function BriefContent({
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.25 + i * 0.12, duration: 0.35 }}
-            className="flex items-start gap-3 text-left p-3 rounded-xl border border-red/25 bg-red/[0.06]"
+            className="flex items-start gap-3 text-start p-3 rounded-xl border border-red/25 bg-red/[0.06]"
           >
             <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-red/15 border border-red/30 flex items-center justify-center">
               <Icon className="w-4 h-4 text-red" strokeWidth={2.4} />

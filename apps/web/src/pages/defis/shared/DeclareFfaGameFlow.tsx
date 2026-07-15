@@ -192,7 +192,7 @@ export function DeclareFfaGameFlow({
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-extrabold text-text-strong truncate">
                   {e.login}
-                  {e.isMe && <span className="ml-1.5 text-[9px] uppercase tracking-wider text-gold/70">· {t('ffa.you')}</span>}
+                  {e.isMe && <span className="ms-1.5 text-[9px] uppercase tracking-wider text-gold/70">· {t('ffa.you')}</span>}
                 </div>
                 <div className="text-[10px] text-muted font-mono tabular-nums">{e.elo} ELO</div>
               </div>

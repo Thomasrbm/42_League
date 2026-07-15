@@ -101,7 +101,7 @@ export function CreateTournamentPage() {
       <button
         type="button"
         onClick={() => navigate(-1)}
-        className="self-start flex items-center gap-1.5 text-muted text-sm font-semibold active:opacity-60 transition-opacity tap-transparent -ml-0.5"
+        className="self-start flex items-center gap-1.5 text-muted text-sm font-semibold active:opacity-60 transition-opacity tap-transparent -ms-0.5"
         aria-label={t('tournois.createPage.back')}
       >
         <ArrowLeft className="w-4 h-4" strokeWidth={2.5} />
@@ -176,7 +176,7 @@ export function CreateTournamentPage() {
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-[10px] text-muted-2 mt-1.5 text-right"
+              className="text-[10px] text-muted-2 mt-1.5 text-end"
             >
               {name.length}/60
             </motion.p>
@@ -236,7 +236,7 @@ export function CreateTournamentPage() {
                 return !v;
               });
             }}
-            className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl border-2 tap-transparent transition-all text-left ${
+            className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl border-2 tap-transparent transition-all text-start ${
               selfJoin ? 'border-teal bg-teal/[0.08]' : 'border-border/60 bg-bg-1/50'
             }`}
           >
@@ -392,7 +392,7 @@ export function CreateTournamentPage() {
                       />
                     ))}
                     {c > 6 && (
-                      <span className={`text-[9px] font-black ml-0.5 relative z-10 ${active ? 'text-teal' : 'text-muted-2'}`}>
+                      <span className={`text-[9px] font-black ms-0.5 relative z-10 ${active ? 'text-teal' : 'text-muted-2'}`}>
                         +{c - 6}
                       </span>
                     )}
@@ -492,7 +492,7 @@ export function CreateTournamentPage() {
                   onChange={(e) => setBetFinalMult(Number(e.target.value))}
                   className="flex-1 accent-teal"
                 />
-                <span className="font-mono font-black text-teal text-lg tabular-nums w-10 text-right">×{betFinalMult}</span>
+                <span className="font-mono font-black text-teal text-lg tabular-nums w-10 text-end">×{betFinalMult}</span>
               </div>
             </div>
             <div>
@@ -509,7 +509,7 @@ export function CreateTournamentPage() {
                   value={cashPrize}
                   onChange={(e) => setCashPrize(e.target.value)}
                   placeholder={t('tournois.field.cashPrize.ph')}
-                  className="w-full pl-9 pr-4 py-3 bg-bg-1 border-2 border-border rounded-xl text-base font-semibold focus:border-teal outline-none text-text-strong placeholder:text-muted/50 transition-all allow-select"
+                  className="w-full ps-9 pe-4 py-3 bg-bg-1 border-2 border-border rounded-xl text-base font-semibold focus:border-teal outline-none text-text-strong placeholder:text-muted/50 transition-all allow-select"
                 />
               </div>
             </div>

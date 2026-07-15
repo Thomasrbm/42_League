@@ -93,7 +93,7 @@ function TeamCard({ team, index: _index }: { team: BabyfootTeamEntry; index: num
       }}
       whileTap={{ scale: 0.98 }}
       whileHover={{ y: -2 }}
-      className="w-full flex items-center gap-4 card-hud rounded-2xl px-4 py-3.5 border border-gold/15 hover:border-gold/35 transition-all text-left tap-transparent group"
+      className="w-full flex items-center gap-4 card-hud rounded-2xl px-4 py-3.5 border border-gold/15 hover:border-gold/35 transition-all text-start tap-transparent group"
       style={{ boxShadow: 'inset 0 1px 0 rgba(255,215,120,0.04)' }}
     >
       {/* Rank */}
@@ -123,14 +123,14 @@ function TeamCard({ team, index: _index }: { team: BabyfootTeamEntry; index: num
 
       {/* Stats */}
       <div className="flex items-center gap-3 flex-shrink-0">
-        <div className="text-right">
+        <div className="text-end">
           <div className="font-display text-base font-black text-gold tabular-nums leading-none">
             {team.elo}
           </div>
           <div className="text-[9px] text-muted uppercase tracking-wider font-bold">ELO</div>
         </div>
         {games > 0 && (
-          <div className="text-right">
+          <div className="text-end">
             <div className={`font-mono text-sm font-extrabold tabular-nums leading-none flex items-center gap-0.5 ${isUp ? 'text-[#7fd66e]' : 'text-red'}`}>
               {isUp
                 ? <TrendingUp className="w-3 h-3" strokeWidth={2.5} />

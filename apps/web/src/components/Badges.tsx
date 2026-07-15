@@ -265,7 +265,7 @@ function BadgesModal({
           <button
             onClick={onClose}
             aria-label="Fermer"
-            className="w-11 h-11 -mr-2 flex items-center justify-center rounded-full text-muted hover:text-red hover:bg-red/10 transition-colors"
+            className="w-11 h-11 -me-2 flex items-center justify-center rounded-full text-muted hover:text-red hover:bg-red/10 transition-colors"
           >
             <X className="w-4 h-4" strokeWidth={2.5} />
           </button>
