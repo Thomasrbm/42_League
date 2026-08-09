@@ -734,9 +734,13 @@ function TierTile({
   return (
     <motion.button
       type="button"
-      disabled={!claimable}
+      // PAS `disabled` : un <button> désactivé rend TOUT son sous-arbre inerte aux
+      // clics → le bouton « œil » (enfant) ne marcherait plus sur les paliers non
+      // réclamables, or ce sont ceux qu'on veut prévisualiser. On neutralise le
+      // claim via le guard onClick à la place.
+      aria-disabled={!claimable}
       onClick={() => claimable && onClaim(tile)}
-      className="relative w-full aspect-[4/5] rounded-xl overflow-hidden text-left disabled:cursor-default"
+      className={`relative w-full aspect-[4/5] rounded-xl overflow-hidden text-left ${claimable ? '' : 'cursor-default'}`}
       animate={claimable ? { scale: 1.03 } : { scale: 1 }}
       whileHover={lite || !claimable ? undefined : { scale: 1.08, zIndex: 10 }}
       whileTap={claimable ? { scale: 0.97 } : undefined}
